@@ -693,8 +693,9 @@ td {
   }
 
   .field-tooltip {
-    left: auto;
-    right: -12px;
+    left: 0;
+    right: auto;
+    width: min(260px, calc(100vw - 32px));
     transform: translate(0, 4px);
   }
 

@@ -166,6 +166,22 @@ describe("calculateFireScenarios", () => {
 
     expect(optimisticScenario.inputs.inflationRate).toBe(0);
   });
+
+  it("자동 인출률은 시나리오별 수익률과 물가 변동에 흔들리지 않고 같은 기준을 쓴다", () => {
+    const scenarios = calculateFireScenarios({
+      ...baseInputs,
+      withdrawalMode: "auto",
+    });
+
+    const [conservativeScenario, baseScenario, optimisticScenario] = scenarios;
+
+    expect(conservativeScenario.projections[0].targetWithdrawalRate).toBe(
+      baseScenario.projections[0].targetWithdrawalRate,
+    );
+    expect(optimisticScenario.projections[0].targetWithdrawalRate).toBe(
+      baseScenario.projections[0].targetWithdrawalRate,
+    );
+  });
 });
 
 describe("FIRE_PRESETS", () => {

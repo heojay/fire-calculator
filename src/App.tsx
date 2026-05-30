@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   FIRE_PRESETS,
@@ -271,10 +271,13 @@ function ScenarioGrid({ scenarios }: { scenarios: FireScenarioResult[] }) {
 }
 
 function AssetChart({ scenarios }: { scenarios: FireScenarioResult[] }) {
+  const isMobile = useMediaQuery("(max-width: 767px)");
   const allRows = scenarios.flatMap((scenario) => scenario.projections);
-  const width = 760;
-  const height = 280;
-  const padding = { top: 24, right: 24, bottom: 44, left: 88 };
+  const width = isMobile ? 520 : 760;
+  const height = isMobile ? 320 : 280;
+  const padding = isMobile
+    ? { top: 20, right: 16, bottom: 34, left: 54 }
+    : { top: 24, right: 24, bottom: 44, left: 88 };
   const values = [
     ...allRows.map((row) => row.investableAssets),
     ...allRows.map((row) => row.fireTargetAssets),
@@ -379,6 +382,28 @@ function AssetChart({ scenarios }: { scenarios: FireScenarioResult[] }) {
       </svg>
     </article>
   );
+}
+
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    return window.matchMedia(query).matches;
+  });
+
+  useEffect(() => {
+    const mediaQueryList = window.matchMedia(query);
+
+    const updateMatches = () => setMatches(mediaQueryList.matches);
+    updateMatches();
+
+    mediaQueryList.addEventListener("change", updateMatches);
+    return () => mediaQueryList.removeEventListener("change", updateMatches);
+  }, [query]);
+
+  return matches;
 }
 
 function ProjectionTable({

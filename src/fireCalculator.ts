@@ -128,13 +128,20 @@ export function calculateFireScenario(
   rawInputs: FireInputs,
   name = "기본",
   description = "입력값 기준",
+  autoWithdrawalBasisInputs?: FireInputs,
 ): FireScenarioResult {
   const inputs = normalizeInputs(rawInputs);
+  const withdrawalBasisInputs = normalizeInputs(autoWithdrawalBasisInputs ?? rawInputs);
   const projections: FireYearProjection[] = [];
   let achievedProjection: FireYearProjection | undefined;
 
   for (let year = 0; year <= MAX_SIMULATION_YEARS; year += 1) {
-    const projection = calculateProjectionForYear(inputs, year, projections[year - 1]);
+    const projection = calculateProjectionForYear(
+      inputs,
+      year,
+      projections[year - 1],
+      withdrawalBasisInputs,
+    );
     projections.push(projection);
 
     if (!achievedProjection && projection.investableAssets >= projection.fireTargetAssets) {
@@ -170,6 +177,7 @@ export function calculateFireScenarios(inputs: FireInputs): FireScenarioResult[]
       },
       scenario.name,
       scenario.description,
+      inputs,
     ),
   );
 }
@@ -194,6 +202,7 @@ function calculateProjectionForYear(
   inputs: FireInputs,
   year: number,
   previousProjection?: FireYearProjection,
+  withdrawalBasisInputs: FireInputs = inputs,
 ): FireYearProjection {
   const annualIncome = inputs.annualIncome * (1 + inputs.incomeGrowthRate) ** year;
   const annualExpenses = inputs.annualExpenses * (1 + inputs.inflationRate) ** year;
@@ -206,7 +215,7 @@ function calculateProjectionForYear(
         savings;
   const targetWithdrawalRate =
     inputs.withdrawalMode === "auto"
-      ? calculateAutoWithdrawalRate(inputs, year)
+      ? calculateAutoWithdrawalRate(withdrawalBasisInputs, year)
       : inputs.targetWithdrawalRate;
   const fireTargetAssets = annualExpenses / targetWithdrawalRate;
 
