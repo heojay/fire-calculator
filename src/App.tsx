@@ -17,7 +17,10 @@ type FormValues = {
   annualReturnRate: number;
   incomeGrowthRate: number;
   inflationRate: number;
+  withdrawalMode: "manual" | "auto";
   targetWithdrawalRate: number;
+  currentAge: number;
+  lifeExpectancy: number;
 };
 
 const requiredFields = [
@@ -27,7 +30,6 @@ const requiredFields = [
   ["annualReturnRate", "연 투자 수익률", "%"],
   ["incomeGrowthRate", "연 수입 증가율", "%"],
   ["inflationRate", "인플레이션율", "%"],
-  ["targetWithdrawalRate", "목표 인출률", "%"],
 ] as const;
 
 const scenarioClassNames = ["scenario-conservative", "scenario-base", "scenario-optimistic"];
@@ -50,6 +52,13 @@ function App() {
     setFormValues((current) => ({
       ...current,
       [field]: Number(value),
+    }));
+  };
+
+  const handleWithdrawalModeChange = (enabled: boolean) => {
+    setFormValues((current) => ({
+      ...current,
+      withdrawalMode: enabled ? "auto" : "manual",
     }));
   };
 
@@ -97,6 +106,25 @@ function App() {
                 onChange={(value) => handleFieldChange(field, value)}
               />
             ))}
+            <NumberField
+              label="목표 인출률"
+              suffix="%"
+              value={
+                formValues.withdrawalMode === "auto"
+                  ? rateToPercentInput(baseScenario.projections[0].targetWithdrawalRate)
+                  : formValues.targetWithdrawalRate
+              }
+              readOnly={formValues.withdrawalMode === "auto"}
+              onChange={(value) => handleFieldChange("targetWithdrawalRate", value)}
+            />
+            <AutoWithdrawalSettings
+              enabled={formValues.withdrawalMode === "auto"}
+              currentAge={formValues.currentAge}
+              lifeExpectancy={formValues.lifeExpectancy}
+              appliedRate={baseScenario.projections[0].targetWithdrawalRate}
+              onToggle={handleWithdrawalModeChange}
+              onFieldChange={handleFieldChange}
+            />
           </Fieldset>
 
           <ResultHero scenario={baseScenario} />
@@ -174,6 +202,7 @@ function SummaryGrid({ scenario }: { scenario: FireScenarioResult }) {
         : formatMoney(scenario.retirementFireTargetAssets),
     ],
     ["앞으로 더 일해야 하는 기간", formatYearsToFire(scenario)],
+    ["적용된 목표 인출률", `${rateToPercentInput(scenario.projections[0].targetWithdrawalRate)}%`],
     [
       "은퇴 시 예상 투자 가능 자산",
       scenario.retirementInvestableAssets === null
@@ -354,6 +383,7 @@ function ProjectionTable({
             <tr>
               <th>연도</th>
               <th>{valueKey === "investableAssets" ? "투자 가능 자산" : "FIRE 목표 자산"}</th>
+              <th>목표 인출률</th>
               <th>연 생활비</th>
             </tr>
           </thead>
@@ -362,6 +392,7 @@ function ProjectionTable({
               <tr key={`${valueKey}-${row.year}`}>
                 <td>{row.year}년 뒤</td>
                 <td>{formatMoney(row[valueKey])}</td>
+                <td>{rateToPercentInput(row.targetWithdrawalRate)}%</td>
                 <td>{formatMoney(row.annualExpenses)}</td>
               </tr>
             ))}
@@ -381,15 +412,63 @@ function Fieldset({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+function AutoWithdrawalSettings({
+  enabled,
+  currentAge,
+  lifeExpectancy,
+  appliedRate,
+  onToggle,
+  onFieldChange,
+}: {
+  enabled: boolean;
+  currentAge: number;
+  lifeExpectancy: number;
+  appliedRate: number;
+  onToggle: (enabled: boolean) => void;
+  onFieldChange: (field: keyof FormValues, value: string) => void;
+}) {
+  return (
+    <div className="auto-withdrawal">
+      <label className="toggle-field">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(event) => onToggle(event.target.checked)}
+        />
+        <span>나이와 기대수명으로 자동 계산</span>
+      </label>
+      {enabled && (
+        <div className="auto-withdrawal-fields">
+          <NumberField
+            label="현재 나이"
+            suffix="세"
+            value={currentAge}
+            onChange={(value) => onFieldChange("currentAge", value)}
+          />
+          <NumberField
+            label="기대수명"
+            suffix="세"
+            value={lifeExpectancy}
+            onChange={(value) => onFieldChange("lifeExpectancy", value)}
+          />
+          <p>현재 기준 자동 인출률 {rateToPercentInput(appliedRate)}%</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NumberField({
   label,
   suffix,
   value,
+  readOnly = false,
   onChange,
 }: {
   label: string;
   suffix: string;
   value: number;
+  readOnly?: boolean;
   onChange: (value: string) => void;
 }) {
   const moneyHint = suffix === "원" ? formatMoneyInputHint(value) : "";
@@ -401,6 +480,7 @@ function NumberField({
         <input
           type="number"
           inputMode="decimal"
+          readOnly={readOnly}
           value={Number.isNaN(value) ? "" : value}
           onChange={(event) => onChange(event.target.value)}
         />
@@ -419,7 +499,10 @@ function presetToFormValues(values: FireInputs): FormValues {
     annualReturnRate: rateToPercentInput(values.annualReturnRate),
     incomeGrowthRate: rateToPercentInput(values.incomeGrowthRate),
     inflationRate: rateToPercentInput(values.inflationRate),
+    withdrawalMode: values.withdrawalMode,
     targetWithdrawalRate: rateToPercentInput(values.targetWithdrawalRate),
+    currentAge: values.currentAge,
+    lifeExpectancy: values.lifeExpectancy,
   };
 }
 

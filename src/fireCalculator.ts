@@ -5,7 +5,10 @@ export type FireInputs = {
   annualReturnRate: number;
   incomeGrowthRate: number;
   inflationRate: number;
+  withdrawalMode: "manual" | "auto";
   targetWithdrawalRate: number;
+  currentAge: number;
+  lifeExpectancy: number;
 };
 
 export type FireYearProjection = {
@@ -14,6 +17,7 @@ export type FireYearProjection = {
   annualExpenses: number;
   savings: number;
   investableAssets: number;
+  targetWithdrawalRate: number;
   fireTargetAssets: number;
   safeWithdrawalAmount: number;
 };
@@ -51,7 +55,10 @@ export const FIRE_PRESETS: FirePreset[] = [
       annualReturnRate: 0.04,
       incomeGrowthRate: 0.03,
       inflationRate: 0.025,
+      withdrawalMode: "manual",
       targetWithdrawalRate: 0.035,
+      currentAge: 40,
+      lifeExpectancy: 90,
     },
   },
   {
@@ -64,7 +71,10 @@ export const FIRE_PRESETS: FirePreset[] = [
       annualReturnRate: 0.05,
       incomeGrowthRate: 0.03,
       inflationRate: 0.025,
+      withdrawalMode: "manual",
       targetWithdrawalRate: 0.035,
+      currentAge: 40,
+      lifeExpectancy: 90,
     },
   },
 ];
@@ -96,6 +106,22 @@ export function percentInputToRate(value: number): number {
 
 export function rateToPercentInput(value: number): number {
   return roundForPercentInput(value * 100);
+}
+
+export function calculateAutoWithdrawalRate(inputs: FireInputs, year = 0): number {
+  const currentAge = finiteOrZero(inputs.currentAge);
+  const lifeExpectancy = finiteOrZero(inputs.lifeExpectancy);
+  const remainingYears = Math.max(lifeExpectancy - (currentAge + year), 1);
+  const realReturn = Math.max(
+    finiteOrZero(inputs.annualReturnRate) - finiteOrZero(inputs.inflationRate),
+    0,
+  );
+  const withdrawalRate =
+    realReturn === 0
+      ? 1 / remainingYears
+      : realReturn / (1 - (1 + realReturn) ** -remainingYears);
+
+  return clamp(withdrawalRate, 0.01, 0.1);
 }
 
 export function calculateFireScenario(
@@ -157,7 +183,10 @@ function normalizeInputs(inputs: FireInputs): FireInputs {
     annualReturnRate: finiteOrZero(inputs.annualReturnRate),
     incomeGrowthRate: finiteOrZero(inputs.incomeGrowthRate),
     inflationRate: finiteOrZero(inputs.inflationRate),
+    withdrawalMode: inputs.withdrawalMode === "auto" ? "auto" : "manual",
     targetWithdrawalRate: Math.max(finiteOrZero(inputs.targetWithdrawalRate), 0.0001),
+    currentAge: finiteOrZero(inputs.currentAge),
+    lifeExpectancy: finiteOrZero(inputs.lifeExpectancy),
   };
 }
 
@@ -175,7 +204,11 @@ function calculateProjectionForYear(
       : (previousProjection?.investableAssets ?? inputs.investableAssets) *
           (1 + inputs.annualReturnRate) +
         savings;
-  const fireTargetAssets = annualExpenses / inputs.targetWithdrawalRate;
+  const targetWithdrawalRate =
+    inputs.withdrawalMode === "auto"
+      ? calculateAutoWithdrawalRate(inputs, year)
+      : inputs.targetWithdrawalRate;
+  const fireTargetAssets = annualExpenses / targetWithdrawalRate;
 
   return {
     year,
@@ -183,13 +216,18 @@ function calculateProjectionForYear(
     annualExpenses,
     savings,
     investableAssets,
+    targetWithdrawalRate,
     fireTargetAssets,
-    safeWithdrawalAmount: investableAssets * inputs.targetWithdrawalRate,
+    safeWithdrawalAmount: investableAssets * targetWithdrawalRate,
   };
 }
 
 function finiteOrZero(value: number | undefined): number {
   return Number.isFinite(value) ? Number(value) : 0;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }
 
 function roundForPercentInput(value: number): number {

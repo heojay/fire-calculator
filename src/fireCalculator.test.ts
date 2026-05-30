@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  calculateAutoWithdrawalRate,
   calculateFireScenario,
   calculateFireScenarios,
   percentInputToRate,
@@ -14,7 +15,10 @@ const baseInputs: FireInputs = {
   annualReturnRate: 0.04,
   incomeGrowthRate: 0.02,
   inflationRate: 0.02,
+  withdrawalMode: "manual",
   targetWithdrawalRate: 0.04,
+  currentAge: 40,
+  lifeExpectancy: 90,
 };
 
 describe("calculateFireScenario", () => {
@@ -50,6 +54,47 @@ describe("calculateFireScenario", () => {
     expect(result.currentFireTargetAssets).toBe(1_000_000_000);
   });
 
+  it("수동 모드는 입력한 목표 인출률을 그대로 적용한다", () => {
+    const result = calculateFireScenario({
+      ...baseInputs,
+      targetWithdrawalRate: 0.035,
+    });
+
+    expect(result.projections[0].targetWithdrawalRate).toBe(0.035);
+  });
+
+  it("자동 모드는 나이와 기대수명으로 목표 인출률을 계산한다", () => {
+    const result = calculateFireScenario({
+      ...baseInputs,
+      withdrawalMode: "auto",
+      currentAge: 40,
+      lifeExpectancy: 90,
+      annualReturnRate: 0.05,
+      inflationRate: 0.02,
+    });
+
+    expect(result.projections[0].targetWithdrawalRate).toBeGreaterThan(0.03);
+    expect(result.projections[0].targetWithdrawalRate).toBeLessThan(0.05);
+  });
+
+  it("자동 모드는 연도가 지날수록 해당 연도의 나이를 반영한다", () => {
+    const result = calculateFireScenario({
+      ...baseInputs,
+      investableAssets: 0,
+      annualIncome: 0,
+      annualExpenses: 60_000_000,
+      withdrawalMode: "auto",
+      currentAge: 40,
+      lifeExpectancy: 90,
+      annualReturnRate: 0.05,
+      inflationRate: 0.02,
+    });
+
+    expect(result.projections[1].targetWithdrawalRate).toBeGreaterThan(
+      result.projections[0].targetWithdrawalRate,
+    );
+  });
+
   it("100년 안에 도달하지 못하면 도달 어려움 상태를 반환한다", () => {
     const result = calculateFireScenario({
       ...baseInputs,
@@ -64,6 +109,41 @@ describe("calculateFireScenario", () => {
 
     expect(result.status).toBe("not-achieved");
     expect(result.yearsToFire).toBeNull();
+  });
+});
+
+describe("calculateAutoWithdrawalRate", () => {
+  it("기대수명이 현재 나이 이하더라도 최소 1년으로 계산한다", () => {
+    const rate = calculateAutoWithdrawalRate({
+      ...baseInputs,
+      withdrawalMode: "auto",
+      currentAge: 90,
+      lifeExpectancy: 80,
+    });
+
+    expect(rate).toBe(0.1);
+  });
+
+  it("자동 인출률은 1%에서 10% 사이로 제한된다", () => {
+    const lowRate = calculateAutoWithdrawalRate({
+      ...baseInputs,
+      withdrawalMode: "auto",
+      currentAge: 20,
+      lifeExpectancy: 200,
+      annualReturnRate: 0,
+      inflationRate: 0,
+    });
+    const highRate = calculateAutoWithdrawalRate({
+      ...baseInputs,
+      withdrawalMode: "auto",
+      currentAge: 90,
+      lifeExpectancy: 91,
+      annualReturnRate: 0.2,
+      inflationRate: 0,
+    });
+
+    expect(lowRate).toBe(0.01);
+    expect(highRate).toBe(0.1);
   });
 });
 
