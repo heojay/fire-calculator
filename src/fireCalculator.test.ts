@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculateFireScenario,
   percentInputToRate,
+  rateToPercentInput,
   type FireInputs,
 } from "./fireCalculator";
 
@@ -85,5 +86,12 @@ describe("percentInputToRate", () => {
   it("사용자가 입력한 퍼센트 숫자를 계산용 비율로 변환한다", () => {
     expect(percentInputToRate(5)).toBe(0.05);
     expect(percentInputToRate(2.5)).toBe(0.025);
+  });
+});
+
+describe("rateToPercentInput", () => {
+  it("계산용 비율을 입력 화면에 표시할 퍼센트 숫자로 깔끔하게 변환한다", () => {
+    expect(rateToPercentInput(0.035)).toBe(3.5);
+    expect(rateToPercentInput(0.025)).toBe(2.5);
   });
 });

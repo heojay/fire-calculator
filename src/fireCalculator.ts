@@ -132,7 +132,7 @@ export function percentInputToRate(value: number): number {
 }
 
 export function rateToPercentInput(value: number): number {
-  return value * 100;
+  return roundForPercentInput(value * 100);
 }
 
 export function calculateFireScenario(
@@ -265,4 +265,8 @@ function getRetirementIncomeForYear(inputs: FireInputs, age?: number): number {
 
 function finiteOrZero(value: number | undefined): number {
   return Number.isFinite(value) ? Number(value) : 0;
+}
+
+function roundForPercentInput(value: number): number {
+  return Math.round(value * 10_000) / 10_000;
 }
