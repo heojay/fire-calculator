@@ -254,19 +254,31 @@ function AssetChart({ scenario }: { scenario: FireScenarioResult }) {
   const rows = scenario.projections;
   const width = 760;
   const height = 280;
-  const padding = 28;
-  const maxValue = Math.max(
-    ...rows.flatMap((row) => [row.investableAssets, row.fireTargetAssets]),
-    1,
-  );
+  const padding = { top: 24, right: 24, bottom: 44, left: 88 };
+  const values = rows.flatMap((row) => [row.investableAssets, row.fireTargetAssets]);
+  const minValue = Math.min(...values, 0);
+  const maxValue = Math.max(...values, 1);
+  const valueRange = maxValue - minValue || 1;
   const maxYear = Math.max(rows[rows.length - 1]?.year ?? 1, 1);
+  const yTicks = Array.from({ length: 4 }, (_, index) => minValue + (valueRange / 3) * index);
+  const xTicks = Array.from(new Set([0, Math.round(maxYear / 2), maxYear]));
 
   const toPoint = (row: FireYearProjection, value: number) => {
-    const x = padding + (row.year / maxYear) * (width - padding * 2);
-    const y = height - padding - (value / maxValue) * (height - padding * 2);
+    const x =
+      padding.left + (row.year / maxYear) * (width - padding.left - padding.right);
+    const y =
+      height -
+      padding.bottom -
+      ((value - minValue) / valueRange) * (height - padding.top - padding.bottom);
     return `${x},${y}`;
   };
 
+  const toX = (year: number) =>
+    padding.left + (year / maxYear) * (width - padding.left - padding.right);
+  const toY = (value: number) =>
+    height -
+    padding.bottom -
+    ((value - minValue) / valueRange) * (height - padding.top - padding.bottom);
   const assetPoints = rows.map((row) => toPoint(row, row.investableAssets)).join(" ");
   const targetPoints = rows.map((row) => toPoint(row, row.fireTargetAssets)).join(" ");
 
@@ -283,8 +295,44 @@ function AssetChart({ scenario }: { scenario: FireScenarioResult }) {
         </div>
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="연도별 자산 추이">
-        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} />
-        <line x1={padding} y1={padding} x2={padding} y2={height - padding} />
+        {yTicks.map((tick) => (
+          <g key={`y-${tick}`}>
+            <line
+              className="grid-line"
+              x1={padding.left}
+              y1={toY(tick)}
+              x2={width - padding.right}
+              y2={toY(tick)}
+            />
+            <text className="y-axis-label" x={padding.left - 12} y={toY(tick)}>
+              {formatAxisMoney(tick)}
+            </text>
+          </g>
+        ))}
+        {xTicks.map((tick) => (
+          <text
+            className="x-axis-label"
+            key={`x-${tick}`}
+            x={toX(tick)}
+            y={height - 12}
+          >
+            {tick === 0 ? "현재" : `${tick}년`}
+          </text>
+        ))}
+        <line
+          className="axis-line"
+          x1={padding.left}
+          y1={height - padding.bottom}
+          x2={width - padding.right}
+          y2={height - padding.bottom}
+        />
+        <line
+          className="axis-line"
+          x1={padding.left}
+          y1={padding.top}
+          x2={padding.left}
+          y2={height - padding.bottom}
+        />
         <polyline className="target-line" points={targetPoints} />
         <polyline className="asset-line" points={assetPoints} />
       </svg>
@@ -431,6 +479,21 @@ function formatMoneyInputHint(value: number): string {
   }
 
   return `약 ${sign}${formatCompact(absValue / 10_000)}만원`;
+}
+
+function formatAxisMoney(value: number): string {
+  const absValue = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+
+  if (absValue >= 100_000_000) {
+    return `${sign}${formatCompact(absValue / 100_000_000)}억`;
+  }
+
+  if (absValue >= 10_000) {
+    return `${sign}${formatCompact(absValue / 10_000)}만`;
+  }
+
+  return `${Math.round(value).toLocaleString("ko-KR")}원`;
 }
 
 function formatCompact(value: number): string {

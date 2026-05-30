@@ -416,9 +416,30 @@ svg {
   min-height: 220px;
 }
 
-svg line {
+svg .axis-line,
+svg .grid-line {
   stroke: var(--hairline);
   stroke-width: 1;
+}
+
+svg .grid-line {
+  stroke-dasharray: 4 6;
+}
+
+svg text {
+  fill: var(--body-mid);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.y-axis-label {
+  dominant-baseline: middle;
+  text-anchor: end;
+}
+
+.x-axis-label {
+  dominant-baseline: hanging;
+  text-anchor: middle;
 }
 
 svg polyline {
