@@ -390,7 +390,7 @@ function ProjectionTable({
           <tbody>
             {rows.map((row) => (
               <tr key={`${valueKey}-${row.year}`}>
-                <td>{row.year}년 뒤</td>
+                <td>{formatProjectionYear(row.year)}</td>
                 <td>{formatMoney(row[valueKey])}</td>
                 <td>{rateToPercentInput(row.targetWithdrawalRate)}%</td>
                 <td>{formatMoney(row.annualExpenses)}</td>
@@ -541,6 +541,10 @@ function formatYearsToFire(scenario: FireScenarioResult): string {
   }
 
   return `${scenario.yearsToFire}년 뒤`;
+}
+
+function formatProjectionYear(year: number): string {
+  return year === 0 ? "현재" : `${year}년 뒤`;
 }
 
 function getScenarioLineClassName(name: string): string {
