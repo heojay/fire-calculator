@@ -18,16 +18,6 @@ type FormValues = {
   incomeGrowthRate: number;
   inflationRate: number;
   targetWithdrawalRate: number;
-  currentAge: number;
-  totalAssets: number;
-  debt: number;
-  primaryResidenceValue: number;
-  otherRealAssets: number;
-  annualDebtPayment: number;
-  debtPaymentEndYear: number;
-  retirementAnnualIncome: number;
-  pensionAnnualIncome: number;
-  pensionStartAge: number;
 };
 
 const requiredFields = [
@@ -38,19 +28,6 @@ const requiredFields = [
   ["incomeGrowthRate", "연 수입 증가율", "%"],
   ["inflationRate", "인플레이션율", "%"],
   ["targetWithdrawalRate", "목표 인출률", "%"],
-] as const;
-
-const optionalFields = [
-  ["currentAge", "현재 나이", "세"],
-  ["totalAssets", "현재 총자산", "원"],
-  ["debt", "현재 부채", "원"],
-  ["primaryResidenceValue", "거주용 부동산 가치", "원"],
-  ["otherRealAssets", "기타 실물자산", "원"],
-  ["annualDebtPayment", "연 부채 상환액", "원"],
-  ["debtPaymentEndYear", "부채 상환 종료 시점", "년 뒤"],
-  ["retirementAnnualIncome", "은퇴 후 예상 연 수입", "원"],
-  ["pensionAnnualIncome", "국민연금/퇴직연금 예상 연 수령액", "원"],
-  ["pensionStartAge", "연금 수령 시작 나이", "세"],
 ] as const;
 
 const scenarioClassNames = ["scenario-conservative", "scenario-base", "scenario-optimistic"];
@@ -81,15 +58,12 @@ function App() {
         </nav>
 
         <section className="hero-grid">
-          <div>
-            <p className="eyebrow">INVESTABLE ASSETS FIRST</p>
-            <h1>총자산이 아니라 투자 가능 자산으로 계산합니다.</h1>
-            <p className="lead">
-              거주용 부동산은 기본적으로 인출 가능 자산에서 제외하고, 연도별 현금흐름과
-              목표 인출률을 기준으로 경제적 자유 도달 시점을 시뮬레이션합니다.
-            </p>
-          </div>
-          <ResultHero scenario={baseScenario} />
+          <p className="eyebrow">FIRE CALCULATOR</p>
+          <h1>경제적 자유까지 얼마나 걸릴까요?</h1>
+          <p className="lead">
+            투자 가능 자산, 수입, 생활비를 바탕으로 FIRE 도달 시점과 필요한 목표 자산을
+            계산합니다.
+          </p>
         </section>
       </header>
 
@@ -122,17 +96,7 @@ function App() {
             ))}
           </Fieldset>
 
-          <Fieldset title="선택 입력">
-            {optionalFields.map(([field, label, suffix]) => (
-              <NumberField
-                key={field}
-                label={label}
-                suffix={suffix}
-                value={formValues[field]}
-                onChange={(value) => handleFieldChange(field, value)}
-              />
-            ))}
-          </Fieldset>
+          <ResultHero scenario={baseScenario} />
         </section>
 
         <section className="results-panel">
@@ -175,8 +139,8 @@ function ResultHero({ scenario }: { scenario: FireScenarioResult }) {
       <p className="card-label">경제적 자유 도달 시점</p>
       <strong>{scenario.status === "achieved" ? `${scenario.yearsToFire}년 뒤` : "도달 어려움"}</strong>
       <span>
-        {scenario.status === "achieved" && scenario.retirementAge !== undefined
-          ? `예상 은퇴 가능 나이 ${scenario.retirementAge}세`
+        {scenario.status === "achieved"
+          ? "현재 입력값 기준으로 목표 자산에 도달하는 시점입니다."
           : "100년 안에 목표 자산에 도달하지 못합니다."}
       </span>
     </aside>
@@ -193,10 +157,6 @@ function SummaryGrid({ scenario }: { scenario: FireScenarioResult }) {
         : formatMoney(scenario.retirementFireTargetAssets),
     ],
     ["앞으로 더 일해야 하는 기간", scenario.yearsToFire === null ? "도달 어려움" : `${scenario.yearsToFire}년`],
-    [
-      "예상 은퇴 가능 나이",
-      scenario.retirementAge === undefined ? "입력 없음" : `${scenario.retirementAge}세`,
-    ],
     [
       "은퇴 시 예상 투자 가능 자산",
       scenario.retirementInvestableAssets === null
@@ -357,7 +317,6 @@ function ProjectionTable({
           <thead>
             <tr>
               <th>연도</th>
-              <th>나이</th>
               <th>{valueKey === "investableAssets" ? "투자 가능 자산" : "FIRE 목표 자산"}</th>
               <th>연 생활비</th>
             </tr>
@@ -366,7 +325,6 @@ function ProjectionTable({
             {rows.map((row) => (
               <tr key={`${valueKey}-${row.year}`}>
                 <td>{row.year}년 뒤</td>
-                <td>{row.age === undefined ? "-" : `${row.age}세`}</td>
                 <td>{formatMoney(row[valueKey])}</td>
                 <td>{formatMoney(row.annualExpenses)}</td>
               </tr>
@@ -426,28 +384,16 @@ function presetToFormValues(values: FireInputs): FormValues {
     incomeGrowthRate: rateToPercentInput(values.incomeGrowthRate),
     inflationRate: rateToPercentInput(values.inflationRate),
     targetWithdrawalRate: rateToPercentInput(values.targetWithdrawalRate),
-    currentAge: values.currentAge ?? 0,
-    totalAssets: values.totalAssets ?? 0,
-    debt: values.debt ?? 0,
-    primaryResidenceValue: values.primaryResidenceValue ?? 0,
-    otherRealAssets: values.otherRealAssets ?? 0,
-    annualDebtPayment: values.annualDebtPayment ?? 0,
-    debtPaymentEndYear: values.debtPaymentEndYear ?? 0,
-    retirementAnnualIncome: values.retirementAnnualIncome ?? 0,
-    pensionAnnualIncome: values.pensionAnnualIncome ?? 0,
-    pensionStartAge: values.pensionStartAge ?? 0,
   };
 }
 
 function formValuesToInputs(values: FormValues): FireInputs {
   return {
     ...values,
-    currentAge: values.currentAge > 0 ? values.currentAge : undefined,
     annualReturnRate: percentInputToRate(values.annualReturnRate),
     incomeGrowthRate: percentInputToRate(values.incomeGrowthRate),
     inflationRate: percentInputToRate(values.inflationRate),
     targetWithdrawalRate: percentInputToRate(values.targetWithdrawalRate),
-    pensionStartAge: values.pensionStartAge > 0 ? values.pensionStartAge : undefined,
   };
 }
 

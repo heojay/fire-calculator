@@ -14,7 +14,6 @@ const baseInputs: FireInputs = {
   incomeGrowthRate: 0.02,
   inflationRate: 0.02,
   targetWithdrawalRate: 0.04,
-  currentAge: 40,
 };
 
 describe("calculateFireScenario", () => {
@@ -28,41 +27,26 @@ describe("calculateFireScenario", () => {
 
     expect(result.status).toBe("achieved");
     expect(result.yearsToFire).toBe(0);
-    expect(result.retirementAge).toBe(40);
   });
 
-  it("부채 상환 종료 시점 이후에는 연 부채 상환액을 0원으로 처리한다", () => {
+  it("저축액은 연 수입에서 연 생활비를 뺀 값으로 계산한다", () => {
     const result = calculateFireScenario({
       ...baseInputs,
-      investableAssets: 0,
-      annualReturnRate: 0,
-      incomeGrowthRate: 0,
-      inflationRate: 0,
-      annualDebtPayment: 10_000_000,
-      debtPaymentEndYear: 1,
+      annualIncome: 90_000_000,
+      annualExpenses: 35_000_000,
     });
 
-    expect(result.projections[1].debtPayment).toBe(10_000_000);
-    expect(result.projections[2].debtPayment).toBe(0);
+    expect(result.projections[0].savings).toBe(55_000_000);
   });
 
-  it("연금 수령 시작 나이 이후 FIRE 목표 자산에 연금 수령액을 반영한다", () => {
+  it("현재 FIRE 목표 자산은 연 생활비를 목표 인출률로 나누어 계산한다", () => {
     const result = calculateFireScenario({
       ...baseInputs,
-      annualIncome: 0,
-      investableAssets: 0,
-      currentAge: 64,
-      retirementAnnualIncome: 5_000_000,
-      pensionAnnualIncome: 10_000_000,
-      pensionStartAge: 65,
-      annualReturnRate: 0,
-      incomeGrowthRate: 0,
-      inflationRate: 0,
+      annualExpenses: 40_000_000,
+      targetWithdrawalRate: 0.04,
     });
 
-    expect(result.projections[0].retirementIncome).toBe(5_000_000);
-    expect(result.projections[1].retirementIncome).toBe(15_000_000);
-    expect(result.projections[1].fireTargetAssets).toBe(375_000_000);
+    expect(result.currentFireTargetAssets).toBe(1_000_000_000);
   });
 
   it("100년 안에 도달하지 못하면 도달 어려움 상태를 반환한다", () => {

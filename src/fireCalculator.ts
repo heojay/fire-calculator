@@ -6,27 +6,14 @@ export type FireInputs = {
   incomeGrowthRate: number;
   inflationRate: number;
   targetWithdrawalRate: number;
-  currentAge?: number;
-  totalAssets?: number;
-  debt?: number;
-  primaryResidenceValue?: number;
-  otherRealAssets?: number;
-  annualDebtPayment?: number;
-  debtPaymentEndYear?: number;
-  retirementAnnualIncome?: number;
-  pensionAnnualIncome?: number;
-  pensionStartAge?: number;
 };
 
 export type FireYearProjection = {
   year: number;
-  age?: number;
   annualIncome: number;
   annualExpenses: number;
-  debtPayment: number;
   savings: number;
   investableAssets: number;
-  retirementIncome: number;
   fireTargetAssets: number;
   safeWithdrawalAmount: number;
 };
@@ -37,7 +24,6 @@ export type FireScenarioResult = {
   inputs: FireInputs;
   status: "achieved" | "not-achieved";
   yearsToFire: number | null;
-  retirementAge?: number;
   currentFireTargetAssets: number;
   retirementFireTargetAssets: number | null;
   retirementInvestableAssets: number | null;
@@ -60,22 +46,12 @@ export const FIRE_PRESETS: FirePreset[] = [
     name: "대한민국 평균 가구",
     values: {
       investableAssets: 150_000_000,
-      totalAssets: 566_780_000,
-      debt: 95_340_000,
-      primaryResidenceValue: 320_000_000,
-      otherRealAssets: 96_780_000,
       annualIncome: 74_270_000,
       annualExpenses: 35_268_000,
       annualReturnRate: 0.04,
       incomeGrowthRate: 0.03,
       inflationRate: 0.025,
       targetWithdrawalRate: 0.035,
-      currentAge: 40,
-      annualDebtPayment: 0,
-      debtPaymentEndYear: 0,
-      retirementAnnualIncome: 0,
-      pensionAnnualIncome: 0,
-      pensionStartAge: 65,
     },
   },
   {
@@ -83,22 +59,12 @@ export const FIRE_PRESETS: FirePreset[] = [
     name: "입력 예시용 FIRE 가구",
     values: {
       investableAssets: 350_000_000,
-      totalAssets: 780_000_000,
-      debt: 80_000_000,
-      primaryResidenceValue: 330_000_000,
-      otherRealAssets: 100_000_000,
       annualIncome: 120_000_000,
       annualExpenses: 42_000_000,
       annualReturnRate: 0.05,
       incomeGrowthRate: 0.03,
       inflationRate: 0.025,
       targetWithdrawalRate: 0.035,
-      currentAge: 38,
-      annualDebtPayment: 12_000_000,
-      debtPaymentEndYear: 5,
-      retirementAnnualIncome: 6_000_000,
-      pensionAnnualIncome: 12_000_000,
-      pensionStartAge: 65,
     },
   },
 ];
@@ -159,7 +125,6 @@ export function calculateFireScenario(
     inputs,
     status: achievedProjection ? "achieved" : "not-achieved",
     yearsToFire: achievedProjection ? achievedProjection.year : null,
-    retirementAge: achievedProjection?.age,
     currentFireTargetAssets: currentProjection.fireTargetAssets,
     retirementFireTargetAssets: achievedProjection?.fireTargetAssets ?? null,
     retirementInvestableAssets: achievedProjection?.investableAssets ?? null,
@@ -193,10 +158,6 @@ function normalizeInputs(inputs: FireInputs): FireInputs {
     incomeGrowthRate: finiteOrZero(inputs.incomeGrowthRate),
     inflationRate: finiteOrZero(inputs.inflationRate),
     targetWithdrawalRate: Math.max(finiteOrZero(inputs.targetWithdrawalRate), 0.0001),
-    annualDebtPayment: finiteOrZero(inputs.annualDebtPayment),
-    debtPaymentEndYear: finiteOrZero(inputs.debtPaymentEndYear),
-    retirementAnnualIncome: finiteOrZero(inputs.retirementAnnualIncome),
-    pensionAnnualIncome: finiteOrZero(inputs.pensionAnnualIncome),
   };
 }
 
@@ -205,59 +166,26 @@ function calculateProjectionForYear(
   year: number,
   previousProjection?: FireYearProjection,
 ): FireYearProjection {
-  const age = inputs.currentAge === undefined ? undefined : inputs.currentAge + year;
   const annualIncome = inputs.annualIncome * (1 + inputs.incomeGrowthRate) ** year;
   const annualExpenses = inputs.annualExpenses * (1 + inputs.inflationRate) ** year;
-  const debtPayment = getDebtPaymentForYear(inputs, year);
-  const savings = annualIncome - annualExpenses - debtPayment;
+  const savings = annualIncome - annualExpenses;
   const investableAssets =
     year === 0
       ? inputs.investableAssets
       : (previousProjection?.investableAssets ?? inputs.investableAssets) *
           (1 + inputs.annualReturnRate) +
         savings;
-  const retirementIncome = getRetirementIncomeForYear(inputs, age);
-  const fireTargetAssets = Math.max(annualExpenses - retirementIncome, 0) / inputs.targetWithdrawalRate;
+  const fireTargetAssets = annualExpenses / inputs.targetWithdrawalRate;
 
   return {
     year,
-    age,
     annualIncome,
     annualExpenses,
-    debtPayment,
     savings,
     investableAssets,
-    retirementIncome,
     fireTargetAssets,
     safeWithdrawalAmount: investableAssets * inputs.targetWithdrawalRate,
   };
-}
-
-function getDebtPaymentForYear(inputs: FireInputs, year: number): number {
-  const annualDebtPayment = inputs.annualDebtPayment ?? 0;
-  const debtPaymentEndYear = inputs.debtPaymentEndYear ?? 0;
-
-  if (annualDebtPayment <= 0) {
-    return 0;
-  }
-
-  if (debtPaymentEndYear <= 0) {
-    return annualDebtPayment;
-  }
-
-  return year <= debtPaymentEndYear ? annualDebtPayment : 0;
-}
-
-function getRetirementIncomeForYear(inputs: FireInputs, age?: number): number {
-  const baseRetirementIncome = inputs.retirementAnnualIncome ?? 0;
-  const pensionAnnualIncome = inputs.pensionAnnualIncome ?? 0;
-  const pensionStartAge = inputs.pensionStartAge;
-
-  if (age === undefined || pensionStartAge === undefined || age < pensionStartAge) {
-    return baseRetirementIncome;
-  }
-
-  return baseRetirementIncome + pensionAnnualIncome;
 }
 
 function finiteOrZero(value: number | undefined): number {
