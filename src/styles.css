@@ -78,13 +78,6 @@ main {
   line-height: 1.4;
 }
 
-.preset-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
 .button-primary,
 .button-secondary {
   min-height: 44px;
@@ -206,13 +199,9 @@ h1 {
   line-height: 1.3;
 }
 
-.preset-note {
-  border: 1px solid var(--hairline);
-  border-radius: 8px;
-  padding: 16px;
-  color: var(--body);
-  font-size: 14px;
-  line-height: 1.6;
+.input-actions {
+  display: flex;
+  justify-content: flex-start;
 }
 
 fieldset {
@@ -521,7 +510,6 @@ td {
     flex-direction: column;
   }
 
-  .preset-actions,
   .legend {
     justify-content: flex-start;
   }

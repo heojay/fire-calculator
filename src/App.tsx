@@ -6,7 +6,6 @@ import {
   percentInputToRate,
   rateToPercentInput,
   type FireInputs,
-  type FirePreset,
   type FireScenarioResult,
   type FireYearProjection,
 } from "./fireCalculator";
@@ -55,21 +54,17 @@ const optionalFields = [
 ] as const;
 
 const scenarioClassNames = ["scenario-conservative", "scenario-base", "scenario-optimistic"];
+const koreaAveragePreset = FIRE_PRESETS.find((preset) => preset.id === "korea-average")!;
+const fireExamplePreset = FIRE_PRESETS.find((preset) => preset.id === "fire-example")!;
 
 function App() {
-  const [activePresetId, setActivePresetId] = useState<FirePreset["id"]>("korea-average");
   const [formValues, setFormValues] = useState<FormValues>(() =>
-    presetToFormValues(FIRE_PRESETS[0].values),
+    presetToFormValues(fireExamplePreset.values),
   );
 
   const inputs = useMemo(() => formValuesToInputs(formValues), [formValues]);
   const scenarios = useMemo(() => calculateFireScenarios(inputs), [inputs]);
   const baseScenario = scenarios[1];
-
-  const handlePresetChange = (preset: FirePreset) => {
-    setActivePresetId(preset.id);
-    setFormValues(presetToFormValues(preset.values));
-  };
 
   const handleFieldChange = (field: keyof FormValues, value: string) => {
     setFormValues((current) => ({
@@ -81,20 +76,8 @@ function App() {
   return (
     <main>
       <header className="hero-band">
-        <nav className="top-nav" aria-label="프리셋">
+        <nav className="top-nav" aria-label="상단">
           <div className="brand">FIRE 계산기</div>
-          <div className="preset-actions">
-            {FIRE_PRESETS.map((preset) => (
-              <button
-                key={preset.id}
-                className={preset.id === activePresetId ? "button-primary" : "button-secondary"}
-                type="button"
-                onClick={() => handlePresetChange(preset)}
-              >
-                {preset.name}
-              </button>
-            ))}
-          </div>
         </nav>
 
         <section className="hero-grid">
@@ -117,8 +100,14 @@ function App() {
             <h2>입력값</h2>
           </div>
 
-          <div className="preset-note">
-            {FIRE_PRESETS.find((preset) => preset.id === activePresetId)?.description}
+          <div className="input-actions">
+            <button
+              className="button-secondary"
+              type="button"
+              onClick={() => setFormValues(presetToFormValues(koreaAveragePreset.values))}
+            >
+              대한민국 평균 가구 값 입력해보기
+            </button>
           </div>
 
           <Fieldset title="필수 입력">

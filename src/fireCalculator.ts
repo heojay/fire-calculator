@@ -49,7 +49,6 @@ export type FireScenarioResult = {
 export type FirePreset = {
   id: "korea-average" | "fire-example";
   name: string;
-  description: string;
   values: FireInputs;
 };
 
@@ -59,7 +58,6 @@ export const FIRE_PRESETS: FirePreset[] = [
   {
     id: "korea-average",
     name: "대한민국 평균 가구",
-    description: "총자산 전체가 아닌 투자 가능 자산 1.5억원을 기준으로 시작합니다.",
     values: {
       investableAssets: 150_000_000,
       totalAssets: 566_780_000,
@@ -83,7 +81,6 @@ export const FIRE_PRESETS: FirePreset[] = [
   {
     id: "fire-example",
     name: "입력 예시용 FIRE 가구",
-    description: "높은 저축률과 투자 가능 자산을 둔 입력 예시입니다.",
     values: {
       investableAssets: 350_000_000,
       totalAssets: 780_000_000,
