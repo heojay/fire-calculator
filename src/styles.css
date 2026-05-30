@@ -275,6 +275,14 @@ legend {
   text-align: right;
 }
 
+.number-field small {
+  min-height: 18px;
+  color: var(--body-mid);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

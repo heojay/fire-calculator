@@ -361,6 +361,8 @@ function NumberField({
   value: number;
   onChange: (value: string) => void;
 }) {
+  const moneyHint = suffix === "원" ? formatMoneyInputHint(value) : "";
+
   return (
     <label className="number-field">
       <span>{label}</span>
@@ -373,6 +375,7 @@ function NumberField({
         />
         <em>{suffix}</em>
       </div>
+      {moneyHint && <small>{moneyHint}</small>}
     </label>
   );
 }
@@ -424,6 +427,21 @@ function formatMoney(value: number): string {
   }
 
   return `${Math.round(value).toLocaleString("ko-KR")}원`;
+}
+
+function formatMoneyInputHint(value: number): string {
+  const absValue = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+
+  if (!Number.isFinite(value) || absValue < 10_000) {
+    return "";
+  }
+
+  if (absValue >= 100_000_000) {
+    return `약 ${sign}${formatCompact(absValue / 100_000_000)}억원`;
+  }
+
+  return `약 ${sign}${formatCompact(absValue / 10_000)}만원`;
 }
 
 function formatCompact(value: number): string {
