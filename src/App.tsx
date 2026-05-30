@@ -38,10 +38,13 @@ function App() {
   const [formValues, setFormValues] = useState<FormValues>(() =>
     presetToFormValues(fireExamplePreset.values),
   );
+  const [selectedScenarioName, setSelectedScenarioName] = useState("기본");
 
   const inputs = useMemo(() => formValuesToInputs(formValues), [formValues]);
   const scenarios = useMemo(() => calculateFireScenarios(inputs), [inputs]);
   const baseScenario = scenarios[1];
+  const selectedScenario =
+    scenarios.find((scenario) => scenario.name === selectedScenarioName) ?? baseScenario;
 
   const handleFieldChange = (field: keyof FormValues, value: string) => {
     setFormValues((current) => ({
@@ -107,7 +110,7 @@ function App() {
 
           <SummaryGrid scenario={baseScenario} />
           <ScenarioGrid scenarios={scenarios} />
-          <AssetChart scenario={baseScenario} />
+          <AssetChart scenarios={scenarios} />
         </section>
       </section>
 
@@ -116,15 +119,29 @@ function App() {
           <p className="eyebrow">YEARLY PROJECTION</p>
           <h2>연도별 추이</h2>
         </div>
+        <div className="table-actions" aria-label="연도별 추이 시나리오 선택">
+          {scenarios.map((scenario) => (
+            <button
+              className={
+                scenario.name === selectedScenario.name ? "button-primary" : "button-secondary"
+              }
+              key={scenario.name}
+              type="button"
+              onClick={() => setSelectedScenarioName(scenario.name)}
+            >
+              {scenario.name}
+            </button>
+          ))}
+        </div>
         <div className="table-grid">
           <ProjectionTable
             title="연도별 투자 가능 자산 추이"
-            rows={baseScenario.projections}
+            rows={selectedScenario.projections}
             valueKey="investableAssets"
           />
           <ProjectionTable
             title="연도별 FIRE 목표 자산 추이"
-            rows={baseScenario.projections}
+            rows={selectedScenario.projections}
             valueKey="fireTargetAssets"
           />
         </div>
@@ -137,7 +154,7 @@ function ResultHero({ scenario }: { scenario: FireScenarioResult }) {
   return (
     <aside className="hero-card">
       <p className="card-label">경제적 자유 도달 시점</p>
-      <strong>{scenario.status === "achieved" ? `${scenario.yearsToFire}년 뒤` : "도달 어려움"}</strong>
+      <strong>{formatYearsToFire(scenario)}</strong>
       <span>
         {scenario.status === "achieved"
           ? "현재 입력값 기준으로 목표 자산에 도달하는 시점입니다."
@@ -156,7 +173,7 @@ function SummaryGrid({ scenario }: { scenario: FireScenarioResult }) {
         ? "도달 어려움"
         : formatMoney(scenario.retirementFireTargetAssets),
     ],
-    ["앞으로 더 일해야 하는 기간", scenario.yearsToFire === null ? "도달 어려움" : `${scenario.yearsToFire}년`],
+    ["앞으로 더 일해야 하는 기간", formatYearsToFire(scenario)],
     [
       "은퇴 시 예상 투자 가능 자산",
       scenario.retirementInvestableAssets === null
@@ -196,9 +213,7 @@ function ScenarioGrid({ scenarios }: { scenarios: FireScenarioResult[] }) {
         <article className={`scenario-card ${scenarioClassNames[index]}`} key={scenario.name}>
           <span>{scenario.description}</span>
           <h3>{scenario.name} 시나리오</h3>
-          <strong>
-            {scenario.status === "achieved" ? `${scenario.yearsToFire}년 뒤` : "도달 어려움"}
-          </strong>
+          <strong>{formatYearsToFire(scenario)}</strong>
           <p>
             {scenario.retirementInvestableAssets === null
               ? "100년 제한 안에서 FIRE 목표 자산에 도달하지 못합니다."
@@ -210,16 +225,23 @@ function ScenarioGrid({ scenarios }: { scenarios: FireScenarioResult[] }) {
   );
 }
 
-function AssetChart({ scenario }: { scenario: FireScenarioResult }) {
-  const rows = scenario.projections;
+function AssetChart({ scenarios }: { scenarios: FireScenarioResult[] }) {
+  const baseScenario = scenarios[1];
+  const allRows = scenarios.flatMap((scenario) => scenario.projections);
   const width = 760;
   const height = 280;
   const padding = { top: 24, right: 24, bottom: 44, left: 88 };
-  const values = rows.flatMap((row) => [row.investableAssets, row.fireTargetAssets]);
+  const values = [
+    ...allRows.map((row) => row.investableAssets),
+    ...baseScenario.projections.map((row) => row.fireTargetAssets),
+  ];
   const minValue = Math.min(...values, 0);
   const maxValue = Math.max(...values, 1);
   const valueRange = maxValue - minValue || 1;
-  const maxYear = Math.max(rows[rows.length - 1]?.year ?? 1, 1);
+  const maxYear = Math.max(
+    ...scenarios.map((scenario) => scenario.projections.at(-1)?.year ?? 1),
+    1,
+  );
   const yTicks = Array.from({ length: 4 }, (_, index) => minValue + (valueRange / 3) * index);
   const xTicks = Array.from(new Set([0, Math.round(maxYear / 2), maxYear]));
 
@@ -239,8 +261,9 @@ function AssetChart({ scenario }: { scenario: FireScenarioResult }) {
     height -
     padding.bottom -
     ((value - minValue) / valueRange) * (height - padding.top - padding.bottom);
-  const assetPoints = rows.map((row) => toPoint(row, row.investableAssets)).join(" ");
-  const targetPoints = rows.map((row) => toPoint(row, row.fireTargetAssets)).join(" ");
+  const targetPoints = baseScenario.projections
+    .map((row) => toPoint(row, row.fireTargetAssets))
+    .join(" ");
 
   return (
     <article className="chart-card">
@@ -250,7 +273,9 @@ function AssetChart({ scenario }: { scenario: FireScenarioResult }) {
           <h3>연도별 자산 추이 그래프</h3>
         </div>
         <div className="legend">
-          <span className="legend-asset">투자 가능 자산</span>
+          <span className="legend-conservative">보수적</span>
+          <span className="legend-base">기본</span>
+          <span className="legend-optimistic">낙관적</span>
           <span className="legend-target">FIRE 목표 자산</span>
         </div>
       </div>
@@ -294,7 +319,15 @@ function AssetChart({ scenario }: { scenario: FireScenarioResult }) {
           y2={height - padding.bottom}
         />
         <polyline className="target-line" points={targetPoints} />
-        <polyline className="asset-line" points={assetPoints} />
+        {scenarios.map((scenario) => (
+          <polyline
+            className={`scenario-line ${getScenarioLineClassName(scenario.name)}`}
+            key={scenario.name}
+            points={scenario.projections
+              .map((row) => toPoint(row, row.investableAssets))
+              .join(" ")}
+          />
+        ))}
       </svg>
     </article>
   );
@@ -410,6 +443,30 @@ function formatMoney(value: number): string {
   }
 
   return `${Math.round(value).toLocaleString("ko-KR")}원`;
+}
+
+function formatYearsToFire(scenario: FireScenarioResult): string {
+  if (scenario.yearsToFire === null) {
+    return "도달 어려움";
+  }
+
+  if (scenario.yearsToFire === 0) {
+    return "이미 도달";
+  }
+
+  return `${scenario.yearsToFire}년 뒤`;
+}
+
+function getScenarioLineClassName(name: string): string {
+  if (name === "보수적") {
+    return "conservative-line";
+  }
+
+  if (name === "낙관적") {
+    return "optimistic-line";
+  }
+
+  return "base-line";
 }
 
 function formatMoneyInputHint(value: number): string {

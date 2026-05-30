@@ -139,8 +139,8 @@ export function calculateFireScenarios(inputs: FireInputs): FireScenarioResult[]
     calculateFireScenario(
       {
         ...inputs,
-        annualReturnRate: Math.max(inputs.annualReturnRate + scenario.returnRateDelta, -0.99),
-        inflationRate: Math.max(inputs.inflationRate + scenario.inflationDelta, -0.99),
+        annualReturnRate: Math.max(inputs.annualReturnRate + scenario.returnRateDelta, 0),
+        inflationRate: Math.max(inputs.inflationRate + scenario.inflationDelta, 0),
       },
       scenario.name,
       scenario.description,

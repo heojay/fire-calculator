@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateFireScenario,
+  calculateFireScenarios,
   percentInputToRate,
   rateToPercentInput,
   type FireInputs,
@@ -63,6 +64,26 @@ describe("calculateFireScenario", () => {
 
     expect(result.status).toBe("not-achieved");
     expect(result.yearsToFire).toBeNull();
+  });
+});
+
+describe("calculateFireScenarios", () => {
+  it("보수적 시나리오의 투자 수익률은 0% 아래로 내려가지 않는다", () => {
+    const [conservativeScenario] = calculateFireScenarios({
+      ...baseInputs,
+      annualReturnRate: 0.01,
+    });
+
+    expect(conservativeScenario.inputs.annualReturnRate).toBe(0);
+  });
+
+  it("낙관적 시나리오의 인플레이션율은 0% 아래로 내려가지 않는다", () => {
+    const optimisticScenario = calculateFireScenarios({
+      ...baseInputs,
+      inflationRate: 0.005,
+    })[2];
+
+    expect(optimisticScenario.inputs.inflationRate).toBe(0);
   });
 });
 
