@@ -45,6 +45,21 @@ describe("calculateFireScenario", () => {
     expect(result.projections[0].savings).toBe(55_000_000);
   });
 
+  it("1년 뒤 투자 가능 자산에는 당해 저축액의 중간 납입 복리를 반영한다", () => {
+    const result = calculateFireScenario({
+      ...baseInputs,
+      investableAssets: 100,
+      annualIncome: 50,
+      annualExpenses: 10,
+      annualReturnRate: 0.1,
+      incomeGrowthRate: 0,
+      inflationRate: 0,
+      targetWithdrawalRate: 0.01,
+    });
+
+    expect(result.projections[1].investableAssets).toBeCloseTo(152);
+  });
+
   it("현재 FIRE 목표 자산은 연 생활비를 목표 인출률로 나누어 계산한다", () => {
     const result = calculateFireScenario({
       ...baseInputs,
@@ -114,6 +129,21 @@ describe("calculateFireScenario", () => {
 });
 
 describe("calculateAutoWithdrawalRate", () => {
+  it("실질 수익률은 피셔 방정식으로 계산한다", () => {
+    const rate = calculateAutoWithdrawalRate({
+      ...baseInputs,
+      withdrawalMode: "auto",
+      currentAge: 40,
+      lifeExpectancy: 90,
+      annualReturnRate: 0.05,
+      inflationRate: 0.02,
+    });
+    const realReturn = 1.05 / 1.02 - 1;
+    const expectedRate = realReturn / (1 - (1 + realReturn) ** -50);
+
+    expect(rate).toBeCloseTo(expectedRate);
+  });
+
   it("기대수명이 현재 나이 이하더라도 최소 1년으로 계산한다", () => {
     const rate = calculateAutoWithdrawalRate({
       ...baseInputs,
@@ -167,7 +197,7 @@ describe("calculateFireScenarios", () => {
     expect(optimisticScenario.inputs.inflationRate).toBe(0);
   });
 
-  it("자동 인출률은 시나리오별 수익률과 물가 변동에 흔들리지 않고 같은 기준을 쓴다", () => {
+  it("자동 인출률은 시나리오별 수익률과 물가 변동을 반영한다", () => {
     const scenarios = calculateFireScenarios({
       ...baseInputs,
       withdrawalMode: "auto",
@@ -175,10 +205,10 @@ describe("calculateFireScenarios", () => {
 
     const [conservativeScenario, baseScenario, optimisticScenario] = scenarios;
 
-    expect(conservativeScenario.projections[0].targetWithdrawalRate).toBe(
+    expect(conservativeScenario.projections[0].targetWithdrawalRate).toBeLessThan(
       baseScenario.projections[0].targetWithdrawalRate,
     );
-    expect(optimisticScenario.projections[0].targetWithdrawalRate).toBe(
+    expect(optimisticScenario.projections[0].targetWithdrawalRate).toBeGreaterThan(
       baseScenario.projections[0].targetWithdrawalRate,
     );
   });
