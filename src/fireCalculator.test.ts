@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  FIRE_PRESETS,
   calculateAutoWithdrawalRate,
   calculateFireScenario,
   calculateFireScenarios,
@@ -164,6 +165,16 @@ describe("calculateFireScenarios", () => {
     })[2];
 
     expect(optimisticScenario.inputs.inflationRate).toBe(0);
+  });
+});
+
+describe("FIRE_PRESETS", () => {
+  it("기본 장기 가정은 투자 5%, 수입 증가 3%, 인플레이션 2%를 사용한다", () => {
+    FIRE_PRESETS.forEach((preset) => {
+      expect(preset.values.annualReturnRate).toBe(0.05);
+      expect(preset.values.incomeGrowthRate).toBe(0.03);
+      expect(preset.values.inflationRate).toBe(0.02);
+    });
   });
 });
 

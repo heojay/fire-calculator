@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   FIRE_PRESETS,
@@ -10,18 +10,22 @@ import {
   type FireYearProjection,
 } from "./fireCalculator";
 
+type NumericFormValue = number | "";
+
 type FormValues = {
-  investableAssets: number;
-  annualIncome: number;
-  annualExpenses: number;
-  annualReturnRate: number;
-  incomeGrowthRate: number;
-  inflationRate: number;
+  investableAssets: NumericFormValue;
+  annualIncome: NumericFormValue;
+  annualExpenses: NumericFormValue;
+  annualReturnRate: NumericFormValue;
+  incomeGrowthRate: NumericFormValue;
+  inflationRate: NumericFormValue;
   withdrawalMode: "manual" | "auto";
-  targetWithdrawalRate: number;
-  currentAge: number;
-  lifeExpectancy: number;
+  targetWithdrawalRate: NumericFormValue;
+  currentAge: NumericFormValue;
+  lifeExpectancy: NumericFormValue;
 };
+
+type NumericFormField = Exclude<keyof FormValues, "withdrawalMode">;
 
 const requiredFields = [
   ["investableAssets", "현재 투자 가능 자산", "원"],
@@ -31,6 +35,16 @@ const requiredFields = [
   ["incomeGrowthRate", "연 수입 증가율", "%"],
   ["inflationRate", "인플레이션율", "%"],
 ] as const;
+
+const fieldHelpText: Partial<Record<NumericFormField, string>> = {
+  annualReturnRate:
+    "개인 투자자의 비용, 세금, 위험 감수 차이를 감안해 장기 기본값은 명목 5%로 둡니다.",
+  incomeGrowthRate:
+    "장기 임금과 소득 증가 가정은 과도하게 높이지 않고 명목 3%를 기본값으로 둡니다.",
+  inflationRate: "장기 계산에서는 한국은행 물가안정목표에 가까운 2%를 기본값으로 둡니다.",
+  targetWithdrawalRate:
+    "연 생활비를 FIRE 목표 자산으로 환산하는 비율입니다. 낮을수록 더 보수적인 목표 자산이 나옵니다.",
+};
 
 const scenarioClassNames = ["scenario-conservative", "scenario-base", "scenario-optimistic"];
 const koreaAveragePreset = FIRE_PRESETS.find((preset) => preset.id === "korea-average")!;
@@ -48,10 +62,10 @@ function App() {
   const selectedScenario =
     scenarios.find((scenario) => scenario.name === selectedScenarioName) ?? baseScenario;
 
-  const handleFieldChange = (field: keyof FormValues, value: string) => {
+  const handleFieldChange = (field: NumericFormField, value: string) => {
     setFormValues((current) => ({
       ...current,
-      [field]: Number(value),
+      [field]: value === "" ? "" : Number(value),
     }));
   };
 
@@ -103,6 +117,7 @@ function App() {
                 label={label}
                 suffix={suffix}
                 value={formValues[field]}
+                helpText={fieldHelpText[field]}
                 onChange={(value) => handleFieldChange(field, value)}
               />
             ))}
@@ -115,6 +130,7 @@ function App() {
                   : formValues.targetWithdrawalRate
               }
               readOnly={formValues.withdrawalMode === "auto"}
+              helpText={fieldHelpText.targetWithdrawalRate}
               onChange={(value) => handleFieldChange("targetWithdrawalRate", value)}
             />
             <AutoWithdrawalSettings
@@ -421,11 +437,11 @@ function AutoWithdrawalSettings({
   onFieldChange,
 }: {
   enabled: boolean;
-  currentAge: number;
-  lifeExpectancy: number;
+  currentAge: NumericFormValue;
+  lifeExpectancy: NumericFormValue;
   appliedRate: number;
   onToggle: (enabled: boolean) => void;
-  onFieldChange: (field: keyof FormValues, value: string) => void;
+  onFieldChange: (field: NumericFormField, value: string) => void;
 }) {
   return (
     <div className="auto-withdrawal">
@@ -463,31 +479,48 @@ function NumberField({
   suffix,
   value,
   readOnly = false,
+  helpText,
   onChange,
 }: {
   label: string;
   suffix: string;
-  value: number;
+  value: NumericFormValue;
   readOnly?: boolean;
+  helpText?: string;
   onChange: (value: string) => void;
 }) {
-  const moneyHint = suffix === "원" ? formatMoneyInputHint(value) : "";
+  const inputId = useId();
+  const inputValue = typeof value === "number" && !Number.isNaN(value) ? value : "";
+  const moneyHint = suffix === "원" && typeof value === "number" ? formatMoneyInputHint(value) : "";
 
   return (
-    <label className="number-field">
-      <span>{label}</span>
-      <div>
+    <div className="number-field">
+      <div className="number-field-label">
+        <label htmlFor={inputId}>{label}</label>
+        {helpText && (
+          <span className="field-help">
+            <button type="button" aria-label={`${label} 설명`} className="field-help-trigger">
+              ?
+            </button>
+            <span className="field-tooltip" role="tooltip">
+              {helpText}
+            </span>
+          </span>
+        )}
+      </div>
+      <div className="number-field-control">
         <input
+          id={inputId}
           type="number"
           inputMode="decimal"
           readOnly={readOnly}
-          value={Number.isNaN(value) ? "" : value}
+          value={inputValue}
           onChange={(event) => onChange(event.target.value)}
         />
         <em>{suffix}</em>
       </div>
       {moneyHint && <small>{moneyHint}</small>}
-    </label>
+    </div>
   );
 }
 
@@ -508,12 +541,21 @@ function presetToFormValues(values: FireInputs): FormValues {
 
 function formValuesToInputs(values: FormValues): FireInputs {
   return {
-    ...values,
-    annualReturnRate: percentInputToRate(values.annualReturnRate),
-    incomeGrowthRate: percentInputToRate(values.incomeGrowthRate),
-    inflationRate: percentInputToRate(values.inflationRate),
-    targetWithdrawalRate: percentInputToRate(values.targetWithdrawalRate),
+    investableAssets: normalizeFormNumber(values.investableAssets),
+    annualIncome: normalizeFormNumber(values.annualIncome),
+    annualExpenses: normalizeFormNumber(values.annualExpenses),
+    annualReturnRate: percentInputToRate(normalizeFormNumber(values.annualReturnRate)),
+    incomeGrowthRate: percentInputToRate(normalizeFormNumber(values.incomeGrowthRate)),
+    inflationRate: percentInputToRate(normalizeFormNumber(values.inflationRate)),
+    withdrawalMode: values.withdrawalMode,
+    targetWithdrawalRate: percentInputToRate(normalizeFormNumber(values.targetWithdrawalRate)),
+    currentAge: normalizeFormNumber(values.currentAge),
+    lifeExpectancy: normalizeFormNumber(values.lifeExpectancy),
   };
+}
+
+function normalizeFormNumber(value: NumericFormValue): number {
+  return value === "" ? 0 : value;
 }
 
 function formatMoney(value: number): string {
