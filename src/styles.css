@@ -412,7 +412,10 @@ legend {
 }
 
 .legend-target::before {
-  background: var(--pink);
+  width: 16px;
+  height: 0;
+  border-top: 2px dashed var(--body-mid);
+  border-radius: 0;
 }
 
 svg {
@@ -471,8 +474,8 @@ svg polyline {
 }
 
 .target-line {
-  stroke: var(--pink);
   stroke-dasharray: 8 8;
+  opacity: 0.78;
 }
 
 .tables-band {

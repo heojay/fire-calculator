@@ -226,14 +226,13 @@ function ScenarioGrid({ scenarios }: { scenarios: FireScenarioResult[] }) {
 }
 
 function AssetChart({ scenarios }: { scenarios: FireScenarioResult[] }) {
-  const baseScenario = scenarios[1];
   const allRows = scenarios.flatMap((scenario) => scenario.projections);
   const width = 760;
   const height = 280;
   const padding = { top: 24, right: 24, bottom: 44, left: 88 };
   const values = [
     ...allRows.map((row) => row.investableAssets),
-    ...baseScenario.projections.map((row) => row.fireTargetAssets),
+    ...allRows.map((row) => row.fireTargetAssets),
   ];
   const minValue = Math.min(...values, 0);
   const maxValue = Math.max(...values, 1);
@@ -261,10 +260,6 @@ function AssetChart({ scenarios }: { scenarios: FireScenarioResult[] }) {
     height -
     padding.bottom -
     ((value - minValue) / valueRange) * (height - padding.top - padding.bottom);
-  const targetPoints = baseScenario.projections
-    .map((row) => toPoint(row, row.fireTargetAssets))
-    .join(" ");
-
   return (
     <article className="chart-card">
       <div className="chart-heading">
@@ -276,7 +271,7 @@ function AssetChart({ scenarios }: { scenarios: FireScenarioResult[] }) {
           <span className="legend-conservative">보수적</span>
           <span className="legend-base">기본</span>
           <span className="legend-optimistic">낙관적</span>
-          <span className="legend-target">FIRE 목표 자산</span>
+          <span className="legend-target">점선: FIRE 목표 자산</span>
         </div>
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="연도별 자산 추이">
@@ -318,7 +313,15 @@ function AssetChart({ scenarios }: { scenarios: FireScenarioResult[] }) {
           x2={padding.left}
           y2={height - padding.bottom}
         />
-        <polyline className="target-line" points={targetPoints} />
+        {scenarios.map((scenario) => (
+          <polyline
+            className={`target-line ${getScenarioLineClassName(scenario.name)}`}
+            key={`${scenario.name}-target`}
+            points={scenario.projections
+              .map((row) => toPoint(row, row.fireTargetAssets))
+              .join(" ")}
+          />
+        ))}
         {scenarios.map((scenario) => (
           <polyline
             className={`scenario-line ${getScenarioLineClassName(scenario.name)}`}
