@@ -3,47 +3,46 @@ import type { ReactNode } from "react";
 import {
   FIRE_PRESETS,
   calculateFireScenarios,
+  calculateYearsToWork,
   percentInputToRate,
   rateToPercentInput,
+  type DepletionResult,
   type FireInputs,
+  type FireProjection,
   type FireScenarioResult,
-  type FireYearProjection,
 } from "./fireCalculator";
 
 type NumericFormValue = number | "";
+type CalculationMode = "trinity" | "depletion";
 
 type FormValues = {
   investableAssets: NumericFormValue;
-  annualIncome: NumericFormValue;
-  annualExpenses: NumericFormValue;
-  annualReturnRate: NumericFormValue;
-  incomeGrowthRate: NumericFormValue;
-  inflationRate: NumericFormValue;
-  withdrawalMode: "manual" | "auto";
+  monthlySavings: NumericFormValue;
+  monthlyExpenses: NumericFormValue;
+  annualRealReturnRate: NumericFormValue;
   targetWithdrawalRate: NumericFormValue;
   currentAge: NumericFormValue;
   lifeExpectancy: NumericFormValue;
 };
 
-type NumericFormField = Exclude<keyof FormValues, "withdrawalMode">;
+type NumericFormField = keyof FormValues;
 
-const requiredFields = [
-  ["investableAssets", "현재 투자 가능 자산", "원"],
-  ["annualIncome", "연 수입", "원"],
-  ["annualExpenses", "연 생활비", "원"],
-  ["annualReturnRate", "연 투자 수익률", "%"],
-  ["incomeGrowthRate", "연 수입 증가율", "%"],
-  ["inflationRate", "인플레이션율", "%"],
+const commonFields = [
+  ["investableAssets", "현재 보유 자산", "원"],
+  ["monthlySavings", "월 평균 저축액", "원"],
+  ["monthlyExpenses", "월 평균 소비액", "원"],
+  ["annualRealReturnRate", "연평균 예상 실질 수익률", "%"],
+  ["currentAge", "현재 나이", "세"],
+  ["lifeExpectancy", "기대 수명", "세"],
 ] as const;
 
 const fieldHelpText: Partial<Record<NumericFormField, string>> = {
-  annualReturnRate:
-    "개인 투자자의 비용, 세금, 위험 감수 차이를 감안해 장기 기본값은 명목 5%로 둡니다.",
-  incomeGrowthRate:
-    "장기 임금과 소득 증가 가정은 과도하게 높이지 않고 명목 3%를 기본값으로 둡니다.",
-  inflationRate: "장기 계산에서는 한국은행 물가안정목표에 가까운 2%를 기본값으로 둡니다.",
+  annualRealReturnRate:
+    "인플레이션을 차감한 장기 실질 수익률입니다. 별도 물가 상승률은 입력하지 않습니다.",
   targetWithdrawalRate:
-    "연 생활비를 FIRE 목표 자산으로 환산하는 비율입니다. 낮을수록 더 보수적인 목표 자산이 나옵니다.",
+    "월 소비액을 FIRE 목표 자산으로 환산하는 비율입니다. 낮을수록 더 보수적인 목표 자산이 나옵니다.",
+  lifeExpectancy:
+    "기대수명 소진 모드에서는 이 나이까지 현재 소비 수준을 유지하는 데 필요한 근로 기간을 계산합니다.",
 };
 
 const scenarioClassNames = ["scenario-conservative", "scenario-base", "scenario-optimistic"];
@@ -51,6 +50,7 @@ const koreaAveragePreset = FIRE_PRESETS.find((preset) => preset.id === "korea-av
 const fireExamplePreset = FIRE_PRESETS.find((preset) => preset.id === "fire-example")!;
 
 function App() {
+  const [calculationMode, setCalculationMode] = useState<CalculationMode>("trinity");
   const [formValues, setFormValues] = useState<FormValues>(() =>
     presetToFormValues(fireExamplePreset.values),
   );
@@ -58,6 +58,7 @@ function App() {
 
   const inputs = useMemo(() => formValuesToInputs(formValues), [formValues]);
   const scenarios = useMemo(() => calculateFireScenarios(inputs), [inputs]);
+  const depletionResult = useMemo(() => calculateYearsToWork(inputs), [inputs]);
   const baseScenario = scenarios[1];
   const selectedScenario =
     scenarios.find((scenario) => scenario.name === selectedScenarioName) ?? baseScenario;
@@ -66,13 +67,6 @@ function App() {
     setFormValues((current) => ({
       ...current,
       [field]: value === "" ? "" : Number(value),
-    }));
-  };
-
-  const handleWithdrawalModeChange = (enabled: boolean) => {
-    setFormValues((current) => ({
-      ...current,
-      withdrawalMode: enabled ? "auto" : "manual",
     }));
   };
 
@@ -87,8 +81,8 @@ function App() {
           <p className="eyebrow">FIRE CALCULATOR</p>
           <h1>경제적 자유까지 얼마나 걸릴까요?</h1>
           <p className="lead">
-            투자 가능 자산, 수입, 생활비를 바탕으로 FIRE 도달 시점과 필요한 목표 자산을
-            계산합니다.
+            현재 자산, 월 저축액, 월 소비액을 바탕으로 FIRE 목표 도달 시점과 기대수명까지
+            버티기 위한 최소 근로 기간을 계산합니다.
           </p>
         </section>
       </header>
@@ -110,8 +104,8 @@ function App() {
             </button>
           </div>
 
-          <Fieldset title="필수 입력">
-            {requiredFields.map(([field, label, suffix]) => (
+          <Fieldset title="공통 입력">
+            {commonFields.map(([field, label, suffix]) => (
               <NumberField
                 key={field}
                 label={label}
@@ -121,84 +115,139 @@ function App() {
                 onChange={(value) => handleFieldChange(field, value)}
               />
             ))}
-            <NumberField
-              label="목표 인출률"
-              suffix="%"
-              value={
-                formValues.withdrawalMode === "auto"
-                  ? rateToPercentInput(baseScenario.projections[0].targetWithdrawalRate)
-                  : formValues.targetWithdrawalRate
-              }
-              readOnly={formValues.withdrawalMode === "auto"}
-              helpText={fieldHelpText.targetWithdrawalRate}
-              onChange={(value) => handleFieldChange("targetWithdrawalRate", value)}
-            />
-            <AutoWithdrawalSettings
-              enabled={formValues.withdrawalMode === "auto"}
-              currentAge={formValues.currentAge}
-              lifeExpectancy={formValues.lifeExpectancy}
-              appliedRate={baseScenario.projections[0].targetWithdrawalRate}
-              onToggle={handleWithdrawalModeChange}
-              onFieldChange={handleFieldChange}
-            />
           </Fieldset>
 
-          <ResultHero scenario={baseScenario} />
+          {calculationMode === "trinity" && (
+            <Fieldset title="트리니티 입력">
+              <NumberField
+                label="목표 인출률"
+                suffix="%"
+                value={formValues.targetWithdrawalRate}
+                helpText={fieldHelpText.targetWithdrawalRate}
+                onChange={(value) => handleFieldChange("targetWithdrawalRate", value)}
+              />
+            </Fieldset>
+          )}
+
+          <ResultHero
+            mode={calculationMode}
+            scenario={baseScenario}
+            depletionResult={depletionResult}
+          />
         </section>
 
         <section className="results-panel">
-          <div className="section-heading">
-            <p className="eyebrow">RESULTS</p>
-            <h2>계산 결과</h2>
+          <div className="section-heading results-heading">
+            <div>
+              <p className="eyebrow">RESULTS</p>
+              <h2>계산 결과</h2>
+            </div>
+            <ModeTabs selectedMode={calculationMode} onChange={setCalculationMode} />
           </div>
 
-          <SummaryGrid scenario={baseScenario} />
-          <ScenarioGrid scenarios={scenarios} />
-          <AssetChart scenarios={scenarios} />
+          {calculationMode === "trinity" ? (
+            <>
+              <SummaryGrid scenario={baseScenario} />
+              <ScenarioGrid scenarios={scenarios} />
+              <AssetChart scenarios={scenarios} />
+            </>
+          ) : (
+            <DepletionSummary result={depletionResult} />
+          )}
         </section>
       </section>
 
-      <section className="tables-band">
-        <div className="section-heading">
-          <p className="eyebrow">YEARLY PROJECTION</p>
-          <h2>연도별 추이</h2>
-        </div>
-        <div className="table-actions" aria-label="연도별 추이 시나리오 선택">
-          {scenarios.map((scenario) => (
-            <button
-              className={
-                scenario.name === selectedScenario.name ? "button-primary" : "button-secondary"
-              }
-              key={scenario.name}
-              type="button"
-              onClick={() => setSelectedScenarioName(scenario.name)}
-            >
-              {scenario.name}
-            </button>
-          ))}
-        </div>
-        <div className="table-grid">
-          <ProjectionTable
-            title="연도별 투자 가능 자산 추이"
-            rows={selectedScenario.projections}
-            valueKey="investableAssets"
-          />
-          <ProjectionTable
-            title="연도별 FIRE 목표 자산 추이"
-            rows={selectedScenario.projections}
-            valueKey="fireTargetAssets"
-          />
-        </div>
-      </section>
+      {calculationMode === "trinity" && (
+        <section className="tables-band">
+          <div className="section-heading">
+            <p className="eyebrow">MONTHLY PROJECTION</p>
+            <h2>월별 추이</h2>
+          </div>
+          <div className="table-actions" aria-label="월별 추이 시나리오 선택">
+            {scenarios.map((scenario) => (
+              <button
+                className={
+                  scenario.name === selectedScenario.name ? "button-primary" : "button-secondary"
+                }
+                key={scenario.name}
+                type="button"
+                onClick={() => setSelectedScenarioName(scenario.name)}
+              >
+                {scenario.name}
+              </button>
+            ))}
+          </div>
+          <div className="table-grid">
+            <ProjectionTable
+              title="투자 가능 자산 추이"
+              rows={getTableRows(selectedScenario.projections)}
+              valueKey="investableAssets"
+            />
+            <ProjectionTable
+              title="FIRE 목표 자산 추이"
+              rows={getTableRows(selectedScenario.projections)}
+              valueKey="fireTargetAssets"
+            />
+          </div>
+        </section>
+      )}
     </main>
   );
 }
 
-function ResultHero({ scenario }: { scenario: FireScenarioResult }) {
+function ModeTabs({
+  selectedMode,
+  onChange,
+}: {
+  selectedMode: CalculationMode;
+  onChange: (mode: CalculationMode) => void;
+}) {
+  const tabs = [
+    ["trinity", "트리니티 법칙"],
+    ["depletion", "기대수명 소진"],
+  ] as const;
+
+  return (
+    <div className="mode-tabs" role="tablist" aria-label="계산 모드">
+      {tabs.map(([mode, label]) => (
+        <button
+          aria-selected={selectedMode === mode}
+          className={selectedMode === mode ? "mode-tab mode-tab-active" : "mode-tab"}
+          key={mode}
+          role="tab"
+          type="button"
+          onClick={() => onChange(mode)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ResultHero({
+  mode,
+  scenario,
+  depletionResult,
+}: {
+  mode: CalculationMode;
+  scenario: FireScenarioResult;
+  depletionResult: DepletionResult;
+}) {
+  if (mode === "depletion") {
+    return (
+      <aside className="hero-card depletion-hero-card">
+        <p className="card-label">기대수명까지 버티기 위한 최소 근로 기간</p>
+        <strong>{formatWorkRequirementSentence(depletionResult)}</strong>
+        <span>{formatDepletionStatus(depletionResult)}</span>
+      </aside>
+    );
+  }
+
   return (
     <aside className="hero-card">
       <p className="card-label">경제적 자유 도달 시점</p>
-      <strong>{formatYearsToFire(scenario)}</strong>
+      <strong>{formatMonthsToFire(scenario)}</strong>
       <span>
         {scenario.status === "achieved"
           ? "현재 입력값 기준으로 목표 자산에 도달하는 시점입니다."
@@ -211,14 +260,8 @@ function ResultHero({ scenario }: { scenario: FireScenarioResult }) {
 function SummaryGrid({ scenario }: { scenario: FireScenarioResult }) {
   const items = [
     ["현재 기준 FIRE 목표 자산", formatMoney(scenario.currentFireTargetAssets)],
-    [
-      "인플레이션 반영 은퇴 시점의 FIRE 목표 자산",
-      scenario.retirementFireTargetAssets === null
-        ? "도달 어려움"
-        : formatMoney(scenario.retirementFireTargetAssets),
-    ],
-    ["앞으로 더 일해야 하는 기간", formatYearsToFire(scenario)],
-    ["적용된 목표 인출률", `${rateToPercentInput(scenario.projections[0].targetWithdrawalRate)}%`],
+    ["앞으로 더 일해야 하는 기간", formatMonthsToFire(scenario)],
+    ["적용된 목표 인출률", `${rateToPercentInput(scenario.inputs.targetWithdrawalRate)}%`],
     [
       "은퇴 시 예상 투자 가능 자산",
       scenario.retirementInvestableAssets === null
@@ -226,10 +269,10 @@ function SummaryGrid({ scenario }: { scenario: FireScenarioResult }) {
         : formatMoney(scenario.retirementInvestableAssets),
     ],
     [
-      "은퇴 시 예상 연 생활비",
-      scenario.retirementAnnualExpenses === null
+      "현재 월 소비액",
+      scenario.retirementMonthlyExpenses === null
         ? "도달 어려움"
-        : formatMoney(scenario.retirementAnnualExpenses),
+        : `${formatMoney(scenario.retirementMonthlyExpenses)} / 월`,
     ],
     [
       "은퇴 후 안전 인출 가능 금액",
@@ -251,6 +294,41 @@ function SummaryGrid({ scenario }: { scenario: FireScenarioResult }) {
   );
 }
 
+function DepletionSummary({ result }: { result: DepletionResult }) {
+  const items = [
+    ["필요 최소 근로 기간", formatWorkDuration(result.monthsToWork)],
+    ["은퇴 예상 나이", formatRetirementAge(result.retirementAge)],
+    ["최고점 자산 규모", result.peakAssets === null ? "계산 불가" : formatMoney(result.peakAssets)],
+    [
+      "기대수명 시점 잔여 자산",
+      result.finalAssets === null ? "계산 불가" : formatMoney(result.finalAssets),
+    ],
+  ];
+
+  return (
+    <>
+      <div className="summary-grid depletion-grid">
+        {items.map(([label, value]) => (
+          <article className="metric-card" key={label}>
+            <span>{label}</span>
+            <strong>{value}</strong>
+          </article>
+        ))}
+      </div>
+      <article className="chart-card depletion-note">
+        <div>
+          <p className="eyebrow">MODEL</p>
+          <h3>기대수명 소진 모델</h3>
+        </div>
+        <p>
+          근로 기간에는 매월 저축액을 더하고, 은퇴 후에는 매월 소비액을 차감합니다. 모든 월의
+          자산에는 입력한 연평균 실질 수익률을 월 수익률로 환산해 적용합니다.
+        </p>
+      </article>
+    </>
+  );
+}
+
 function ScenarioGrid({ scenarios }: { scenarios: FireScenarioResult[] }) {
   return (
     <div className="scenario-grid">
@@ -258,7 +336,7 @@ function ScenarioGrid({ scenarios }: { scenarios: FireScenarioResult[] }) {
         <article className={`scenario-card ${scenarioClassNames[index]}`} key={scenario.name}>
           <span>{scenario.description}</span>
           <h3>{scenario.name} 시나리오</h3>
-          <strong>{formatYearsToFire(scenario)}</strong>
+          <strong>{formatMonthsToFire(scenario)}</strong>
           <p>
             {scenario.retirementInvestableAssets === null
               ? "100년 제한 안에서 FIRE 목표 자산에 도달하지 못합니다."
@@ -285,16 +363,16 @@ function AssetChart({ scenarios }: { scenarios: FireScenarioResult[] }) {
   const minValue = Math.min(...values, 0);
   const maxValue = Math.max(...values, 1);
   const valueRange = maxValue - minValue || 1;
-  const maxYear = Math.max(
-    ...scenarios.map((scenario) => scenario.projections.at(-1)?.year ?? 1),
+  const maxMonth = Math.max(
+    ...scenarios.map((scenario) => scenario.projections.at(-1)?.month ?? 1),
     1,
   );
   const yTicks = Array.from({ length: 4 }, (_, index) => minValue + (valueRange / 3) * index);
-  const xTicks = Array.from(new Set([0, Math.round(maxYear / 2), maxYear]));
+  const xTicks = Array.from(new Set([0, Math.round(maxMonth / 2), maxMonth]));
 
-  const toPoint = (row: FireYearProjection, value: number) => {
+  const toPoint = (row: FireProjection, value: number) => {
     const x =
-      padding.left + (row.year / maxYear) * (width - padding.left - padding.right);
+      padding.left + (row.month / maxMonth) * (width - padding.left - padding.right);
     const y =
       height -
       padding.bottom -
@@ -302,8 +380,8 @@ function AssetChart({ scenarios }: { scenarios: FireScenarioResult[] }) {
     return `${x},${y}`;
   };
 
-  const toX = (year: number) =>
-    padding.left + (year / maxYear) * (width - padding.left - padding.right);
+  const toX = (month: number) =>
+    padding.left + (month / maxMonth) * (width - padding.left - padding.right);
   const toY = (value: number) =>
     height -
     padding.bottom -
@@ -313,7 +391,7 @@ function AssetChart({ scenarios }: { scenarios: FireScenarioResult[] }) {
       <div className="chart-heading">
         <div>
           <p className="eyebrow">CHART</p>
-          <h3>연도별 자산 추이 그래프</h3>
+          <h3>월별 자산 추이 그래프</h3>
         </div>
         <div className="legend">
           <span className="legend-conservative">보수적</span>
@@ -322,7 +400,7 @@ function AssetChart({ scenarios }: { scenarios: FireScenarioResult[] }) {
           <span className="legend-target">점선: FIRE 목표 자산</span>
         </div>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="연도별 자산 추이">
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="월별 자산 추이">
         {yTicks.map((tick) => (
           <g key={`y-${tick}`}>
             <line
@@ -344,7 +422,7 @@ function AssetChart({ scenarios }: { scenarios: FireScenarioResult[] }) {
             x={toX(tick)}
             y={height - 12}
           >
-            {tick === 0 ? "현재" : `${tick}년`}
+            {tick === 0 ? "현재" : formatProjectionMonth(tick)}
           </text>
         ))}
         <line
@@ -412,7 +490,7 @@ function ProjectionTable({
   valueKey,
 }: {
   title: string;
-  rows: FireYearProjection[];
+  rows: FireProjection[];
   valueKey: "investableAssets" | "fireTargetAssets";
 }) {
   return (
@@ -422,19 +500,19 @@ function ProjectionTable({
         <table>
           <thead>
             <tr>
-              <th>연도</th>
+              <th>시점</th>
               <th>{valueKey === "investableAssets" ? "투자 가능 자산" : "FIRE 목표 자산"}</th>
               <th>목표 인출률</th>
-              <th>연 생활비</th>
+              <th>월 소비액</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={`${valueKey}-${row.year}`}>
-                <td>{formatProjectionYear(row.year)}</td>
+              <tr key={`${valueKey}-${row.month}`}>
+                <td>{formatProjectionMonth(row.month)}</td>
                 <td>{formatMoney(row[valueKey])}</td>
                 <td>{rateToPercentInput(row.targetWithdrawalRate)}%</td>
-                <td>{formatMoney(row.annualExpenses)}</td>
+                <td>{formatMoney(row.monthlyExpenses)}</td>
               </tr>
             ))}
           </tbody>
@@ -453,64 +531,16 @@ function Fieldset({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function AutoWithdrawalSettings({
-  enabled,
-  currentAge,
-  lifeExpectancy,
-  appliedRate,
-  onToggle,
-  onFieldChange,
-}: {
-  enabled: boolean;
-  currentAge: NumericFormValue;
-  lifeExpectancy: NumericFormValue;
-  appliedRate: number;
-  onToggle: (enabled: boolean) => void;
-  onFieldChange: (field: NumericFormField, value: string) => void;
-}) {
-  return (
-    <div className="auto-withdrawal">
-      <label className="toggle-field">
-        <input
-          type="checkbox"
-          checked={enabled}
-          onChange={(event) => onToggle(event.target.checked)}
-        />
-        <span>나이와 기대수명으로 자동 계산</span>
-      </label>
-      {enabled && (
-        <div className="auto-withdrawal-fields">
-          <NumberField
-            label="현재 나이"
-            suffix="세"
-            value={currentAge}
-            onChange={(value) => onFieldChange("currentAge", value)}
-          />
-          <NumberField
-            label="기대수명"
-            suffix="세"
-            value={lifeExpectancy}
-            onChange={(value) => onFieldChange("lifeExpectancy", value)}
-          />
-          <p>현재 기준 자동 인출률 {rateToPercentInput(appliedRate)}%</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function NumberField({
   label,
   suffix,
   value,
-  readOnly = false,
   helpText,
   onChange,
 }: {
   label: string;
   suffix: string;
   value: NumericFormValue;
-  readOnly?: boolean;
   helpText?: string;
   onChange: (value: string) => void;
 }) {
@@ -538,7 +568,6 @@ function NumberField({
           id={inputId}
           type="number"
           inputMode="decimal"
-          readOnly={readOnly}
           value={inputValue}
           onChange={(event) => onChange(event.target.value)}
         />
@@ -552,12 +581,9 @@ function NumberField({
 function presetToFormValues(values: FireInputs): FormValues {
   return {
     investableAssets: values.investableAssets,
-    annualIncome: values.annualIncome,
-    annualExpenses: values.annualExpenses,
-    annualReturnRate: rateToPercentInput(values.annualReturnRate),
-    incomeGrowthRate: rateToPercentInput(values.incomeGrowthRate),
-    inflationRate: rateToPercentInput(values.inflationRate),
-    withdrawalMode: values.withdrawalMode,
+    monthlySavings: values.monthlySavings,
+    monthlyExpenses: values.monthlyExpenses,
+    annualRealReturnRate: rateToPercentInput(values.annualRealReturnRate),
     targetWithdrawalRate: rateToPercentInput(values.targetWithdrawalRate),
     currentAge: values.currentAge,
     lifeExpectancy: values.lifeExpectancy,
@@ -567,12 +593,9 @@ function presetToFormValues(values: FireInputs): FormValues {
 function formValuesToInputs(values: FormValues): FireInputs {
   return {
     investableAssets: normalizeFormNumber(values.investableAssets),
-    annualIncome: normalizeFormNumber(values.annualIncome),
-    annualExpenses: normalizeFormNumber(values.annualExpenses),
-    annualReturnRate: percentInputToRate(normalizeFormNumber(values.annualReturnRate)),
-    incomeGrowthRate: percentInputToRate(normalizeFormNumber(values.incomeGrowthRate)),
-    inflationRate: percentInputToRate(normalizeFormNumber(values.inflationRate)),
-    withdrawalMode: values.withdrawalMode,
+    monthlySavings: normalizeFormNumber(values.monthlySavings),
+    monthlyExpenses: normalizeFormNumber(values.monthlyExpenses),
+    annualRealReturnRate: percentInputToRate(normalizeFormNumber(values.annualRealReturnRate)),
     targetWithdrawalRate: percentInputToRate(normalizeFormNumber(values.targetWithdrawalRate)),
     currentAge: normalizeFormNumber(values.currentAge),
     lifeExpectancy: normalizeFormNumber(values.lifeExpectancy),
@@ -581,6 +604,11 @@ function formValuesToInputs(values: FormValues): FireInputs {
 
 function normalizeFormNumber(value: NumericFormValue): number {
   return value === "" ? 0 : value;
+}
+
+function getTableRows(rows: FireProjection[]): FireProjection[] {
+  const lastMonth = rows.at(-1)?.month ?? 0;
+  return rows.filter((row) => row.month % 12 === 0 || row.month === lastMonth);
 }
 
 function formatMoney(value: number): string {
@@ -598,20 +626,78 @@ function formatMoney(value: number): string {
   return `${Math.round(value).toLocaleString("ko-KR")}원`;
 }
 
-function formatYearsToFire(scenario: FireScenarioResult): string {
-  if (scenario.yearsToFire === null) {
+function formatMonthsToFire(scenario: FireScenarioResult): string {
+  if (scenario.monthsToFire === null) {
     return "도달 어려움";
   }
 
-  if (scenario.yearsToFire === 0) {
+  if (scenario.monthsToFire === 0) {
     return "이미 도달";
   }
 
-  return `${scenario.yearsToFire}년 뒤`;
+  return `${formatWorkDuration(scenario.monthsToFire)} 뒤`;
 }
 
-function formatProjectionYear(year: number): string {
-  return year === 0 ? "현재" : `${year}년 뒤`;
+function formatWorkRequirementSentence(result: DepletionResult): string {
+  if (result.status === "invalid-time-horizon") {
+    return "계산할 기간이 없습니다.";
+  }
+
+  if (result.status === "not-achievable" || result.monthsToWork === null) {
+    return "현재 조건으로는 어렵습니다.";
+  }
+
+  return `앞으로 ${formatWorkDuration(result.monthsToWork)} 더 일해야 합니다.`;
+}
+
+function formatDepletionStatus(result: DepletionResult): string {
+  if (result.status === "already-sufficient") {
+    return "현재 자산만으로도 기대수명까지 현재 소비 수준을 유지할 수 있습니다.";
+  }
+
+  if (result.status === "achievable") {
+    return "기대수명 시점에 자산이 0 이상이 되는 가장 빠른 은퇴 시점입니다.";
+  }
+
+  if (result.status === "invalid-time-horizon") {
+    return "기대 수명이 현재 나이보다 커야 합니다.";
+  }
+
+  return "기대수명까지 계속 일해도 현재 소비 수준을 유지하기 어렵습니다.";
+}
+
+function formatWorkDuration(months: number | null): string {
+  if (months === null) {
+    return "계산 불가";
+  }
+
+  const years = Math.floor(months / 12);
+  const remainingMonths = months % 12;
+
+  return `${years}년 ${remainingMonths}개월`;
+}
+
+function formatRetirementAge(age: number | null): string {
+  if (age === null) {
+    return "계산 불가";
+  }
+
+  const years = Math.floor(age);
+  const months = Math.round((age - years) * 12);
+
+  if (months === 0) {
+    return `${years}세`;
+  }
+
+  return `${years}세 ${months}개월`;
+}
+
+function formatProjectionMonth(month: number): string {
+  if (month === 0) {
+    return "현재";
+  }
+
+  return `${formatWorkDuration(month)} 뒤`;
 }
 
 function getScenarioLineClassName(name: string): string {
