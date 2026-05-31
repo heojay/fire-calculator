@@ -49,9 +49,10 @@ const depletionFields = [
 const fieldHelpText: Partial<Record<NumericFormField, string>> = {
   monthlyIncome: "매월 저축액은 현재 월 수입에서 월 소비액을 뺀 금액으로 계산합니다.",
   annualNominalReturnRate:
-    "물가 상승률을 차감하지 않은 명목 기준 장기 투자 수익률입니다.",
-  annualInflationRate: "월 소비액은 12개월마다 이 비율만큼 복리로 증가합니다.",
-  annualIncomeGrowthRate: "월 수입은 12개월마다 이 비율만큼 복리로 증가합니다.",
+    "개인 투자자의 비용, 세금, 위험 감수 차이를 감안해 장기 기본값은 명목 5%로 둡니다.",
+  annualInflationRate: "장기 계산에서는 한국은행 물가안정목표에 가까운 2%를 기본값으로 둡니다.",
+  annualIncomeGrowthRate:
+    "장기 임금과 소득 증가 가정은 과도하게 높이지 않고 명목 3%를 기본값으로 둡니다.",
   targetWithdrawalRate:
     "월 소비액을 FIRE 목표 자산으로 환산하는 비율입니다. 낮을수록 더 보수적인 목표 자산이 나옵니다.",
   lifeExpectancy:

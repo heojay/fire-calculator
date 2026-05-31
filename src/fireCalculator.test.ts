@@ -292,16 +292,16 @@ describe("calculateYearsToWork", () => {
 });
 
 describe("FIRE_PRESETS", () => {
-  it("기본 예시값은 월 단위 수입, 소비와 7% 명목 수익률을 사용한다", () => {
+  it("기본 예시값은 과거 연 단위 기본값을 월 단위로 환산하고 5% 명목 수익률을 사용한다", () => {
     const examplePreset = FIRE_PRESETS.find((preset) => preset.id === "fire-example");
 
-    expect(examplePreset?.values.investableAssets).toBe(360_000_000);
-    expect(examplePreset?.values.monthlyIncome).toBe(10_000_000);
-    expect(examplePreset?.values.monthlyExpenses).toBe(3_500_000);
-    expect(examplePreset?.values.annualNominalReturnRate).toBe(0.07);
-    expect(examplePreset?.values.annualInflationRate).toBe(0.025);
-    expect(examplePreset?.values.annualIncomeGrowthRate).toBe(0.035);
-    expect(examplePreset?.values.currentAge).toBe(31);
+    expect(examplePreset?.values.investableAssets).toBe(350_000_000);
+    expect(examplePreset?.values.monthlyIncome).toBe(120_000_000 / 12);
+    expect(examplePreset?.values.monthlyExpenses).toBe(42_000_000 / 12);
+    expect(examplePreset?.values.annualNominalReturnRate).toBe(0.05);
+    expect(examplePreset?.values.annualInflationRate).toBe(0.02);
+    expect(examplePreset?.values.annualIncomeGrowthRate).toBe(0.03);
+    expect(examplePreset?.values.currentAge).toBe(40);
     expect(examplePreset?.values.lifeExpectancy).toBe(90);
   });
 });
