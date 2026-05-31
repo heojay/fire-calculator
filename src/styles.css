@@ -100,6 +100,205 @@ main {
   color: var(--ink);
 }
 
+.help-button {
+  min-height: 38px;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  padding: 8px 14px;
+  color: var(--ink);
+  background: var(--canvas);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.help-button:hover,
+.help-button:focus-visible,
+.help-close-button:hover,
+.help-close-button:focus-visible {
+  border-color: var(--primary);
+}
+
+.help-button:focus-visible,
+.help-close-button:focus-visible {
+  outline: 2px solid var(--blue-info);
+  outline-offset: 2px;
+}
+
+.help-overlay {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(8 8 8 / 46%);
+}
+
+.help-dialog {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  width: min(920px, 100%);
+  max-height: min(860px, calc(100vh - 48px));
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--canvas);
+  box-shadow: 0 24px 80px rgb(8 8 8 / 22%);
+  overflow: hidden;
+}
+
+.help-dialog-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--hairline);
+  padding: 24px 24px 18px;
+}
+
+.help-dialog-header h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.help-close-button {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--hairline);
+  border-radius: 50%;
+  color: var(--ink);
+  background: var(--canvas);
+  font-size: 26px;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.help-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid var(--hairline);
+  padding: 16px 24px;
+}
+
+.help-toc a {
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  padding: 7px 10px;
+  color: var(--body);
+  background: var(--canvas);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-decoration: none;
+}
+
+.help-toc a:hover,
+.help-toc a:focus-visible {
+  border-color: var(--primary);
+  color: var(--ink);
+}
+
+.help-toc a:focus-visible {
+  outline: 2px solid var(--blue-info);
+  outline-offset: 2px;
+}
+
+.help-content {
+  display: grid;
+  gap: 28px;
+  min-height: 0;
+  padding: 24px;
+  overflow: auto;
+  scroll-behavior: smooth;
+}
+
+.help-section {
+  display: grid;
+  gap: 12px;
+  scroll-margin-top: 16px;
+}
+
+.help-section h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.help-section p,
+.help-section li,
+.help-definition-list dd {
+  margin: 0;
+  color: var(--body);
+  font-size: 15px;
+  line-height: 1.75;
+  word-break: keep-all;
+}
+
+.help-section ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.formula-block {
+  display: grid;
+  gap: 6px;
+  border-left: 3px solid var(--primary);
+  padding: 10px 12px;
+  background: #f8f8f8;
+}
+
+.formula-block span {
+  color: var(--body-mid);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.formula-block code {
+  color: var(--ink);
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    "Liberation Mono",
+    monospace;
+  font-size: 14px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.help-definition-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.help-definition-list div {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr);
+  gap: 12px;
+  border-bottom: 1px solid var(--hairline);
+  padding-bottom: 8px;
+}
+
+.help-definition-list dt {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
 .hero-grid {
   max-width: 920px;
 }
@@ -906,6 +1105,10 @@ td {
     flex-direction: column;
   }
 
+  .help-button {
+    width: fit-content;
+  }
+
   .results-controls {
     justify-content: stretch;
   }
@@ -954,6 +1157,41 @@ td {
 
   .field-tooltip {
     width: min(238px, calc(100vw - 48px));
+  }
+
+  .help-overlay {
+    padding: 12px;
+  }
+
+  .help-dialog {
+    max-height: calc(100vh - 24px);
+  }
+
+  .help-dialog-header,
+  .help-content {
+    padding: 20px;
+  }
+
+  .help-dialog-header h2 {
+    font-size: 26px;
+  }
+
+  .help-toc {
+    padding: 14px 20px;
+  }
+
+  .help-toc a {
+    font-size: 12px;
+  }
+
+  .help-section h3 {
+    font-size: 19px;
+  }
+
+  .help-section p,
+  .help-section li,
+  .help-definition-list dd {
+    font-size: 14px;
   }
 
   fieldset,

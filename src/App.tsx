@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   FIRE_PRESETS,
@@ -128,6 +128,7 @@ function App() {
   const [valueBasis, setValueBasis] = useState<ValueBasis>(initialState.valueBasis);
   const [activeResultTab, setActiveResultTab] = useState<ResultTab>("summary");
   const [formValues, setFormValues] = useState<FormValues>(initialState.formValues);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   const inputs = useMemo(() => formValuesToInputs(formValues), [formValues]);
   const scenarios = useMemo(() => calculateFireScenarios(inputs), [inputs]);
@@ -155,6 +156,9 @@ function App() {
       <header className="hero-band">
         <nav className="top-nav" aria-label="상단">
           <div className="brand">FIRE 계산기</div>
+          <button className="help-button" type="button" onClick={() => setIsHelpOpen(true)}>
+            도움말
+          </button>
         </nav>
 
         <section className="hero-grid">
@@ -333,7 +337,241 @@ function App() {
           heojay.dev
         </a>
       </footer>
+
+      {isHelpOpen && <HelpDialog onClose={() => setIsHelpOpen(false)} />}
     </main>
+  );
+}
+
+function HelpDialog({ onClose }: { onClose: () => void }) {
+  const titleId = useId();
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [onClose]);
+
+  return (
+    <div className="help-overlay" onClick={onClose}>
+      <section
+        aria-labelledby={titleId}
+        aria-modal="true"
+        className="help-dialog"
+        role="dialog"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="help-dialog-header">
+          <div>
+            <p className="eyebrow">HELP</p>
+            <h2 id={titleId}>도움말</h2>
+          </div>
+          <button
+            aria-label="도움말 닫기"
+            className="help-close-button"
+            ref={closeButtonRef}
+            type="button"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </div>
+
+        <nav className="help-toc" aria-label="도움말 목차">
+          <a href="#help-formulas">1. 주요 계산식</a>
+          <a href="#help-value-basis">2. 명목 기준과 현재 가치</a>
+          <a href="#help-withdrawal-rate">3. 목표 인출률 방식</a>
+          <a href="#help-depletion">4. 기대수명 소진 방식</a>
+          <a href="#help-pension">5. 국민연금 입력 기준</a>
+          <a href="#help-experiments">6. 가정 바꿔보기</a>
+          <a href="#help-limitations">7. 계산기의 한계</a>
+        </nav>
+
+        <div className="help-content">
+          <HelpSection id="help-formulas" title="1. 주요 계산식">
+            <p>월 저축액은 월 수입에서 월 소비를 뺀 금액입니다.</p>
+            <FormulaBlock label="월 저축액">월 저축액 = 월 수입 - 월 소비</FormulaBlock>
+            <p>은퇴 전 월별 자산은 월 수익률과 월 저축액을 반영해 계산합니다.</p>
+            <FormulaBlock label="월별 자산 변화">
+              다음 달 자산 = 현재 자산 × (1 + 월 수익률) + 월 저축액
+            </FormulaBlock>
+            <p>은퇴 후에는 월 저축액 대신 생활비 인출과 국민연금 수령액을 반영합니다.</p>
+            <FormulaBlock label="은퇴 후 자산">
+              은퇴 후 자산 = 현재 자산 × (1 + 월 수익률) - 월 소비 + 국민연금
+            </FormulaBlock>
+            <p>목표 인출률 방식의 필요 자산은 연간 소비액을 목표 인출률로 나눕니다.</p>
+            <FormulaBlock label="목표 자산">
+              필요 자산 = 연간 소비액 ÷ 목표 인출률
+            </FormulaBlock>
+            <p>
+              예를 들어 월 소비가 400만 원이고 목표 인출률이 3.5%라면 4,800만 원 ÷
+              0.035 = 약 13.7억 원입니다.
+            </p>
+            <FormulaBlock label="월 소비 증가에 따른 추가 필요 자산">
+              추가 필요 자산 = 추가 월 소비액 × 12 ÷ 목표 인출률
+            </FormulaBlock>
+            <p>
+              예를 들어 월 소비가 50만 원 늘고 목표 인출률이 3.5%라면 600만 원 ÷
+              0.035 = 약 1.7억 원입니다.
+            </p>
+          </HelpSection>
+
+          <HelpSection id="help-value-basis" title="2. 명목 기준과 현재 가치">
+            <p>명목 기준은 미래 시점에 실제로 필요한 금액입니다.</p>
+            <p>현재 가치는 미래 금액을 오늘 돈의 가치로 환산한 금액입니다.</p>
+            <dl className="help-definition-list">
+              <div>
+                <dt>명목 기준</dt>
+                <dd>미래에 실제 필요한 금액</dd>
+              </div>
+              <div>
+                <dt>현재 가치</dt>
+                <dd>오늘 돈 기준으로 환산한 금액</dd>
+              </div>
+            </dl>
+            <p>
+              예를 들어 20년 후 20억 원이 필요하더라도, 물가상승률을 반영하면 오늘 돈
+              가치로는 더 낮게 보일 수 있습니다.
+            </p>
+          </HelpSection>
+
+          <HelpSection id="help-withdrawal-rate" title="3. 목표 인출률 방식">
+            <p>
+              목표 인출률 방식은 은퇴 후 매년 자산의 일정 비율을 꺼내 쓴다고 가정해 필요한
+              자산을 계산합니다.
+            </p>
+            <FormulaBlock label="목표 인출률 방식">
+              필요 자산 = 연간 소비액 ÷ 목표 인출률
+            </FormulaBlock>
+            <p>인출률이 낮을수록 더 보수적인 계산입니다.</p>
+            <ul>
+              <li>4.0%: 연 생활비의 25배 필요</li>
+              <li>3.5%: 연 생활비의 약 28.6배 필요</li>
+              <li>3.0%: 연 생활비의 약 33.3배 필요</li>
+            </ul>
+            <p>
+              이 방식은 단순하고 직관적이지만, 국민연금이나 은퇴 후 현금흐름을 세밀하게
+              반영하기는 어렵습니다.
+            </p>
+          </HelpSection>
+
+          <HelpSection id="help-depletion" title="4. 기대수명 소진 방식">
+            <p>
+              기대수명 소진 방식은 은퇴 후 자산을 영원히 유지한다고 보지 않고, 기대수명까지
+              자산이 버틸 수 있는지를 계산합니다.
+            </p>
+            <p>
+              은퇴 전에는 저축으로 자산을 늘리고, 은퇴 후에는 생활비를 인출합니다.
+              국민연금이 있다면 특정 나이 이후의 현금흐름으로 반영합니다.
+            </p>
+            <dl className="help-definition-list">
+              <div>
+                <dt>은퇴 전</dt>
+                <dd>자산 증가 + 저축</dd>
+              </div>
+              <div>
+                <dt>은퇴 후</dt>
+                <dd>자산 증가 - 생활비 + 국민연금</dd>
+              </div>
+            </dl>
+            <p>
+              목표 인출률 방식보다 현실적인 시뮬레이션에 가깝지만, 기대수명보다 오래 살거나
+              수익률이 낮아지면 결과가 달라질 수 있습니다.
+            </p>
+          </HelpSection>
+
+          <HelpSection id="help-pension" title="5. 국민연금 입력 기준">
+            <p>국민연금 월 예상액은 현재 가치 기준으로 입력하세요.</p>
+            <p>
+              예를 들어 65세 이후 받을 국민연금이 오늘 돈 가치로 월 100만 원 정도라고
+              예상된다면, 100만 원을 입력하면 됩니다.
+            </p>
+            <p>미래 수령 시점의 명목 금액은 물가상승률을 반영해 자동으로 계산됩니다.</p>
+            <dl className="help-definition-list">
+              <div>
+                <dt>입력값</dt>
+                <dd>오늘 돈 가치 기준 국민연금</dd>
+              </div>
+              <div>
+                <dt>계산값</dt>
+                <dd>미래 시점의 명목 국민연금</dd>
+              </div>
+            </dl>
+            <p>미래에 받을 명목 금액을 그대로 입력하면 결과가 과대평가될 수 있습니다.</p>
+          </HelpSection>
+
+          <HelpSection id="help-experiments" title="6. 가정 바꿔보기">
+            <p>
+              가정 바꿔보기는 현재 입력값은 그대로 두고, 특정 조건만 바꿨을 때 결과가 얼마나
+              달라지는지 비교하는 기능입니다.
+            </p>
+            <p>예를 들어 다음과 같은 질문을 확인할 수 있습니다.</p>
+            <ul>
+              <li>월 소비가 50만 원 늘면 은퇴가 얼마나 늦어질까?</li>
+              <li>월 저축을 100만 원 늘리면 은퇴가 얼마나 빨라질까?</li>
+              <li>수익률이 1%p 달라지면 결과가 얼마나 바뀔까?</li>
+            </ul>
+            <p>이 값은 실제 입력값에 저장되지 않고, 비교 계산에만 사용됩니다.</p>
+          </HelpSection>
+
+          <HelpSection id="help-limitations" title="7. 계산기의 한계">
+            <p>이 계산기는 입력한 가정을 바탕으로 한 추정 도구입니다.</p>
+            <p>
+              실제 결과는 투자수익률, 물가상승률, 세금, 건강보험료, 주거비, 자녀 교육비,
+              국민연금 제도 변화, 예상보다 긴 수명 등에 따라 달라질 수 있습니다.
+            </p>
+            <p>
+              특히 수익률은 매년 일정하지 않고, 은퇴 직후 큰 하락장이 오면 자산 소진 속도가
+              빨라질 수 있습니다.
+            </p>
+            <p>
+              따라서 계산 결과는 확정적인 은퇴 가능 시점이 아니라, 소비·저축·투자 가정이
+              장기적으로 어떤 차이를 만드는지 확인하는 참고값으로 봐주세요.
+            </p>
+          </HelpSection>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function HelpSection({
+  children,
+  id,
+  title,
+}: {
+  children: ReactNode;
+  id: string;
+  title: string;
+}) {
+  return (
+    <section className="help-section" id={id}>
+      <h3>{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+function FormulaBlock({ children, label }: { children: ReactNode; label: string }) {
+  return (
+    <div className="formula-block">
+      <span>{label}</span>
+      <code>{children}</code>
+    </div>
   );
 }
 
