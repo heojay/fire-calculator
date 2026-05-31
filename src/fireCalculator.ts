@@ -75,7 +75,7 @@ export const FIRE_PRESETS: FirePreset[] = [
     name: "대한민국 평균 가구",
     values: {
       investableAssets: 150_000_000,
-      monthlyIncome: 74_270_000 / 12,
+      monthlyIncome: 6_189_000,
       monthlyExpenses: 35_268_000 / 12,
       annualNominalReturnRate: 0.05,
       annualInflationRate: 0.02,

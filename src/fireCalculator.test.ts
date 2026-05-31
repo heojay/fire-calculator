@@ -292,6 +292,12 @@ describe("calculateYearsToWork", () => {
 });
 
 describe("FIRE_PRESETS", () => {
+  it("대한민국 평균 가구의 월 수입은 천 원 단위로 절삭한다", () => {
+    const koreaAveragePreset = FIRE_PRESETS.find((preset) => preset.id === "korea-average");
+
+    expect(koreaAveragePreset?.values.monthlyIncome).toBe(6_189_000);
+  });
+
   it("기본 예시값은 과거 연 단위 기본값을 월 단위로 환산하고 5% 명목 수익률을 사용한다", () => {
     const examplePreset = FIRE_PRESETS.find((preset) => preset.id === "fire-example");
 
