@@ -346,6 +346,12 @@ function DepletionSummary({ result }: { result: DepletionResult }) {
   const items = [
     ["필요 최소 근로 기간", formatWorkDuration(result.monthsToWork)],
     ["은퇴 예상 나이", formatRetirementAge(result.retirementAge)],
+    [
+      "은퇴 후 첫 달 예상 생활비",
+      result.retirementFirstMonthExpenses === null
+        ? "계산 불가"
+        : `${formatMoney(result.retirementFirstMonthExpenses)} / 월`,
+    ],
     ["최고점 자산 규모", result.peakAssets === null ? "계산 불가" : formatMoney(result.peakAssets)],
     [
       "기대수명 시점 잔여 자산",
@@ -361,8 +367,8 @@ function DepletionSummary({ result }: { result: DepletionResult }) {
           <h3>기대수명 소진 모델</h3>
         </div>
         <p>
-          근로 기간에는 매월 저축액을 더하고, 은퇴 후에는 매월 소비액을 차감합니다. 모든 월의
-          자산에는 입력한 연평균 실질 수익률을 월 수익률로 환산해 적용합니다.
+          근로 기간에는 월 수입에서 월 소비액을 뺀 금액을 더하고, 은퇴 후에는 월 소비액을
+          차감합니다. 월 수입과 소비액은 매년 입력한 증가율을 반영합니다.
         </p>
       </article>
       <div className="summary-grid depletion-grid">
@@ -690,6 +696,7 @@ function DepletionProjectionTable({ rows }: { rows: DepletionProjection[] }) {
                 <th>나이</th>
                 <th>상태</th>
                 <th>월 현금흐름</th>
+                <th>월 생활비</th>
                 <th>자산</th>
               </tr>
             </thead>
@@ -700,6 +707,7 @@ function DepletionProjectionTable({ rows }: { rows: DepletionProjection[] }) {
                   <td>{formatRetirementAge(row.age)}</td>
                   <td>{formatDepletionPhase(row.phase)}</td>
                   <td>{formatMoney(row.cashFlow)}</td>
+                  <td>{formatMoney(row.monthlyExpenses)}</td>
                   <td>{formatMoney(row.assets)}</td>
                 </tr>
               ))}

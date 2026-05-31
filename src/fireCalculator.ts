@@ -42,6 +42,7 @@ export type DepletionResult = {
   status: "achievable" | "already-sufficient" | "not-achievable" | "invalid-time-horizon";
   monthsToWork: number | null;
   retirementAge: number | null;
+  retirementFirstMonthExpenses: number | null;
   peakAssets: number | null;
   finalAssets: number | null;
   totalMonths: number;
@@ -53,6 +54,8 @@ export type DepletionProjection = {
   age: number;
   phase: "working" | "retired";
   cashFlow: number;
+  monthlyIncome: number;
+  monthlyExpenses: number;
   assets: number;
 };
 
@@ -145,6 +148,9 @@ export function calculateFireScenario(
   }
 
   const currentProjection = projections[0];
+  const retirementFirstMonthExpenses = achievedProjection
+    ? calculateMonthlyExpenses(inputs, achievedProjection.month + 1)
+    : null;
 
   return {
     name,
@@ -156,7 +162,7 @@ export function calculateFireScenario(
     retirementFireTargetAssets: achievedProjection?.fireTargetAssets ?? null,
     retirementInvestableAssets: achievedProjection?.investableAssets ?? null,
     retirementMonthlyExpenses: achievedProjection?.monthlyExpenses ?? null,
-    retirementFirstMonthExpenses: achievedProjection?.monthlyExpenses ?? null,
+    retirementFirstMonthExpenses,
     retirementSafeWithdrawalAmount: achievedProjection?.safeWithdrawalAmount ?? null,
     projections,
   };
@@ -187,6 +193,7 @@ export function calculateYearsToWork(rawInputs: FireInputs): DepletionResult {
       status: "invalid-time-horizon",
       monthsToWork: null,
       retirementAge: null,
+      retirementFirstMonthExpenses: null,
       peakAssets: null,
       finalAssets: null,
       totalMonths: 0,
@@ -202,6 +209,7 @@ export function calculateYearsToWork(rawInputs: FireInputs): DepletionResult {
       status: "already-sufficient",
       monthsToWork: 0,
       retirementAge: inputs.currentAge,
+      retirementFirstMonthExpenses: nowRetirementSimulation.retirementFirstMonthExpenses,
       peakAssets: nowRetirementSimulation.peakAssets,
       finalAssets: nowRetirementSimulation.finalAssets,
       totalMonths: cappedTotalMonths,
@@ -217,6 +225,7 @@ export function calculateYearsToWork(rawInputs: FireInputs): DepletionResult {
         status: "achievable",
         monthsToWork,
         retirementAge: inputs.currentAge + monthsToWork / 12,
+        retirementFirstMonthExpenses: simulation.retirementFirstMonthExpenses,
         peakAssets: simulation.peakAssets,
         finalAssets: simulation.finalAssets,
         totalMonths: cappedTotalMonths,
@@ -231,6 +240,7 @@ export function calculateYearsToWork(rawInputs: FireInputs): DepletionResult {
     status: "not-achievable",
     monthsToWork: null,
     retirementAge: null,
+    retirementFirstMonthExpenses: null,
     peakAssets: null,
     finalAssets: null,
     totalMonths: cappedTotalMonths,
@@ -266,13 +276,8 @@ function calculateProjectionForMonth(
   }
 
   const monthlyReturnRate = annualRateToMonthlyRate(inputs.annualNominalReturnRate);
-  const elapsedYears = Math.floor(month / 12);
-  const monthlyIncome = applyAnnualGrowth(inputs.monthlyIncome, inputs.annualIncomeGrowthRate, elapsedYears);
-  const monthlyExpenses = applyAnnualGrowth(
-    inputs.monthlyExpenses,
-    inputs.annualInflationRate,
-    elapsedYears,
-  );
+  const monthlyIncome = calculateMonthlyIncome(inputs, month);
+  const monthlyExpenses = calculateMonthlyExpenses(inputs, month);
   const monthlySavings = monthlyIncome - monthlyExpenses;
   const investableAssets =
     month === 0
@@ -298,27 +303,41 @@ function simulateDepletion(
   inputs: FireInputs,
   totalMonths: number,
   monthsToWork: number,
-): { finalAssets: number; peakAssets: number; projections: DepletionProjection[] } {
+): {
+  finalAssets: number;
+  peakAssets: number;
+  retirementFirstMonthExpenses: number;
+  projections: DepletionProjection[];
+} {
   const monthlyReturnRate = annualRateToMonthlyRate(inputs.annualNominalReturnRate);
   let assets = inputs.investableAssets;
   let peakAssets = assets;
+  let retirementFirstMonthExpenses: number | null = null;
   const projections: DepletionProjection[] = [
     {
       month: 0,
       age: inputs.currentAge,
       phase: monthsToWork > 0 ? "working" : "retired",
       cashFlow: 0,
+      monthlyIncome: calculateMonthlyIncome(inputs, 0),
+      monthlyExpenses: calculateMonthlyExpenses(inputs, 0),
       assets,
     },
   ];
 
   for (let month = 1; month <= totalMonths; month += 1) {
     const isWorking = month <= monthsToWork;
-    const cashFlow = isWorking ? inputs.monthlyIncome - inputs.monthlyExpenses : -inputs.monthlyExpenses;
+    const monthlyIncome = calculateMonthlyIncome(inputs, month);
+    const monthlyExpenses = calculateMonthlyExpenses(inputs, month);
+    const cashFlow = isWorking ? monthlyIncome - monthlyExpenses : -monthlyExpenses;
     assets = assets * (1 + monthlyReturnRate) + cashFlow;
 
     if (month <= monthsToWork) {
       peakAssets = Math.max(peakAssets, assets);
+    }
+
+    if (!isWorking && retirementFirstMonthExpenses === null) {
+      retirementFirstMonthExpenses = monthlyExpenses;
     }
 
     projections.push({
@@ -326,6 +345,8 @@ function simulateDepletion(
       age: inputs.currentAge + month / 12,
       phase: isWorking ? "working" : "retired",
       cashFlow,
+      monthlyIncome,
+      monthlyExpenses,
       assets,
     });
   }
@@ -333,12 +354,30 @@ function simulateDepletion(
   return {
     finalAssets: assets,
     peakAssets,
+    retirementFirstMonthExpenses:
+      retirementFirstMonthExpenses ?? calculateMonthlyExpenses(inputs, monthsToWork + 1),
     projections,
   };
 }
 
 function annualRateToMonthlyRate(annualRate: number): number {
   return Math.max(1 + annualRate, Number.EPSILON) ** (1 / 12) - 1;
+}
+
+function calculateMonthlyIncome(inputs: FireInputs, month: number): number {
+  return applyAnnualGrowth(
+    inputs.monthlyIncome,
+    inputs.annualIncomeGrowthRate,
+    Math.floor(month / 12),
+  );
+}
+
+function calculateMonthlyExpenses(inputs: FireInputs, month: number): number {
+  return applyAnnualGrowth(
+    inputs.monthlyExpenses,
+    inputs.annualInflationRate,
+    Math.floor(month / 12),
+  );
 }
 
 function applyAnnualGrowth(value: number, annualGrowthRate: number, elapsedYears: number): number {

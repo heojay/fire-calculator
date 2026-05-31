@@ -84,6 +84,23 @@ describe("calculateFireScenario", () => {
     });
   });
 
+  it("은퇴 후 첫 달의 예상 생활비는 은퇴 다음 달 물가 상승률까지 반영한다", () => {
+    const result = calculateFireScenario({
+      ...baseInputs,
+      investableAssets: 0,
+      monthlyIncome: 210,
+      monthlyExpenses: 100,
+      annualNominalReturnRate: 0,
+      annualInflationRate: 1,
+      annualIncomeGrowthRate: 0,
+      targetWithdrawalRate: 1,
+    });
+
+    expect(result.monthsToFire).toBe(11);
+    expect(result.retirementMonthlyExpenses).toBe(100);
+    expect(result.retirementFirstMonthExpenses).toBe(200);
+  });
+
   it("목표 인출률은 입력값을 그대로 적용한다", () => {
     const result = calculateFireScenario({
       ...baseInputs,
@@ -166,6 +183,7 @@ describe("calculateYearsToWork", () => {
     expect(result.retirementAge).toBe(40.5);
     expect(result.peakAssets).toBe(600);
     expect(result.finalAssets).toBe(0);
+    expect(result.retirementFirstMonthExpenses).toBe(100);
     expect(result.projections).toHaveLength(13);
     expect(result.projections[6]).toMatchObject({
       month: 6,
@@ -177,7 +195,35 @@ describe("calculateYearsToWork", () => {
       month: 7,
       phase: "retired",
       cashFlow: -100,
+      monthlyExpenses: 100,
       assets: 500,
+    });
+  });
+
+  it("은퇴 후 소비액은 12개월마다 물가 상승률을 반영한다", () => {
+    const result = calculateYearsToWork({
+      ...baseInputs,
+      investableAssets: 5_000,
+      monthlyIncome: 100,
+      monthlyExpenses: 100,
+      annualNominalReturnRate: 0,
+      annualInflationRate: 0.25,
+      annualIncomeGrowthRate: 0,
+      currentAge: 40,
+      lifeExpectancy: 42,
+    });
+
+    expect(result.status).toBe("already-sufficient");
+    expect(result.retirementFirstMonthExpenses).toBe(100);
+    expect(result.projections[11]).toMatchObject({
+      phase: "retired",
+      cashFlow: -100,
+      monthlyExpenses: 100,
+    });
+    expect(result.projections[12]).toMatchObject({
+      phase: "retired",
+      cashFlow: -125,
+      monthlyExpenses: 125,
     });
   });
 
