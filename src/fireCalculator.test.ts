@@ -495,6 +495,12 @@ describe("FIRE_PRESETS", () => {
     expect(koreaAveragePreset?.values.monthlyIncome).toBe(6_189_000);
   });
 
+  it("대한민국 평균 가구의 국민연금 예상 월 수령액은 노령연금 평균 전망을 천 원 단위로 반영한다", () => {
+    const koreaAveragePreset = FIRE_PRESETS.find((preset) => preset.id === "korea-average");
+
+    expect(koreaAveragePreset?.values.nationalPensionMonthlyAmount).toBe(724_000);
+  });
+
   it("기본 예시값은 과거 연 단위 기본값을 월 단위로 환산하고 5% 명목 수익률을 사용한다", () => {
     const examplePreset = FIRE_PRESETS.find((preset) => preset.id === "fire-example");
 

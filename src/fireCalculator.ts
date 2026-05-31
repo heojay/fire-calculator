@@ -87,7 +87,7 @@ export const FIRE_PRESETS: FirePreset[] = [
       targetWithdrawalRate: 0.035,
       birthYear: getCurrentYear() - 40,
       lifeExpectancy: 90,
-      nationalPensionMonthlyAmount: 0,
+      nationalPensionMonthlyAmount: 724_000,
     },
   },
   {
