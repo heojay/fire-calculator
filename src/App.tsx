@@ -31,6 +31,13 @@ type FormValues = {
 };
 
 type NumericFormField = keyof FormValues;
+type CachedAppState = {
+  version: number;
+  formValues: FormValues;
+  calculationMode: CalculationMode;
+  valueBasis: ValueBasis;
+  selectedScenarioName: string;
+};
 
 const commonFields = [
   ["investableAssets", "현재 보유 자산", "원"],
@@ -62,14 +69,34 @@ const fieldHelpText: Partial<Record<NumericFormField, string>> = {
 const scenarioClassNames = ["scenario-conservative", "scenario-base", "scenario-optimistic"];
 const koreaAveragePreset = FIRE_PRESETS.find((preset) => preset.id === "korea-average")!;
 const fireExamplePreset = FIRE_PRESETS.find((preset) => preset.id === "fire-example")!;
+const cacheVersion = 1;
+const cacheKey = "firecalc:lastState:v1";
+const defaultSelectedScenarioName = "기본";
+const validCalculationModes: CalculationMode[] = ["trinity", "depletion"];
+const validValueBases: ValueBasis[] = ["nominal", "present"];
+const validScenarioNames = ["보수적", "기본", "낙관적"];
+const numericFormFields: NumericFormField[] = [
+  "investableAssets",
+  "monthlyIncome",
+  "monthlyExpenses",
+  "annualNominalReturnRate",
+  "annualInflationRate",
+  "annualIncomeGrowthRate",
+  "targetWithdrawalRate",
+  "currentAge",
+  "lifeExpectancy",
+];
 
 function App() {
-  const [calculationMode, setCalculationMode] = useState<CalculationMode>("trinity");
-  const [valueBasis, setValueBasis] = useState<ValueBasis>("nominal");
-  const [formValues, setFormValues] = useState<FormValues>(() =>
-    presetToFormValues(fireExamplePreset.values),
+  const [initialState] = useState(loadCachedAppState);
+  const [calculationMode, setCalculationMode] = useState<CalculationMode>(
+    initialState.calculationMode,
   );
-  const [selectedScenarioName, setSelectedScenarioName] = useState("기본");
+  const [valueBasis, setValueBasis] = useState<ValueBasis>(initialState.valueBasis);
+  const [formValues, setFormValues] = useState<FormValues>(initialState.formValues);
+  const [selectedScenarioName, setSelectedScenarioName] = useState(
+    initialState.selectedScenarioName,
+  );
 
   const inputs = useMemo(() => formValuesToInputs(formValues), [formValues]);
   const scenarios = useMemo(() => calculateFireScenarios(inputs), [inputs]);
@@ -77,6 +104,16 @@ function App() {
   const baseScenario = scenarios[1];
   const selectedScenario =
     scenarios.find((scenario) => scenario.name === selectedScenarioName) ?? baseScenario;
+
+  useEffect(() => {
+    saveCachedAppState({
+      version: cacheVersion,
+      formValues,
+      calculationMode,
+      valueBasis,
+      selectedScenarioName,
+    });
+  }, [calculationMode, formValues, selectedScenarioName, valueBasis]);
 
   const handleFieldChange = (field: NumericFormField, value: string) => {
     setFormValues((current) => ({
@@ -977,6 +1014,107 @@ function presetToFormValues(values: FireInputs): FormValues {
     currentAge: values.currentAge,
     lifeExpectancy: values.lifeExpectancy,
   };
+}
+
+function loadCachedAppState(): CachedAppState {
+  const defaultState = createDefaultAppState();
+
+  if (typeof window === "undefined") {
+    return defaultState;
+  }
+
+  try {
+    const cachedState = window.localStorage.getItem(cacheKey);
+
+    if (!cachedState) {
+      return defaultState;
+    }
+
+    return normalizeCachedAppState(JSON.parse(cachedState), defaultState);
+  } catch {
+    return defaultState;
+  }
+}
+
+function saveCachedAppState(state: CachedAppState) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(cacheKey, JSON.stringify(state));
+  } catch {
+    // Storage can be unavailable in private browsing or restrictive browser settings.
+  }
+}
+
+function createDefaultAppState(): CachedAppState {
+  return {
+    version: cacheVersion,
+    formValues: presetToFormValues(fireExamplePreset.values),
+    calculationMode: "trinity",
+    valueBasis: "nominal",
+    selectedScenarioName: defaultSelectedScenarioName,
+  };
+}
+
+function normalizeCachedAppState(
+  value: unknown,
+  defaultState: CachedAppState,
+): CachedAppState {
+  if (!isRecord(value) || value.version !== cacheVersion) {
+    return defaultState;
+  }
+
+  return {
+    version: cacheVersion,
+    formValues: normalizeCachedFormValues(value.formValues, defaultState.formValues),
+    calculationMode: isCalculationMode(value.calculationMode)
+      ? value.calculationMode
+      : defaultState.calculationMode,
+    valueBasis: isValueBasis(value.valueBasis) ? value.valueBasis : defaultState.valueBasis,
+    selectedScenarioName: isScenarioName(value.selectedScenarioName)
+      ? value.selectedScenarioName
+      : defaultState.selectedScenarioName,
+  };
+}
+
+function normalizeCachedFormValues(value: unknown, defaultValues: FormValues): FormValues {
+  if (!isRecord(value)) {
+    return defaultValues;
+  }
+
+  return numericFormFields.reduce<FormValues>(
+    (formValues, field) => {
+      const fieldValue = value[field];
+
+      return {
+        ...formValues,
+        [field]: isNumericFormValue(fieldValue) ? fieldValue : defaultValues[field],
+      };
+    },
+    { ...defaultValues },
+  );
+}
+
+function isNumericFormValue(value: unknown): value is NumericFormValue {
+  return value === "" || (typeof value === "number" && Number.isFinite(value));
+}
+
+function isCalculationMode(value: unknown): value is CalculationMode {
+  return typeof value === "string" && validCalculationModes.includes(value as CalculationMode);
+}
+
+function isValueBasis(value: unknown): value is ValueBasis {
+  return typeof value === "string" && validValueBases.includes(value as ValueBasis);
+}
+
+function isScenarioName(value: unknown): value is string {
+  return typeof value === "string" && validScenarioNames.includes(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function formValuesToInputs(values: FormValues): FireInputs {
