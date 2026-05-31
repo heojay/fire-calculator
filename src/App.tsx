@@ -6,6 +6,7 @@ import {
   calculateYearsToWork,
   percentInputToRate,
   rateToPercentInput,
+  type DepletionProjection,
   type DepletionResult,
   type FireInputs,
   type FireProjection,
@@ -32,6 +33,9 @@ const commonFields = [
   ["monthlySavings", "월 평균 저축액", "원"],
   ["monthlyExpenses", "월 평균 소비액", "원"],
   ["annualRealReturnRate", "연평균 예상 실질 수익률", "%"],
+] as const;
+
+const depletionFields = [
   ["currentAge", "현재 나이", "세"],
   ["lifeExpectancy", "기대 수명", "세"],
 ] as const;
@@ -118,7 +122,7 @@ function App() {
           </Fieldset>
 
           {calculationMode === "trinity" && (
-            <Fieldset title="트리니티 입력">
+            <Fieldset title="목표 인출률 입력">
               <NumberField
                 label="목표 인출률"
                 suffix="%"
@@ -126,6 +130,21 @@ function App() {
                 helpText={fieldHelpText.targetWithdrawalRate}
                 onChange={(value) => handleFieldChange("targetWithdrawalRate", value)}
               />
+            </Fieldset>
+          )}
+
+          {calculationMode === "depletion" && (
+            <Fieldset title="기대수명 입력">
+              {depletionFields.map(([field, label, suffix]) => (
+                <NumberField
+                  key={field}
+                  label={label}
+                  suffix={suffix}
+                  value={formValues[field]}
+                  helpText={fieldHelpText[field]}
+                  onChange={(value) => handleFieldChange(field, value)}
+                />
+              ))}
             </Fieldset>
           )}
 
@@ -147,6 +166,7 @@ function App() {
 
           {calculationMode === "trinity" ? (
             <>
+              <WithdrawalRateNote withdrawalRate={inputs.targetWithdrawalRate} />
               <SummaryGrid scenario={baseScenario} />
               <ScenarioGrid scenarios={scenarios} />
               <AssetChart scenarios={scenarios} />
@@ -157,40 +177,44 @@ function App() {
         </section>
       </section>
 
-      {calculationMode === "trinity" && (
-        <section className="tables-band">
-          <div className="section-heading">
-            <p className="eyebrow">MONTHLY PROJECTION</p>
-            <h2>월별 추이</h2>
-          </div>
-          <div className="table-actions" aria-label="월별 추이 시나리오 선택">
-            {scenarios.map((scenario) => (
-              <button
-                className={
-                  scenario.name === selectedScenario.name ? "button-primary" : "button-secondary"
-                }
-                key={scenario.name}
-                type="button"
-                onClick={() => setSelectedScenarioName(scenario.name)}
-              >
-                {scenario.name}
-              </button>
-            ))}
-          </div>
-          <div className="table-grid">
-            <ProjectionTable
-              title="투자 가능 자산 추이"
-              rows={getTableRows(selectedScenario.projections)}
-              valueKey="investableAssets"
-            />
-            <ProjectionTable
-              title="FIRE 목표 자산 추이"
-              rows={getTableRows(selectedScenario.projections)}
-              valueKey="fireTargetAssets"
-            />
-          </div>
-        </section>
-      )}
+      <section className="tables-band">
+        <div className="section-heading">
+          <p className="eyebrow">MONTHLY PROJECTION</p>
+          <h2>월별 추이</h2>
+        </div>
+        {calculationMode === "trinity" ? (
+          <>
+            <div className="table-actions" aria-label="월별 추이 시나리오 선택">
+              {scenarios.map((scenario) => (
+                <button
+                  className={
+                    scenario.name === selectedScenario.name ? "button-primary" : "button-secondary"
+                  }
+                  key={scenario.name}
+                  type="button"
+                  onClick={() => setSelectedScenarioName(scenario.name)}
+                >
+                  {scenario.name}
+                </button>
+              ))}
+            </div>
+            <div className="table-grid">
+              <ProjectionTable
+                title="투자 가능 자산 추이"
+                rows={getTableRows(selectedScenario.projections)}
+                valueKey="investableAssets"
+              />
+              <ProjectionTable
+                title="FIRE 목표 자산 추이"
+                rows={getTableRows(selectedScenario.projections)}
+                valueKey="fireTargetAssets"
+              />
+            </div>
+          </>
+        ) : (
+          <DepletionProjectionTable rows={getDepletionTableRows(depletionResult.projections)} />
+        )}
+      </section>
     </main>
   );
 }
@@ -203,7 +227,7 @@ function ModeTabs({
   onChange: (mode: CalculationMode) => void;
 }) {
   const tabs = [
-    ["trinity", "트리니티 법칙"],
+    ["trinity", "목표 인출률"],
     ["depletion", "기대수명 소진"],
   ] as const;
 
@@ -254,6 +278,23 @@ function ResultHero({
           : "100년 안에 목표 자산에 도달하지 못합니다."}
       </span>
     </aside>
+  );
+}
+
+function WithdrawalRateNote({ withdrawalRate }: { withdrawalRate: number }) {
+  return (
+    <article className="chart-card model-note">
+      <div>
+        <p className="eyebrow">MODEL</p>
+        <h3>목표 인출률 모델</h3>
+      </div>
+      <p>
+        입력한 목표 인출률로 현재 월 소비액을 감당할 FIRE 목표 자산을 계산합니다. 흔히
+        언급되는 4% 법칙은 트리니티 연구에서 알려진 30년 은퇴 기간 기준 참고값입니다. 조기
+        은퇴처럼 은퇴 기간이 길수록 3~3.5%처럼 더 보수적으로 잡는 경우가 많습니다.
+      </p>
+      <strong>현재 적용 인출률 {rateToPercentInput(withdrawalRate)}%</strong>
+    </article>
   );
 }
 
@@ -315,7 +356,8 @@ function DepletionSummary({ result }: { result: DepletionResult }) {
           </article>
         ))}
       </div>
-      <article className="chart-card depletion-note">
+      <DepletionChart result={result} />
+      <article className="chart-card model-note">
         <div>
           <p className="eyebrow">MODEL</p>
           <h3>기대수명 소진 모델</h3>
@@ -326,6 +368,112 @@ function DepletionSummary({ result }: { result: DepletionResult }) {
         </p>
       </article>
     </>
+  );
+}
+
+function DepletionChart({ result }: { result: DepletionResult }) {
+  const isMobile = useMediaQuery("(max-width: 767px)");
+  const rows = result.projections;
+  const width = isMobile ? 360 : 760;
+  const height = isMobile ? 300 : 280;
+  const padding = isMobile
+    ? { top: 20, right: 16, bottom: 36, left: 54 }
+    : { top: 24, right: 24, bottom: 44, left: 88 };
+
+  if (rows.length === 0) {
+    return (
+      <article className="chart-card">
+        <div className="chart-heading">
+          <div>
+            <p className="eyebrow">CHART</p>
+            <h3>기대수명 자산 추이 그래프</h3>
+          </div>
+        </div>
+        <p className="empty-chart-message">기대 수명이 현재 나이보다 커야 그래프를 표시할 수 있습니다.</p>
+      </article>
+    );
+  }
+
+  const values = rows.map((row) => row.assets);
+  const minValue = Math.min(...values, 0);
+  const maxValue = Math.max(...values, 1);
+  const valueRange = maxValue - minValue || 1;
+  const maxMonth = Math.max(rows.at(-1)?.month ?? 1, 1);
+  const yTicks = Array.from({ length: 4 }, (_, index) => minValue + (valueRange / 3) * index);
+  const xTicks = Array.from(new Set([0, Math.round(maxMonth / 2), maxMonth]));
+  const retirementMonth = result.monthsToWork;
+
+  const toPoint = (row: DepletionProjection) => `${toX(row.month)},${toY(row.assets)}`;
+  const toX = (month: number) =>
+    padding.left + (month / maxMonth) * (width - padding.left - padding.right);
+  const toY = (value: number) =>
+    height -
+    padding.bottom -
+    ((value - minValue) / valueRange) * (height - padding.top - padding.bottom);
+
+  return (
+    <article className="chart-card">
+      <div className="chart-heading">
+        <div>
+          <p className="eyebrow">CHART</p>
+          <h3>기대수명 자산 추이 그래프</h3>
+        </div>
+        <div className="legend">
+          <span className="legend-base">자산 추이</span>
+          <span className="legend-retirement">은퇴 시점</span>
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="기대수명 자산 추이">
+        {yTicks.map((tick) => (
+          <g key={`depletion-y-${tick}`}>
+            <line
+              className="grid-line"
+              x1={padding.left}
+              y1={toY(tick)}
+              x2={width - padding.right}
+              y2={toY(tick)}
+            />
+            <text className="y-axis-label" x={padding.left - 12} y={toY(tick)}>
+              {formatAxisMoney(tick)}
+            </text>
+          </g>
+        ))}
+        {xTicks.map((tick) => (
+          <text
+            className="x-axis-label"
+            key={`depletion-x-${tick}`}
+            x={toX(tick)}
+            y={height - 12}
+          >
+            {tick === 0 ? "현재" : formatProjectionMonth(tick)}
+          </text>
+        ))}
+        <line
+          className="axis-line"
+          x1={padding.left}
+          y1={height - padding.bottom}
+          x2={width - padding.right}
+          y2={height - padding.bottom}
+        />
+        <line
+          className="axis-line"
+          x1={padding.left}
+          y1={padding.top}
+          x2={padding.left}
+          y2={height - padding.bottom}
+        />
+        {retirementMonth !== null && (
+          <line
+            className="retirement-line"
+            x1={toX(retirementMonth)}
+            y1={padding.top}
+            x2={toX(retirementMonth)}
+            y2={height - padding.bottom}
+          />
+        )}
+        <polyline className="scenario-line base-line" points={rows.map(toPoint).join(" ")} />
+      </svg>
+    </article>
   );
 }
 
@@ -522,6 +670,40 @@ function ProjectionTable({
   );
 }
 
+function DepletionProjectionTable({ rows }: { rows: DepletionProjection[] }) {
+  return (
+    <div className="table-grid single-table-grid">
+      <article className="table-card">
+        <h3>기대수명 자산 추이</h3>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>시점</th>
+                <th>나이</th>
+                <th>상태</th>
+                <th>월 현금흐름</th>
+                <th>자산</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={`depletion-${row.month}`}>
+                  <td>{formatProjectionMonth(row.month)}</td>
+                  <td>{formatRetirementAge(row.age)}</td>
+                  <td>{formatDepletionPhase(row.phase)}</td>
+                  <td>{formatMoney(row.cashFlow)}</td>
+                  <td>{formatMoney(row.assets)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </div>
+  );
+}
+
 function Fieldset({ title, children }: { title: string; children: ReactNode }) {
   return (
     <fieldset>
@@ -611,6 +793,21 @@ function getTableRows(rows: FireProjection[]): FireProjection[] {
   return rows.filter((row) => row.month % 12 === 0 || row.month === lastMonth);
 }
 
+function getDepletionTableRows(rows: DepletionProjection[]): DepletionProjection[] {
+  const lastMonth = rows.at(-1)?.month ?? 0;
+  const retirementMonth = rows.findIndex((row, index) => {
+    const previousRow = rows[index - 1];
+    return row.phase === "retired" && previousRow?.phase === "working";
+  });
+  const keyMonths = new Set([0, lastMonth]);
+
+  if (retirementMonth >= 0) {
+    keyMonths.add(retirementMonth);
+  }
+
+  return rows.filter((row) => row.month % 12 === 0 || keyMonths.has(row.month));
+}
+
 function formatMoney(value: number): string {
   const absValue = Math.abs(value);
   const sign = value < 0 ? "-" : "";
@@ -690,6 +887,10 @@ function formatRetirementAge(age: number | null): string {
   }
 
   return `${years}세 ${months}개월`;
+}
+
+function formatDepletionPhase(phase: DepletionProjection["phase"]): string {
+  return phase === "working" ? "근로" : "은퇴";
 }
 
 function formatProjectionMonth(month: number): string {

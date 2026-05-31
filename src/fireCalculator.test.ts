@@ -131,6 +131,19 @@ describe("calculateYearsToWork", () => {
     expect(result.retirementAge).toBe(40.5);
     expect(result.peakAssets).toBe(600);
     expect(result.finalAssets).toBe(0);
+    expect(result.projections).toHaveLength(13);
+    expect(result.projections[6]).toMatchObject({
+      month: 6,
+      phase: "working",
+      cashFlow: 100,
+      assets: 600,
+    });
+    expect(result.projections[7]).toMatchObject({
+      month: 7,
+      phase: "retired",
+      cashFlow: -100,
+      assets: 500,
+    });
   });
 
   it("기대수명이 현재 나이 이하이면 계산 불가 상태를 반환한다", () => {
@@ -142,6 +155,7 @@ describe("calculateYearsToWork", () => {
 
     expect(result.status).toBe("invalid-time-horizon");
     expect(result.monthsToWork).toBeNull();
+    expect(result.projections).toEqual([]);
   });
 
   it("기대수명까지 계속 일해도 자산이 부족하면 도달 어려움 상태를 반환한다", () => {
@@ -157,6 +171,7 @@ describe("calculateYearsToWork", () => {
 
     expect(result.status).toBe("not-achievable");
     expect(result.monthsToWork).toBeNull();
+    expect(result.projections.at(-1)?.phase).toBe("working");
   });
 });
 

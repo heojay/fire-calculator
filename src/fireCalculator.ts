@@ -41,6 +41,15 @@ export type DepletionResult = {
   peakAssets: number | null;
   finalAssets: number | null;
   totalMonths: number;
+  projections: DepletionProjection[];
+};
+
+export type DepletionProjection = {
+  month: number;
+  age: number;
+  phase: "working" | "retired";
+  cashFlow: number;
+  assets: number;
 };
 
 export type FirePreset = {
@@ -172,6 +181,7 @@ export function calculateYearsToWork(rawInputs: FireInputs): DepletionResult {
       peakAssets: null,
       finalAssets: null,
       totalMonths: 0,
+      projections: [],
     };
   }
 
@@ -186,6 +196,7 @@ export function calculateYearsToWork(rawInputs: FireInputs): DepletionResult {
       peakAssets: nowRetirementSimulation.peakAssets,
       finalAssets: nowRetirementSimulation.finalAssets,
       totalMonths: cappedTotalMonths,
+      projections: nowRetirementSimulation.projections,
     };
   }
 
@@ -200,9 +211,12 @@ export function calculateYearsToWork(rawInputs: FireInputs): DepletionResult {
         peakAssets: simulation.peakAssets,
         finalAssets: simulation.finalAssets,
         totalMonths: cappedTotalMonths,
+        projections: simulation.projections,
       };
     }
   }
+
+  const longestWorkSimulation = simulateDepletion(inputs, cappedTotalMonths, cappedTotalMonths);
 
   return {
     status: "not-achievable",
@@ -211,6 +225,7 @@ export function calculateYearsToWork(rawInputs: FireInputs): DepletionResult {
     peakAssets: null,
     finalAssets: null,
     totalMonths: cappedTotalMonths,
+    projections: longestWorkSimulation.projections,
   };
 }
 
@@ -263,23 +278,42 @@ function simulateDepletion(
   inputs: FireInputs,
   totalMonths: number,
   monthsToWork: number,
-): { finalAssets: number; peakAssets: number } {
+): { finalAssets: number; peakAssets: number; projections: DepletionProjection[] } {
   const monthlyReturnRate = annualRateToMonthlyRate(inputs.annualRealReturnRate);
   let assets = inputs.investableAssets;
   let peakAssets = assets;
+  const projections: DepletionProjection[] = [
+    {
+      month: 0,
+      age: inputs.currentAge,
+      phase: monthsToWork > 0 ? "working" : "retired",
+      cashFlow: 0,
+      assets,
+    },
+  ];
 
   for (let month = 1; month <= totalMonths; month += 1) {
-    const cashFlow = month <= monthsToWork ? inputs.monthlySavings : -inputs.monthlyExpenses;
+    const isWorking = month <= monthsToWork;
+    const cashFlow = isWorking ? inputs.monthlySavings : -inputs.monthlyExpenses;
     assets = assets * (1 + monthlyReturnRate) + cashFlow;
 
     if (month <= monthsToWork) {
       peakAssets = Math.max(peakAssets, assets);
     }
+
+    projections.push({
+      month,
+      age: inputs.currentAge + month / 12,
+      phase: isWorking ? "working" : "retired",
+      cashFlow,
+      assets,
+    });
   }
 
   return {
     finalAssets: assets,
     peakAssets,
+    projections,
   };
 }
 

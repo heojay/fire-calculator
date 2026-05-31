@@ -86,6 +86,7 @@ main {
   font-size: 16px;
   font-weight: 500;
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .button-primary {
@@ -176,7 +177,7 @@ h1 {
 
 .content-grid {
   display: grid;
-  grid-template-columns: minmax(320px, 0.8fr) minmax(0, 1.2fr);
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
   gap: 32px;
   align-items: start;
   border-top: 1px solid var(--hairline);
@@ -186,6 +187,7 @@ h1 {
 .results-panel {
   display: grid;
   gap: 24px;
+  min-width: 0;
 }
 
 .input-panel {
@@ -310,6 +312,7 @@ legend {
 .field-tooltip {
   position: absolute;
   z-index: 5;
+  display: none;
   bottom: calc(100% + 8px);
   left: 50%;
   width: min(280px, calc(100vw - 48px));
@@ -332,6 +335,7 @@ legend {
 
 .field-help:hover .field-tooltip,
 .field-help:focus-within .field-tooltip {
+  display: block;
   opacity: 1;
   transform: translate(-50%, 0);
 }
@@ -379,43 +383,6 @@ legend {
   color: var(--body-mid);
   font-size: 12px;
   font-weight: 500;
-  line-height: 1.5;
-}
-
-.auto-withdrawal {
-  display: grid;
-  gap: 14px;
-  border-top: 1px solid var(--hairline);
-  padding-top: 16px;
-}
-
-.toggle-field {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 1.5;
-}
-
-.toggle-field input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--primary);
-}
-
-.auto-withdrawal-fields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.auto-withdrawal-fields p {
-  grid-column: 1 / -1;
-  margin: 0;
-  color: var(--body-mid);
-  font-size: 13px;
   line-height: 1.5;
 }
 
@@ -513,16 +480,23 @@ legend {
   padding: 24px;
 }
 
-.depletion-note {
+.model-note {
   display: grid;
   gap: 14px;
 }
 
-.depletion-note p {
+.model-note p {
   margin: 0;
   color: var(--body);
   font-size: 15px;
   line-height: 1.7;
+}
+
+.model-note strong {
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.5;
 }
 
 .chart-heading {
@@ -535,7 +509,7 @@ legend {
 
 .chart-heading h3,
 .table-card h3,
-.depletion-note h3 {
+.model-note h3 {
   margin: 0;
   color: var(--ink);
   font-size: 20px;
@@ -582,6 +556,13 @@ legend {
   width: 16px;
   height: 0;
   border-top: 2px dashed var(--body-mid);
+  border-radius: 0;
+}
+
+.legend-retirement::before {
+  width: 16px;
+  height: 0;
+  border-top: 2px dashed var(--purple);
   border-radius: 0;
 }
 
@@ -645,6 +626,19 @@ svg polyline {
   opacity: 0.78;
 }
 
+.retirement-line {
+  stroke: var(--purple);
+  stroke-dasharray: 6 6;
+  stroke-width: 2;
+}
+
+.empty-chart-message {
+  margin: 0;
+  color: var(--body-mid);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
 .tables-band {
   border-top: 1px solid var(--hairline);
 }
@@ -654,6 +648,11 @@ svg polyline {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 24px;
   margin-top: 24px;
+  min-width: 0;
+}
+
+.single-table-grid {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .table-actions {
@@ -740,7 +739,7 @@ td {
   }
 
   h1 {
-    font-size: 44px;
+    font-size: 40px;
   }
 
   .lead {
@@ -749,16 +748,18 @@ td {
   }
 
   .summary-grid,
-  .scenario-grid,
-  .auto-withdrawal-fields {
+  .scenario-grid {
     grid-template-columns: 1fr;
   }
 
   .field-tooltip {
-    left: 0;
-    right: auto;
-    width: min(260px, calc(100vw - 32px));
-    transform: translate(0, 4px);
+    position: fixed;
+    top: 96px;
+    right: 16px;
+    bottom: auto;
+    left: 16px;
+    width: auto;
+    transform: translate(0, 0);
   }
 
   .field-help:hover .field-tooltip,
@@ -773,5 +774,33 @@ td {
   .hero-card,
   .scenario-card {
     padding: 20px;
+  }
+}
+
+@media (max-width: 359px) {
+  .hero-band,
+  .content-grid,
+  .tables-band {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  h1 {
+    font-size: 36px;
+  }
+
+  .button-primary,
+  .button-secondary {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  fieldset,
+  .metric-card,
+  .chart-card,
+  .table-card,
+  .hero-card,
+  .scenario-card {
+    padding: 16px;
   }
 }
