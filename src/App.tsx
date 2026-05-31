@@ -1080,6 +1080,10 @@ function formatWorkRequirementSentence(result: DepletionResult): string {
     return "현재 조건으로는 어렵습니다.";
   }
 
+  if (result.monthsToWork === 0) {
+    return "지금 은퇴하셔도 좋습니다.";
+  }
+
   return `앞으로 ${formatWorkDuration(result.monthsToWork)} 더 일해야 합니다.`;
 }
 
