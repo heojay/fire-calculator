@@ -1098,15 +1098,21 @@ td {
     padding: 24px 16px;
   }
 
-  .top-nav,
   .chart-heading,
   .results-heading {
     align-items: stretch;
     flex-direction: column;
   }
 
+  .top-nav {
+    align-items: center;
+    flex-direction: row;
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
   .help-button {
-    width: fit-content;
+    flex: 0 0 auto;
   }
 
   .results-controls {
