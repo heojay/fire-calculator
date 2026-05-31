@@ -261,9 +261,9 @@ export function calculateYearsToWork(rawInputs: FireInputs): DepletionResult {
 function normalizeInputs(inputs: FireInputs): FireInputs {
   return {
     ...inputs,
-    investableAssets: finiteOrZero(inputs.investableAssets),
-    monthlyIncome: finiteOrZero(inputs.monthlyIncome),
-    monthlyExpenses: finiteOrZero(inputs.monthlyExpenses),
+    investableAssets: Math.max(finiteOrZero(inputs.investableAssets), 0),
+    monthlyIncome: Math.max(finiteOrZero(inputs.monthlyIncome), 0),
+    monthlyExpenses: Math.max(finiteOrZero(inputs.monthlyExpenses), 0),
     annualNominalReturnRate: Math.max(
       finiteOrZero(inputs.annualNominalReturnRate),
       MIN_ANNUAL_NOMINAL_RETURN_RATE,
@@ -271,8 +271,8 @@ function normalizeInputs(inputs: FireInputs): FireInputs {
     annualInflationRate: Math.max(finiteOrZero(inputs.annualInflationRate), -0.99),
     annualIncomeGrowthRate: Math.max(finiteOrZero(inputs.annualIncomeGrowthRate), -0.99),
     targetWithdrawalRate: Math.max(finiteOrZero(inputs.targetWithdrawalRate), MIN_WITHDRAWAL_RATE),
-    currentAge: finiteOrZero(inputs.currentAge),
-    lifeExpectancy: finiteOrZero(inputs.lifeExpectancy),
+    currentAge: Math.max(finiteOrZero(inputs.currentAge), 0),
+    lifeExpectancy: Math.max(finiteOrZero(inputs.lifeExpectancy), 0),
   };
 }
 

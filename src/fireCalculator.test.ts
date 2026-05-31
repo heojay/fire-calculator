@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   FIRE_PRESETS,
+  MIN_ANNUAL_NOMINAL_RETURN_RATE,
+  MIN_WITHDRAWAL_RATE,
   calculateFireScenario,
   calculateFireScenarios,
   calculatePresentValue,
@@ -125,6 +127,95 @@ describe("calculateFireScenario", () => {
 
     expect(result.status).toBe("not-achieved");
     expect(result.monthsToFire).toBeNull();
+  });
+
+  it("명목 수익률이 물가 상승률보다 낮아도 명목 기준으로 안정적으로 도달 실패를 반환한다", () => {
+    const result = calculateFireScenario({
+      ...baseInputs,
+      investableAssets: 0,
+      monthlyIncome: 100,
+      monthlyExpenses: 100,
+      annualNominalReturnRate: 0.01,
+      annualInflationRate: 0.1,
+      annualIncomeGrowthRate: 0,
+      targetWithdrawalRate: 0.04,
+    });
+
+    expect(result.status).toBe("not-achieved");
+    expect(result.monthsToFire).toBeNull();
+    expect(result.projections).toHaveLength(1_201);
+    expect(result.projections.at(-1)?.fireTargetAssets).toBeGreaterThan(
+      result.currentFireTargetAssets,
+    );
+    expect(Number.isFinite(result.projections.at(-1)?.investableAssets)).toBe(true);
+  });
+
+  it("월 소비액이 월 수입보다 크면 음수 저축액으로 자산 감소를 반영한다", () => {
+    const result = calculateFireScenario({
+      ...baseInputs,
+      investableAssets: 1_000,
+      monthlyIncome: 50,
+      monthlyExpenses: 100,
+      annualNominalReturnRate: 0,
+      annualInflationRate: 0,
+      annualIncomeGrowthRate: 0,
+      targetWithdrawalRate: 0.0001,
+    });
+
+    expect(result.projections[1]).toMatchObject({
+      monthlySavings: -50,
+      investableAssets: 950,
+    });
+  });
+
+  it("금액과 나이의 음수 입력은 0으로 보정한다", () => {
+    const result = calculateFireScenario({
+      ...baseInputs,
+      investableAssets: -100,
+      monthlyIncome: -200,
+      monthlyExpenses: -300,
+      currentAge: -40,
+      lifeExpectancy: -90,
+    });
+
+    expect(result.inputs).toMatchObject({
+      investableAssets: 0,
+      monthlyIncome: 0,
+      monthlyExpenses: 0,
+      currentAge: 0,
+      lifeExpectancy: 0,
+    });
+    expect(result.projections[0]).toMatchObject({
+      age: 0,
+      fireTargetAssets: 0,
+    });
+  });
+
+  it("계산 불가능한 숫자와 하한보다 낮은 비율 입력을 안전한 기본 범위로 보정한다", () => {
+    const result = calculateFireScenario({
+      ...baseInputs,
+      investableAssets: Number.NaN,
+      monthlyIncome: Number.POSITIVE_INFINITY,
+      monthlyExpenses: Number.NEGATIVE_INFINITY,
+      annualNominalReturnRate: -10,
+      annualInflationRate: -2,
+      annualIncomeGrowthRate: -3,
+      targetWithdrawalRate: 0,
+      currentAge: Number.NaN,
+      lifeExpectancy: Number.POSITIVE_INFINITY,
+    });
+
+    expect(result.inputs).toMatchObject({
+      investableAssets: 0,
+      monthlyIncome: 0,
+      monthlyExpenses: 0,
+      annualNominalReturnRate: MIN_ANNUAL_NOMINAL_RETURN_RATE,
+      annualInflationRate: -0.99,
+      annualIncomeGrowthRate: -0.99,
+      targetWithdrawalRate: MIN_WITHDRAWAL_RATE,
+      currentAge: 0,
+      lifeExpectancy: 0,
+    });
   });
 
   it("현재 가치 환산 표시가 필요한 미래 목표 금액도 도달 판정은 명목 값으로 유지한다", () => {
@@ -272,6 +363,28 @@ describe("calculateYearsToWork", () => {
     expect(result.status).toBe("not-achievable");
     expect(result.monthsToWork).toBeNull();
     expect(result.projections.at(-1)?.phase).toBe("working");
+  });
+
+  it("월 소비액이 월 수입보다 크면 계속 일해도 부족한 시나리오를 도달 어려움으로 반환한다", () => {
+    const result = calculateYearsToWork({
+      ...baseInputs,
+      investableAssets: 0,
+      monthlyIncome: 80,
+      monthlyExpenses: 100,
+      annualNominalReturnRate: 0,
+      annualInflationRate: 0,
+      annualIncomeGrowthRate: 0,
+      currentAge: 40,
+      lifeExpectancy: 41,
+    });
+
+    expect(result.status).toBe("not-achievable");
+    expect(result.monthsToWork).toBeNull();
+    expect(result.projections[1]).toMatchObject({
+      phase: "working",
+      cashFlow: -20,
+      assets: -20,
+    });
   });
 
   it("현재 가치 환산 표시가 필요한 미래 최고점 자산도 최소 근로 기간 판정은 명목 값으로 유지한다", () => {
