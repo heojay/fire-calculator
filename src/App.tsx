@@ -348,15 +348,6 @@ function DepletionSummary({ result }: { result: DepletionResult }) {
 
   return (
     <>
-      <div className="summary-grid depletion-grid">
-        {items.map(([label, value]) => (
-          <article className="metric-card" key={label}>
-            <span>{label}</span>
-            <strong>{value}</strong>
-          </article>
-        ))}
-      </div>
-      <DepletionChart result={result} />
       <article className="chart-card model-note">
         <div>
           <p className="eyebrow">MODEL</p>
@@ -367,6 +358,15 @@ function DepletionSummary({ result }: { result: DepletionResult }) {
           자산에는 입력한 연평균 실질 수익률을 월 수익률로 환산해 적용합니다.
         </p>
       </article>
+      <div className="summary-grid depletion-grid">
+        {items.map(([label, value]) => (
+          <article className="metric-card" key={label}>
+            <span>{label}</span>
+            <strong>{value}</strong>
+          </article>
+        ))}
+      </div>
+      <DepletionChart result={result} />
     </>
   );
 }
@@ -870,6 +870,14 @@ function formatWorkDuration(months: number | null): string {
 
   const years = Math.floor(months / 12);
   const remainingMonths = months % 12;
+
+  if (years === 0) {
+    return `${remainingMonths}개월`;
+  }
+
+  if (remainingMonths === 0) {
+    return `${years}년`;
+  }
 
   return `${years}년 ${remainingMonths}개월`;
 }
