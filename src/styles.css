@@ -58,8 +58,7 @@ main {
 }
 
 .hero-band,
-.content-grid,
-.tables-band {
+.content-grid {
   padding: 32px;
 }
 
@@ -262,6 +261,47 @@ h1 {
   min-width: min(100%, 240px);
 }
 
+.result-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-bottom: 1px solid var(--hairline);
+}
+
+.result-tab {
+  position: relative;
+  min-height: 44px;
+  border: 0;
+  padding: 10px 8px 12px;
+  color: var(--body-mid);
+  background: transparent;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.result-tab::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: transparent;
+  content: "";
+}
+
+.result-tab-active {
+  color: var(--ink);
+}
+
+.result-tab-active::after {
+  background: var(--primary);
+}
+
+.result-tab-panel {
+  display: grid;
+  gap: 16px;
+}
+
 .input-actions {
   display: flex;
   justify-content: flex-start;
@@ -435,14 +475,15 @@ legend {
 
 .metric-card {
   display: grid;
-  gap: 10px;
-  min-height: 132px;
-  padding: 24px;
+  gap: 6px;
+  min-height: 108px;
+  align-content: space-between;
+  padding: 18px;
 }
 
 .metric-card span {
   color: var(--body-mid);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   line-height: 1.5;
 }
@@ -450,9 +491,9 @@ legend {
 .metric-card strong {
   align-self: end;
   color: var(--ink);
-  font-size: 24px;
+  font-size: 21px;
   font-weight: 500;
-  line-height: 1.3;
+  line-height: 1.25;
   overflow-wrap: anywhere;
 }
 
@@ -751,15 +792,10 @@ svg polyline {
   line-height: 1.6;
 }
 
-.tables-band {
-  border-top: 1px solid var(--hairline);
-}
-
 .table-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 24px;
-  margin-top: 24px;
   min-width: 0;
 }
 
@@ -859,7 +895,6 @@ td {
 @media (max-width: 767px) {
   .hero-band,
   .content-grid,
-  .tables-band,
   .site-footer {
     padding: 24px 16px;
   }
@@ -892,10 +927,29 @@ td {
     line-height: 1.55;
   }
 
-  .summary-grid,
   .scenario-grid,
   .impact-grid {
     grid-template-columns: 1fr;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .metric-card {
+    min-height: 94px;
+    padding: 14px;
+  }
+
+  .metric-card span {
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .metric-card strong {
+    font-size: 17px;
+    line-height: 1.25;
   }
 
   .field-tooltip {
@@ -903,7 +957,6 @@ td {
   }
 
   fieldset,
-  .metric-card,
   .chart-card,
   .table-card,
   .hero-card,
@@ -916,7 +969,6 @@ td {
 @media (max-width: 359px) {
   .hero-band,
   .content-grid,
-  .tables-band,
   .site-footer {
     padding-right: 12px;
     padding-left: 12px;
@@ -933,12 +985,15 @@ td {
   }
 
   fieldset,
-  .metric-card,
   .chart-card,
   .table-card,
   .hero-card,
   .scenario-card,
   .impact-card {
     padding: 16px;
+  }
+
+  .metric-card {
+    padding: 12px;
   }
 }

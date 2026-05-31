@@ -20,6 +20,7 @@ import {
 type NumericFormValue = number | "";
 type CalculationMode = "trinity" | "depletion";
 type ValueBasis = "nominal" | "present";
+type ResultTab = "summary" | "monthly" | "experiments";
 
 type FormValues = {
   investableAssets: NumericFormValue;
@@ -125,6 +126,7 @@ function App() {
     initialState.calculationMode,
   );
   const [valueBasis, setValueBasis] = useState<ValueBasis>(initialState.valueBasis);
+  const [activeResultTab, setActiveResultTab] = useState<ResultTab>("summary");
   const [formValues, setFormValues] = useState<FormValues>(initialState.formValues);
 
   const inputs = useMemo(() => formValuesToInputs(formValues), [formValues]);
@@ -256,56 +258,75 @@ function App() {
             </div>
           </div>
 
-          {calculationMode === "trinity" ? (
-            <>
-              <WithdrawalRateNote withdrawalRate={inputs.targetWithdrawalRate} />
-              <SummaryGrid scenario={baseScenario} valueBasis={valueBasis} />
-              <ImpactSection inputs={inputs} mode="trinity" />
-              <AssetChart scenario={baseScenario} valueBasis={valueBasis} />
-            </>
-          ) : (
-            <>
-              <DepletionSummary
-                annualInflationRate={inputs.annualInflationRate}
-                result={depletionResult}
-                valueBasis={valueBasis}
+          <ResultTabs selectedTab={activeResultTab} onChange={setActiveResultTab} />
+
+          {activeResultTab === "summary" && (
+            <div className="result-tab-panel" role="tabpanel">
+              {calculationMode === "trinity" ? (
+                <>
+                  <WithdrawalRateNote withdrawalRate={inputs.targetWithdrawalRate} />
+                  <SummaryGrid scenario={baseScenario} valueBasis={valueBasis} />
+                </>
+              ) : (
+                <DepletionSummary
+                  annualInflationRate={inputs.annualInflationRate}
+                  result={depletionResult}
+                  valueBasis={valueBasis}
+                />
+              )}
+            </div>
+          )}
+
+          {activeResultTab === "monthly" && (
+            <div className="result-tab-panel" role="tabpanel">
+              {calculationMode === "trinity" ? (
+                <>
+                  <AssetChart scenario={baseScenario} valueBasis={valueBasis} />
+                  <div className="table-grid">
+                    <ProjectionTable
+                      title="투자 가능 자산 추이"
+                      rows={getTableRows(baseScenario.projections)}
+                      annualInflationRate={baseScenario.inputs.annualInflationRate}
+                      valueBasis={valueBasis}
+                      valueKey="investableAssets"
+                    />
+                    <ProjectionTable
+                      title="FIRE 목표 자산 추이"
+                      rows={getTableRows(baseScenario.projections)}
+                      annualInflationRate={baseScenario.inputs.annualInflationRate}
+                      valueBasis={valueBasis}
+                      valueKey="fireTargetAssets"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <DepletionChart
+                    annualInflationRate={inputs.annualInflationRate}
+                    result={depletionResult}
+                    valueBasis={valueBasis}
+                  />
+                  <DepletionProjectionTable
+                    annualInflationRate={inputs.annualInflationRate}
+                    rows={getDepletionTableRows(depletionResult.projections)}
+                    valueBasis={valueBasis}
+                  />
+                </>
+              )}
+            </div>
+          )}
+
+          {activeResultTab === "experiments" && (
+            <div className="result-tab-panel" role="tabpanel">
+              <ImpactSection
+                inputs={inputs}
+                mode={calculationMode === "trinity" ? "trinity" : "depletion"}
               />
-              <ImpactSection inputs={inputs} mode="depletion" />
-            </>
+            </div>
           )}
         </section>
       </section>
 
-      <section className="tables-band">
-        <div className="section-heading">
-          <p className="eyebrow">MONTHLY PROJECTION</p>
-          <h2>월별 추이</h2>
-        </div>
-        {calculationMode === "trinity" ? (
-          <div className="table-grid">
-            <ProjectionTable
-              title="투자 가능 자산 추이"
-              rows={getTableRows(baseScenario.projections)}
-              annualInflationRate={baseScenario.inputs.annualInflationRate}
-              valueBasis={valueBasis}
-              valueKey="investableAssets"
-            />
-            <ProjectionTable
-              title="FIRE 목표 자산 추이"
-              rows={getTableRows(baseScenario.projections)}
-              annualInflationRate={baseScenario.inputs.annualInflationRate}
-              valueBasis={valueBasis}
-              valueKey="fireTargetAssets"
-            />
-          </div>
-        ) : (
-          <DepletionProjectionTable
-            annualInflationRate={inputs.annualInflationRate}
-            rows={getDepletionTableRows(depletionResult.projections)}
-            valueBasis={valueBasis}
-          />
-        )}
-      </section>
       <footer className="site-footer">
         만든 사람{" "}
         <a href="https://heojay.dev" target="_blank" rel="noreferrer">
@@ -313,6 +334,37 @@ function App() {
         </a>
       </footer>
     </main>
+  );
+}
+
+function ResultTabs({
+  selectedTab,
+  onChange,
+}: {
+  selectedTab: ResultTab;
+  onChange: (tab: ResultTab) => void;
+}) {
+  const tabs = [
+    ["summary", "요약"],
+    ["monthly", "월별추이"],
+    ["experiments", "실험"],
+  ] as const;
+
+  return (
+    <div className="result-tabs" role="tablist" aria-label="결과 탭">
+      {tabs.map(([tab, label]) => (
+        <button
+          aria-selected={selectedTab === tab}
+          className={selectedTab === tab ? "result-tab result-tab-active" : "result-tab"}
+          key={tab}
+          role="tab"
+          type="button"
+          onClick={() => onChange(tab)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -644,11 +696,6 @@ function DepletionSummary({
           </article>
         ))}
       </div>
-      <DepletionChart
-        annualInflationRate={annualInflationRate}
-        result={result}
-        valueBasis={valueBasis}
-      />
     </>
   );
 }
