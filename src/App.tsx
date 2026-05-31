@@ -18,9 +18,11 @@ type CalculationMode = "trinity" | "depletion";
 
 type FormValues = {
   investableAssets: NumericFormValue;
-  monthlySavings: NumericFormValue;
+  monthlyIncome: NumericFormValue;
   monthlyExpenses: NumericFormValue;
-  annualRealReturnRate: NumericFormValue;
+  annualNominalReturnRate: NumericFormValue;
+  annualInflationRate: NumericFormValue;
+  annualIncomeGrowthRate: NumericFormValue;
   targetWithdrawalRate: NumericFormValue;
   currentAge: NumericFormValue;
   lifeExpectancy: NumericFormValue;
@@ -30,9 +32,11 @@ type NumericFormField = keyof FormValues;
 
 const commonFields = [
   ["investableAssets", "현재 보유 자산", "원"],
-  ["monthlySavings", "월 평균 저축액", "원"],
+  ["monthlyIncome", "현재 월 수입", "원"],
   ["monthlyExpenses", "월 평균 소비액", "원"],
-  ["annualRealReturnRate", "연평균 예상 실질 수익률", "%"],
+  ["annualNominalReturnRate", "명목 연평균 투자 수익률", "%"],
+  ["annualInflationRate", "연평균 물가 상승률", "%"],
+  ["annualIncomeGrowthRate", "연평균 수입 증가율", "%"],
 ] as const;
 
 const depletionFields = [
@@ -41,8 +45,11 @@ const depletionFields = [
 ] as const;
 
 const fieldHelpText: Partial<Record<NumericFormField, string>> = {
-  annualRealReturnRate:
-    "인플레이션을 차감한 장기 실질 수익률입니다. 별도 물가 상승률은 입력하지 않습니다.",
+  monthlyIncome: "매월 저축액은 현재 월 수입에서 월 소비액을 뺀 금액으로 계산합니다.",
+  annualNominalReturnRate:
+    "물가 상승률을 차감하지 않은 명목 기준 장기 투자 수익률입니다.",
+  annualInflationRate: "월 소비액은 12개월마다 이 비율만큼 복리로 증가합니다.",
+  annualIncomeGrowthRate: "월 수입은 12개월마다 이 비율만큼 복리로 증가합니다.",
   targetWithdrawalRate:
     "월 소비액을 FIRE 목표 자산으로 환산하는 비율입니다. 낮을수록 더 보수적인 목표 자산이 나옵니다.",
   lifeExpectancy:
@@ -85,7 +92,7 @@ function App() {
           <p className="eyebrow">FIRE CALCULATOR</p>
           <h1>경제적 자유까지 얼마나 걸릴까요?</h1>
           <p className="lead">
-            현재 자산, 월 저축액, 월 소비액을 바탕으로 FIRE 목표 도달 시점과 기대수명까지
+            현재 자산, 월 수입, 월 소비액을 바탕으로 FIRE 목표 도달 시점과 기대수명까지
             버티기 위한 최소 근로 기간을 계산합니다.
           </p>
         </section>
@@ -310,10 +317,10 @@ function SummaryGrid({ scenario }: { scenario: FireScenarioResult }) {
         : formatMoney(scenario.retirementInvestableAssets),
     ],
     [
-      "현재 월 소비액",
+      "은퇴 후 첫 달 예상 생활비",
       scenario.retirementMonthlyExpenses === null
         ? "도달 어려움"
-        : `${formatMoney(scenario.retirementMonthlyExpenses)} / 월`,
+        : `${formatMoney(scenario.retirementFirstMonthExpenses ?? scenario.retirementMonthlyExpenses)} / 월`,
     ],
     [
       "은퇴 후 안전 인출 가능 금액",
@@ -763,9 +770,11 @@ function NumberField({
 function presetToFormValues(values: FireInputs): FormValues {
   return {
     investableAssets: values.investableAssets,
-    monthlySavings: values.monthlySavings,
+    monthlyIncome: values.monthlyIncome,
     monthlyExpenses: values.monthlyExpenses,
-    annualRealReturnRate: rateToPercentInput(values.annualRealReturnRate),
+    annualNominalReturnRate: rateToPercentInput(values.annualNominalReturnRate),
+    annualInflationRate: rateToPercentInput(values.annualInflationRate),
+    annualIncomeGrowthRate: rateToPercentInput(values.annualIncomeGrowthRate),
     targetWithdrawalRate: rateToPercentInput(values.targetWithdrawalRate),
     currentAge: values.currentAge,
     lifeExpectancy: values.lifeExpectancy,
@@ -775,9 +784,11 @@ function presetToFormValues(values: FireInputs): FormValues {
 function formValuesToInputs(values: FormValues): FireInputs {
   return {
     investableAssets: normalizeFormNumber(values.investableAssets),
-    monthlySavings: normalizeFormNumber(values.monthlySavings),
+    monthlyIncome: normalizeFormNumber(values.monthlyIncome),
     monthlyExpenses: normalizeFormNumber(values.monthlyExpenses),
-    annualRealReturnRate: percentInputToRate(normalizeFormNumber(values.annualRealReturnRate)),
+    annualNominalReturnRate: percentInputToRate(normalizeFormNumber(values.annualNominalReturnRate)),
+    annualInflationRate: percentInputToRate(normalizeFormNumber(values.annualInflationRate)),
+    annualIncomeGrowthRate: percentInputToRate(normalizeFormNumber(values.annualIncomeGrowthRate)),
     targetWithdrawalRate: percentInputToRate(normalizeFormNumber(values.targetWithdrawalRate)),
     currentAge: normalizeFormNumber(values.currentAge),
     lifeExpectancy: normalizeFormNumber(values.lifeExpectancy),

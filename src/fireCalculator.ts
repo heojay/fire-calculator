@@ -1,8 +1,10 @@
 export type FireInputs = {
   investableAssets: number;
-  monthlySavings: number;
+  monthlyIncome: number;
   monthlyExpenses: number;
-  annualRealReturnRate: number;
+  annualNominalReturnRate: number;
+  annualInflationRate: number;
+  annualIncomeGrowthRate: number;
   targetWithdrawalRate: number;
   currentAge: number;
   lifeExpectancy: number;
@@ -12,6 +14,7 @@ export type FireProjection = {
   month: number;
   year: number;
   age: number;
+  monthlyIncome: number;
   monthlySavings: number;
   monthlyExpenses: number;
   investableAssets: number;
@@ -30,6 +33,7 @@ export type FireScenarioResult = {
   retirementFireTargetAssets: number | null;
   retirementInvestableAssets: number | null;
   retirementMonthlyExpenses: number | null;
+  retirementFirstMonthExpenses: number | null;
   retirementSafeWithdrawalAmount: number | null;
   projections: FireProjection[];
 };
@@ -60,7 +64,7 @@ export type FirePreset = {
 
 export const MAX_SIMULATION_MONTHS = 100 * 12;
 export const MIN_WITHDRAWAL_RATE = 0.0001;
-export const MIN_ANNUAL_REAL_RETURN_RATE = -0.99;
+export const MIN_ANNUAL_NOMINAL_RETURN_RATE = -0.99;
 
 export const FIRE_PRESETS: FirePreset[] = [
   {
@@ -68,9 +72,11 @@ export const FIRE_PRESETS: FirePreset[] = [
     name: "대한민국 평균 가구",
     values: {
       investableAssets: 150_000_000,
-      monthlySavings: 3_250_000,
+      monthlyIncome: 6_190_000,
       monthlyExpenses: 2_940_000,
-      annualRealReturnRate: 0.04,
+      annualNominalReturnRate: 0.07,
+      annualInflationRate: 0.025,
+      annualIncomeGrowthRate: 0.035,
       targetWithdrawalRate: 0.035,
       currentAge: 40,
       lifeExpectancy: 90,
@@ -81,9 +87,11 @@ export const FIRE_PRESETS: FirePreset[] = [
     name: "입력 예시용 FIRE 가구",
     values: {
       investableAssets: 360_000_000,
-      monthlySavings: 6_500_000,
+      monthlyIncome: 10_000_000,
       monthlyExpenses: 3_500_000,
-      annualRealReturnRate: 0.04,
+      annualNominalReturnRate: 0.07,
+      annualInflationRate: 0.025,
+      annualIncomeGrowthRate: 0.035,
       targetWithdrawalRate: 0.035,
       currentAge: 31,
       lifeExpectancy: 90,
@@ -94,7 +102,7 @@ export const FIRE_PRESETS: FirePreset[] = [
 export const SCENARIO_DEFINITIONS = [
   {
     name: "보수적",
-    description: "실질 수익률 -2%p",
+    description: "명목 수익률 -2%p",
     returnRateDelta: -0.02,
   },
   {
@@ -104,7 +112,7 @@ export const SCENARIO_DEFINITIONS = [
   },
   {
     name: "낙관적",
-    description: "실질 수익률 +2%p",
+    description: "명목 수익률 +2%p",
     returnRateDelta: 0.02,
   },
 ] as const;
@@ -148,6 +156,7 @@ export function calculateFireScenario(
     retirementFireTargetAssets: achievedProjection?.fireTargetAssets ?? null,
     retirementInvestableAssets: achievedProjection?.investableAssets ?? null,
     retirementMonthlyExpenses: achievedProjection?.monthlyExpenses ?? null,
+    retirementFirstMonthExpenses: achievedProjection?.monthlyExpenses ?? null,
     retirementSafeWithdrawalAmount: achievedProjection?.safeWithdrawalAmount ?? null,
     projections,
   };
@@ -158,9 +167,9 @@ export function calculateFireScenarios(inputs: FireInputs): FireScenarioResult[]
     calculateFireScenario(
       {
         ...inputs,
-        annualRealReturnRate: Math.max(
-          inputs.annualRealReturnRate + scenario.returnRateDelta,
-          MIN_ANNUAL_REAL_RETURN_RATE,
+        annualNominalReturnRate: Math.max(
+          inputs.annualNominalReturnRate + scenario.returnRateDelta,
+          MIN_ANNUAL_NOMINAL_RETURN_RATE,
         ),
       },
       scenario.name,
@@ -233,12 +242,14 @@ function normalizeInputs(inputs: FireInputs): FireInputs {
   return {
     ...inputs,
     investableAssets: finiteOrZero(inputs.investableAssets),
-    monthlySavings: finiteOrZero(inputs.monthlySavings),
+    monthlyIncome: finiteOrZero(inputs.monthlyIncome),
     monthlyExpenses: finiteOrZero(inputs.monthlyExpenses),
-    annualRealReturnRate: Math.max(
-      finiteOrZero(inputs.annualRealReturnRate),
-      MIN_ANNUAL_REAL_RETURN_RATE,
+    annualNominalReturnRate: Math.max(
+      finiteOrZero(inputs.annualNominalReturnRate),
+      MIN_ANNUAL_NOMINAL_RETURN_RATE,
     ),
+    annualInflationRate: Math.max(finiteOrZero(inputs.annualInflationRate), -0.99),
+    annualIncomeGrowthRate: Math.max(finiteOrZero(inputs.annualIncomeGrowthRate), -0.99),
     targetWithdrawalRate: Math.max(finiteOrZero(inputs.targetWithdrawalRate), MIN_WITHDRAWAL_RATE),
     currentAge: finiteOrZero(inputs.currentAge),
     lifeExpectancy: finiteOrZero(inputs.lifeExpectancy),
@@ -254,19 +265,28 @@ function calculateProjectionForMonth(
     throw new Error(`Missing previous projection for month ${month}.`);
   }
 
-  const monthlyReturnRate = annualRateToMonthlyRate(inputs.annualRealReturnRate);
+  const monthlyReturnRate = annualRateToMonthlyRate(inputs.annualNominalReturnRate);
+  const elapsedYears = Math.floor(month / 12);
+  const monthlyIncome = applyAnnualGrowth(inputs.monthlyIncome, inputs.annualIncomeGrowthRate, elapsedYears);
+  const monthlyExpenses = applyAnnualGrowth(
+    inputs.monthlyExpenses,
+    inputs.annualInflationRate,
+    elapsedYears,
+  );
+  const monthlySavings = monthlyIncome - monthlyExpenses;
   const investableAssets =
     month === 0
       ? inputs.investableAssets
-      : previousProjection!.investableAssets * (1 + monthlyReturnRate) + inputs.monthlySavings;
-  const fireTargetAssets = (inputs.monthlyExpenses * 12) / inputs.targetWithdrawalRate;
+      : previousProjection!.investableAssets * (1 + monthlyReturnRate) + monthlySavings;
+  const fireTargetAssets = (monthlyExpenses * 12) / inputs.targetWithdrawalRate;
 
   return {
     month,
     year: month / 12,
     age: inputs.currentAge + month / 12,
-    monthlySavings: inputs.monthlySavings,
-    monthlyExpenses: inputs.monthlyExpenses,
+    monthlyIncome,
+    monthlySavings,
+    monthlyExpenses,
     investableAssets,
     targetWithdrawalRate: inputs.targetWithdrawalRate,
     fireTargetAssets,
@@ -279,7 +299,7 @@ function simulateDepletion(
   totalMonths: number,
   monthsToWork: number,
 ): { finalAssets: number; peakAssets: number; projections: DepletionProjection[] } {
-  const monthlyReturnRate = annualRateToMonthlyRate(inputs.annualRealReturnRate);
+  const monthlyReturnRate = annualRateToMonthlyRate(inputs.annualNominalReturnRate);
   let assets = inputs.investableAssets;
   let peakAssets = assets;
   const projections: DepletionProjection[] = [
@@ -294,7 +314,7 @@ function simulateDepletion(
 
   for (let month = 1; month <= totalMonths; month += 1) {
     const isWorking = month <= monthsToWork;
-    const cashFlow = isWorking ? inputs.monthlySavings : -inputs.monthlyExpenses;
+    const cashFlow = isWorking ? inputs.monthlyIncome - inputs.monthlyExpenses : -inputs.monthlyExpenses;
     assets = assets * (1 + monthlyReturnRate) + cashFlow;
 
     if (month <= monthsToWork) {
@@ -319,6 +339,10 @@ function simulateDepletion(
 
 function annualRateToMonthlyRate(annualRate: number): number {
   return Math.max(1 + annualRate, Number.EPSILON) ** (1 / 12) - 1;
+}
+
+function applyAnnualGrowth(value: number, annualGrowthRate: number, elapsedYears: number): number {
+  return value * Math.max(1 + annualGrowthRate, Number.EPSILON) ** elapsedYears;
 }
 
 function finiteOrZero(value: number | undefined): number {
