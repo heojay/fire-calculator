@@ -94,7 +94,7 @@ function App() {
 
         <section className="hero-grid">
           <p className="eyebrow">FIRE CALCULATOR</p>
-          <h1>경제적 자유까지 얼마나 걸릴까요?</h1>
+          <h1 className="hero-title">경제적 자유까지 얼마나 걸릴까요?</h1>
           <p className="lead">
             현재 자산, 월 수입, 월 소비액을 바탕으로 FIRE 목표 도달 시점과 기대수명까지
             버티기 위한 최소 근로 기간을 계산합니다.
@@ -241,6 +241,12 @@ function App() {
           />
         )}
       </section>
+      <footer className="site-footer">
+        만든 사람{" "}
+        <a href="https://heojay.dev" target="_blank" rel="noreferrer">
+          heojay.dev
+        </a>
+      </footer>
     </main>
   );
 }

@@ -130,6 +130,12 @@ h1 {
   letter-spacing: 0;
 }
 
+.hero-title {
+  text-align: left;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+
 .lead {
   max-width: 760px;
   margin-bottom: 0;
@@ -722,6 +728,30 @@ td {
   line-height: 1.6;
 }
 
+.site-footer {
+  border-top: 1px solid var(--hairline);
+  padding: 24px 32px 32px;
+  color: var(--body-mid);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.site-footer a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.site-footer a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.site-footer a:focus-visible {
+  outline: 2px solid var(--blue-info);
+  outline-offset: 3px;
+}
+
 @media (max-width: 991px) {
   .hero-grid,
   .content-grid,
@@ -738,7 +768,8 @@ td {
 @media (max-width: 767px) {
   .hero-band,
   .content-grid,
-  .tables-band {
+  .tables-band,
+  .site-footer {
     padding: 24px 16px;
   }
 
@@ -759,6 +790,10 @@ td {
 
   h1 {
     font-size: 40px;
+  }
+
+  .hero-title {
+    max-width: 9em;
   }
 
   .lead {
@@ -788,7 +823,8 @@ td {
 @media (max-width: 359px) {
   .hero-band,
   .content-grid,
-  .tables-band {
+  .tables-band,
+  .site-footer {
     padding-right: 12px;
     padding-left: 12px;
   }
