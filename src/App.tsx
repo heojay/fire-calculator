@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import {
   FIRE_PRESETS,
   calculateFireScenarios,
+  calculateCurrentAgeFromBirthYear,
+  calculateNationalPensionStartAge,
   calculatePresentValue,
   calculateYearsToWork,
   percentInputToRate,
@@ -26,8 +28,9 @@ type FormValues = {
   annualInflationRate: NumericFormValue;
   annualIncomeGrowthRate: NumericFormValue;
   targetWithdrawalRate: NumericFormValue;
-  currentAge: NumericFormValue;
+  birthYear: NumericFormValue;
   lifeExpectancy: NumericFormValue;
+  nationalPensionMonthlyAmount: NumericFormValue;
 };
 
 type NumericFormField = keyof FormValues;
@@ -49,8 +52,12 @@ const commonFields = [
 ] as const;
 
 const depletionFields = [
-  ["currentAge", "현재 나이", "세"],
+  ["birthYear", "출생연도", "년"],
   ["lifeExpectancy", "기대 수명", "세"],
+] as const;
+
+const pensionFields = [
+  ["nationalPensionMonthlyAmount", "국민연금 예상 월 수령액", "원"],
 ] as const;
 
 const fieldHelpText: Partial<Record<NumericFormField, string>> = {
@@ -62,15 +69,19 @@ const fieldHelpText: Partial<Record<NumericFormField, string>> = {
     "장기 임금과 소득 증가 가정은 과도하게 높이지 않고 명목 3%를 기본값으로 둡니다.",
   targetWithdrawalRate:
     "월 소비액을 FIRE 목표 자산으로 환산하는 비율입니다. 낮을수록 더 보수적인 목표 자산이 나옵니다.",
+  birthYear:
+    "기대수명 소진 모드에서는 출생연도로 현재 나이와 국민연금 수령 시작 나이를 계산합니다.",
   lifeExpectancy:
     "기대수명 소진 모드에서는 이 나이까지 현재 소비 수준을 유지하는 데 필요한 근로 기간을 계산합니다.",
+  nationalPensionMonthlyAmount:
+    "현재 가치 기준 월 예상 수령액입니다. 계산에서는 물가상승률을 반영해 명목 금액으로 환산합니다.",
 };
 
 const scenarioClassNames = ["scenario-conservative", "scenario-base", "scenario-optimistic"];
 const koreaAveragePreset = FIRE_PRESETS.find((preset) => preset.id === "korea-average")!;
 const fireExamplePreset = FIRE_PRESETS.find((preset) => preset.id === "fire-example")!;
-const cacheVersion = 1;
-const cacheKey = "firecalc:lastState:v1";
+const cacheVersion = 2;
+const cacheKey = "firecalc:lastState:v2";
 const defaultSelectedScenarioName = "기본";
 const validCalculationModes: CalculationMode[] = ["trinity", "depletion"];
 const validValueBases: ValueBasis[] = ["nominal", "present"];
@@ -83,8 +94,9 @@ const numericFormFields: NumericFormField[] = [
   "annualInflationRate",
   "annualIncomeGrowthRate",
   "targetWithdrawalRate",
-  "currentAge",
+  "birthYear",
   "lifeExpectancy",
+  "nationalPensionMonthlyAmount",
 ];
 
 function App() {
@@ -182,18 +194,33 @@ function App() {
           )}
 
           {calculationMode === "depletion" && (
-            <Fieldset title="기대수명 입력">
-              {depletionFields.map(([field, label, suffix]) => (
-                <NumberField
-                  key={field}
-                  label={label}
-                  suffix={suffix}
-                  value={formValues[field]}
-                  helpText={fieldHelpText[field]}
-                  onChange={(value) => handleFieldChange(field, value)}
-                />
-              ))}
-            </Fieldset>
+            <>
+              <Fieldset title="기대수명 입력">
+                {depletionFields.map(([field, label, suffix]) => (
+                  <NumberField
+                    key={field}
+                    label={label}
+                    suffix={suffix}
+                    value={formValues[field]}
+                    helpText={fieldHelpText[field]}
+                    onChange={(value) => handleFieldChange(field, value)}
+                  />
+                ))}
+              </Fieldset>
+              <Fieldset title="국민연금 입력">
+                {pensionFields.map(([field, label, suffix]) => (
+                  <NumberField
+                    key={field}
+                    label={label}
+                    suffix={suffix}
+                    value={formValues[field]}
+                    helpText={fieldHelpText[field]}
+                    onChange={(value) => handleFieldChange(field, value)}
+                  />
+                ))}
+                <PensionStartAgeNote birthYear={normalizeFormNumber(formValues.birthYear)} />
+              </Fieldset>
+            </>
           )}
 
           <ResultHero
@@ -471,6 +498,10 @@ function DepletionSummary({
     ["필요 최소 근로 기간", formatWorkDuration(result.monthsToWork)],
     ["은퇴 예상 나이", formatRetirementAge(result.retirementAge)],
     [
+      "국민연금 수령 시작",
+      result.nationalPensionStartAge === null ? "계산 불가" : `${result.nationalPensionStartAge}세`,
+    ],
+    [
       basisLabel("은퇴 후 첫 달 예상 생활비", valueBasis),
       result.retirementFirstMonthExpenses === null
         ? "계산 불가"
@@ -499,7 +530,8 @@ function DepletionSummary({
         </div>
         <p>
           근로 기간에는 월 수입에서 월 소비액을 뺀 금액을 더하고, 은퇴 후에는 월 소비액을
-          차감합니다. 월 수입과 소비액은 매년 입력한 증가율을 반영합니다.
+          차감합니다. 국민연금은 출생연도별 수령 시작 나이부터 더하고, 월 수입과 소비액은
+          매년 입력한 증가율을 반영합니다.
         </p>
       </article>
       <div className="summary-grid depletion-grid">
@@ -906,6 +938,7 @@ function DepletionProjectionTable({
                 <th>나이</th>
                 <th>상태</th>
                 <th>{basisLabel("월 현금흐름", valueBasis)}</th>
+                <th>{basisLabel("국민연금", valueBasis)}</th>
                 <th>{basisLabel("월 생활비", valueBasis)}</th>
                 <th>{basisLabel("자산", valueBasis)}</th>
               </tr>
@@ -919,6 +952,16 @@ function DepletionProjectionTable({
                   <td>
                     {formatMoney(
                       toDisplayMoney(row.cashFlow, annualInflationRate, row.month, valueBasis),
+                    )}
+                  </td>
+                  <td>
+                    {formatMoney(
+                      toDisplayMoney(
+                        row.nationalPensionIncome,
+                        annualInflationRate,
+                        row.month,
+                        valueBasis,
+                      ),
                     )}
                   </td>
                   <td>
@@ -943,6 +986,19 @@ function DepletionProjectionTable({
         </div>
       </article>
     </div>
+  );
+}
+
+function PensionStartAgeNote({ birthYear }: { birthYear: number }) {
+  const currentAge = calculateCurrentAgeFromBirthYear(birthYear);
+  const startAge = calculateNationalPensionStartAge(birthYear);
+
+  return (
+    <p className="pension-start-note">
+      현재 나이는 {currentAge}세로 계산하고, 국민연금은 {startAge}세부터 반영합니다.
+      1952년 이전 60세, 1953~1956년 61세, 1957~1960년 62세, 1961~1964년
+      63세, 1965~1968년 64세, 1969년 이후 65세 기준입니다.
+    </p>
   );
 }
 
@@ -1011,8 +1067,9 @@ function presetToFormValues(values: FireInputs): FormValues {
     annualInflationRate: rateToPercentInput(values.annualInflationRate),
     annualIncomeGrowthRate: rateToPercentInput(values.annualIncomeGrowthRate),
     targetWithdrawalRate: rateToPercentInput(values.targetWithdrawalRate),
-    currentAge: values.currentAge,
+    birthYear: values.birthYear,
     lifeExpectancy: values.lifeExpectancy,
+    nationalPensionMonthlyAmount: values.nationalPensionMonthlyAmount,
   };
 }
 
@@ -1126,8 +1183,9 @@ function formValuesToInputs(values: FormValues): FireInputs {
     annualInflationRate: percentInputToRate(normalizeFormNumber(values.annualInflationRate)),
     annualIncomeGrowthRate: percentInputToRate(normalizeFormNumber(values.annualIncomeGrowthRate)),
     targetWithdrawalRate: percentInputToRate(normalizeFormNumber(values.targetWithdrawalRate)),
-    currentAge: normalizeFormNumber(values.currentAge),
+    birthYear: normalizeFormNumber(values.birthYear),
     lifeExpectancy: normalizeFormNumber(values.lifeExpectancy),
+    nationalPensionMonthlyAmount: normalizeFormNumber(values.nationalPensionMonthlyAmount),
   };
 }
 

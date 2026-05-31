@@ -3,14 +3,19 @@ import {
   FIRE_PRESETS,
   MIN_ANNUAL_NOMINAL_RETURN_RATE,
   MIN_WITHDRAWAL_RATE,
+  calculateCurrentAgeFromBirthYear,
   calculateFireScenario,
   calculateFireScenarios,
+  calculateNationalPensionStartAge,
   calculatePresentValue,
   calculateYearsToWork,
   percentInputToRate,
   rateToPercentInput,
   type FireInputs,
 } from "./fireCalculator";
+
+const currentYear = new Date().getFullYear();
+const birthYearForAge = (age: number) => currentYear - age;
 
 const baseInputs: FireInputs = {
   investableAssets: 100_000_000,
@@ -20,8 +25,9 @@ const baseInputs: FireInputs = {
   annualInflationRate: 0.025,
   annualIncomeGrowthRate: 0.035,
   targetWithdrawalRate: 0.04,
-  currentAge: 40,
+  birthYear: birthYearForAge(40),
   lifeExpectancy: 90,
+  nationalPensionMonthlyAmount: 0,
 };
 
 describe("calculateFireScenario", () => {
@@ -168,22 +174,24 @@ describe("calculateFireScenario", () => {
     });
   });
 
-  it("금액과 나이의 음수 입력은 0으로 보정한다", () => {
+  it("금액과 출생연도, 국민연금의 잘못된 입력은 안전한 범위로 보정한다", () => {
     const result = calculateFireScenario({
       ...baseInputs,
       investableAssets: -100,
       monthlyIncome: -200,
       monthlyExpenses: -300,
-      currentAge: -40,
+      birthYear: -40,
       lifeExpectancy: -90,
+      nationalPensionMonthlyAmount: -100,
     });
 
     expect(result.inputs).toMatchObject({
       investableAssets: 0,
       monthlyIncome: 0,
       monthlyExpenses: 0,
-      currentAge: 0,
+      birthYear: currentYear,
       lifeExpectancy: 0,
+      nationalPensionMonthlyAmount: 0,
     });
     expect(result.projections[0]).toMatchObject({
       age: 0,
@@ -201,8 +209,9 @@ describe("calculateFireScenario", () => {
       annualInflationRate: -2,
       annualIncomeGrowthRate: -3,
       targetWithdrawalRate: 0,
-      currentAge: Number.NaN,
+      birthYear: Number.NaN,
       lifeExpectancy: Number.POSITIVE_INFINITY,
+      nationalPensionMonthlyAmount: Number.NEGATIVE_INFINITY,
     });
 
     expect(result.inputs).toMatchObject({
@@ -213,8 +222,9 @@ describe("calculateFireScenario", () => {
       annualInflationRate: -0.99,
       annualIncomeGrowthRate: -0.99,
       targetWithdrawalRate: MIN_WITHDRAWAL_RATE,
-      currentAge: 0,
+      birthYear: currentYear,
       lifeExpectancy: 0,
+      nationalPensionMonthlyAmount: 0,
     });
   });
 
@@ -264,7 +274,7 @@ describe("calculateYearsToWork", () => {
       annualNominalReturnRate: 0,
       annualInflationRate: 0,
       annualIncomeGrowthRate: 0,
-      currentAge: 40,
+      birthYear: birthYearForAge(40),
       lifeExpectancy: 50,
     });
 
@@ -282,7 +292,7 @@ describe("calculateYearsToWork", () => {
       annualNominalReturnRate: 0,
       annualInflationRate: 0,
       annualIncomeGrowthRate: 0,
-      currentAge: 40,
+      birthYear: birthYearForAge(40),
       lifeExpectancy: 41,
     });
 
@@ -317,7 +327,7 @@ describe("calculateYearsToWork", () => {
       annualNominalReturnRate: 0,
       annualInflationRate: 0.25,
       annualIncomeGrowthRate: 0,
-      currentAge: 40,
+      birthYear: birthYearForAge(40),
       lifeExpectancy: 42,
     });
 
@@ -335,10 +345,63 @@ describe("calculateYearsToWork", () => {
     });
   });
 
+  it("국민연금은 수령 시작 나이부터 현금흐름에 더한다", () => {
+    const birthYear = baseInputs.birthYear;
+    const currentAge = calculateCurrentAgeFromBirthYear(birthYear);
+    const pensionStartAge = calculateNationalPensionStartAge(birthYear);
+    const pensionStartMonth = Math.floor((pensionStartAge - currentAge) * 12);
+    const result = calculateYearsToWork({
+      ...baseInputs,
+      investableAssets: 0,
+      monthlyIncome: 200,
+      monthlyExpenses: 100,
+      annualNominalReturnRate: 0,
+      annualInflationRate: 0,
+      annualIncomeGrowthRate: 0,
+      lifeExpectancy: pensionStartAge + 1,
+      nationalPensionMonthlyAmount: 100,
+    });
+
+    expect(result.status).toBe("achievable");
+    expect(result.monthsToWork).toBe(Math.ceil((pensionStartMonth - 1) / 2));
+    expect(result.nationalPensionStartAge).toBe(pensionStartAge);
+    expect(result.projections[pensionStartMonth - 1]).toMatchObject({
+      nationalPensionIncome: 0,
+    });
+    expect(result.projections[pensionStartMonth]).toMatchObject({
+      nationalPensionIncome: 100,
+    });
+  });
+
+  it("국민연금 현재 기준 금액은 물가상승률에 따라 명목 금액으로 환산한다", () => {
+    const result = calculateYearsToWork({
+      ...baseInputs,
+      investableAssets: 10_000,
+      monthlyIncome: 0,
+      monthlyExpenses: 100,
+      annualNominalReturnRate: 0,
+      annualInflationRate: 0.25,
+      annualIncomeGrowthRate: 0,
+      birthYear: 1952,
+      lifeExpectancy: calculateCurrentAgeFromBirthYear(1952) + 2,
+      nationalPensionMonthlyAmount: 100,
+    });
+
+    expect(result.status).toBe("already-sufficient");
+    expect(result.projections[1]).toMatchObject({
+      nationalPensionIncome: 100,
+      cashFlow: 0,
+    });
+    expect(result.projections[12]).toMatchObject({
+      nationalPensionIncome: 125,
+      cashFlow: 0,
+    });
+  });
+
   it("기대수명이 현재 나이 이하이면 계산 불가 상태를 반환한다", () => {
     const result = calculateYearsToWork({
       ...baseInputs,
-      currentAge: 90,
+      birthYear: birthYearForAge(90),
       lifeExpectancy: 90,
     });
 
@@ -356,7 +419,7 @@ describe("calculateYearsToWork", () => {
       annualNominalReturnRate: 0,
       annualInflationRate: 0,
       annualIncomeGrowthRate: 0,
-      currentAge: 40,
+      birthYear: birthYearForAge(40),
       lifeExpectancy: 41,
     });
 
@@ -374,7 +437,7 @@ describe("calculateYearsToWork", () => {
       annualNominalReturnRate: 0,
       annualInflationRate: 0,
       annualIncomeGrowthRate: 0,
-      currentAge: 40,
+      birthYear: birthYearForAge(40),
       lifeExpectancy: 41,
     });
 
@@ -420,8 +483,20 @@ describe("FIRE_PRESETS", () => {
     expect(examplePreset?.values.annualNominalReturnRate).toBe(0.05);
     expect(examplePreset?.values.annualInflationRate).toBe(0.02);
     expect(examplePreset?.values.annualIncomeGrowthRate).toBe(0.03);
-    expect(examplePreset?.values.currentAge).toBe(40);
+    expect(calculateCurrentAgeFromBirthYear(examplePreset!.values.birthYear)).toBe(40);
     expect(examplePreset?.values.lifeExpectancy).toBe(90);
+    expect(examplePreset?.values.nationalPensionMonthlyAmount).toBe(0);
+  });
+});
+
+describe("calculateNationalPensionStartAge", () => {
+  it("출생연도별 국민연금 수령 시작 나이를 반환한다", () => {
+    expect(calculateNationalPensionStartAge(1952)).toBe(60);
+    expect(calculateNationalPensionStartAge(1953)).toBe(61);
+    expect(calculateNationalPensionStartAge(1957)).toBe(62);
+    expect(calculateNationalPensionStartAge(1961)).toBe(63);
+    expect(calculateNationalPensionStartAge(1965)).toBe(64);
+    expect(calculateNationalPensionStartAge(1969)).toBe(65);
   });
 });
 
