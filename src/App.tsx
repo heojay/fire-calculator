@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   FIRE_PRESETS,
+  MIN_WITHDRAWAL_RATE,
   calculateFireScenarios,
   calculateCurrentAgeFromBirthYear,
   calculateNationalPensionStartAge,
@@ -39,7 +40,14 @@ type CachedAppState = {
   formValues: FormValues;
   calculationMode: CalculationMode;
   valueBasis: ValueBasis;
-  selectedScenarioName: string;
+};
+
+type ImpactMode = "trinity" | "depletion";
+type ImpactKind = "expenses" | "savings" | "return-rate";
+type ImpactOption = {
+  label: string;
+  summaryLabel: string;
+  delta: number;
 };
 
 const commonFields = [
@@ -77,15 +85,12 @@ const fieldHelpText: Partial<Record<NumericFormField, string>> = {
     "현재 가치 기준 월 예상 수령액입니다. 계산에서는 물가상승률을 반영해 명목 금액으로 환산합니다.",
 };
 
-const scenarioClassNames = ["scenario-conservative", "scenario-base", "scenario-optimistic"];
 const koreaAveragePreset = FIRE_PRESETS.find((preset) => preset.id === "korea-average")!;
 const fireExamplePreset = FIRE_PRESETS.find((preset) => preset.id === "fire-example")!;
 const cacheVersion = 2;
 const cacheKey = "firecalc:lastState:v2";
-const defaultSelectedScenarioName = "기본";
 const validCalculationModes: CalculationMode[] = ["trinity", "depletion"];
 const validValueBases: ValueBasis[] = ["nominal", "present"];
-const validScenarioNames = ["보수적", "기본", "낙관적"];
 const numericFormFields: NumericFormField[] = [
   "investableAssets",
   "monthlyIncome",
@@ -98,6 +103,21 @@ const numericFormFields: NumericFormField[] = [
   "lifeExpectancy",
   "nationalPensionMonthlyAmount",
 ];
+const expenseImpactOptions: ImpactOption[] = [
+  { label: "월 소비 -50만원", summaryLabel: "월 소비 -50만원이면", delta: -500_000 },
+  { label: "월 소비 +50만원", summaryLabel: "월 소비 +50만원이면", delta: 500_000 },
+  { label: "월 소비 +100만원", summaryLabel: "월 소비 +100만원이면", delta: 1_000_000 },
+];
+const savingsImpactOptions: ImpactOption[] = [
+  { label: "월 저축 -50만원", summaryLabel: "월 저축 -50만원이면", delta: -500_000 },
+  { label: "월 저축 +50만원", summaryLabel: "월 저축 +50만원이면", delta: 500_000 },
+  { label: "월 저축 +100만원", summaryLabel: "월 저축 +100만원이면", delta: 1_000_000 },
+];
+const returnImpactOptions: ImpactOption[] = [
+  { label: "수익률 -1%p", summaryLabel: "수익률 -1%p이면", delta: -0.01 },
+  { label: "수익률 +1%p", summaryLabel: "수익률 +1%p이면", delta: 0.01 },
+  { label: "수익률 +2%p", summaryLabel: "수익률 +2%p이면", delta: 0.02 },
+];
 
 function App() {
   const [initialState] = useState(loadCachedAppState);
@@ -106,16 +126,11 @@ function App() {
   );
   const [valueBasis, setValueBasis] = useState<ValueBasis>(initialState.valueBasis);
   const [formValues, setFormValues] = useState<FormValues>(initialState.formValues);
-  const [selectedScenarioName, setSelectedScenarioName] = useState(
-    initialState.selectedScenarioName,
-  );
 
   const inputs = useMemo(() => formValuesToInputs(formValues), [formValues]);
   const scenarios = useMemo(() => calculateFireScenarios(inputs), [inputs]);
   const depletionResult = useMemo(() => calculateYearsToWork(inputs), [inputs]);
   const baseScenario = scenarios[1];
-  const selectedScenario =
-    scenarios.find((scenario) => scenario.name === selectedScenarioName) ?? baseScenario;
 
   useEffect(() => {
     saveCachedAppState({
@@ -123,9 +138,8 @@ function App() {
       formValues,
       calculationMode,
       valueBasis,
-      selectedScenarioName,
     });
-  }, [calculationMode, formValues, selectedScenarioName, valueBasis]);
+  }, [calculationMode, formValues, valueBasis]);
 
   const handleFieldChange = (field: NumericFormField, value: string) => {
     setFormValues((current) => ({
@@ -246,15 +260,18 @@ function App() {
             <>
               <WithdrawalRateNote withdrawalRate={inputs.targetWithdrawalRate} />
               <SummaryGrid scenario={baseScenario} valueBasis={valueBasis} />
-              <ScenarioGrid scenarios={scenarios} valueBasis={valueBasis} />
-              <AssetChart scenarios={scenarios} valueBasis={valueBasis} />
+              <ImpactSection inputs={inputs} mode="trinity" />
+              <AssetChart scenario={baseScenario} valueBasis={valueBasis} />
             </>
           ) : (
-            <DepletionSummary
-              annualInflationRate={inputs.annualInflationRate}
-              result={depletionResult}
-              valueBasis={valueBasis}
-            />
+            <>
+              <DepletionSummary
+                annualInflationRate={inputs.annualInflationRate}
+                result={depletionResult}
+                valueBasis={valueBasis}
+              />
+              <ImpactSection inputs={inputs} mode="depletion" />
+            </>
           )}
         </section>
       </section>
@@ -265,38 +282,22 @@ function App() {
           <h2>월별 추이</h2>
         </div>
         {calculationMode === "trinity" ? (
-          <>
-            <div className="table-actions" aria-label="월별 추이 시나리오 선택">
-              {scenarios.map((scenario) => (
-                <button
-                  className={
-                    scenario.name === selectedScenario.name ? "button-primary" : "button-secondary"
-                  }
-                  key={scenario.name}
-                  type="button"
-                  onClick={() => setSelectedScenarioName(scenario.name)}
-                >
-                  {scenario.name}
-                </button>
-              ))}
-            </div>
-            <div className="table-grid">
-              <ProjectionTable
-                title="투자 가능 자산 추이"
-                rows={getTableRows(selectedScenario.projections)}
-                annualInflationRate={selectedScenario.inputs.annualInflationRate}
-                valueBasis={valueBasis}
-                valueKey="investableAssets"
-              />
-              <ProjectionTable
-                title="FIRE 목표 자산 추이"
-                rows={getTableRows(selectedScenario.projections)}
-                annualInflationRate={selectedScenario.inputs.annualInflationRate}
-                valueBasis={valueBasis}
-                valueKey="fireTargetAssets"
-              />
-            </div>
-          </>
+          <div className="table-grid">
+            <ProjectionTable
+              title="투자 가능 자산 추이"
+              rows={getTableRows(baseScenario.projections)}
+              annualInflationRate={baseScenario.inputs.annualInflationRate}
+              valueBasis={valueBasis}
+              valueKey="investableAssets"
+            />
+            <ProjectionTable
+              title="FIRE 목표 자산 추이"
+              rows={getTableRows(baseScenario.projections)}
+              annualInflationRate={baseScenario.inputs.annualInflationRate}
+              valueBasis={valueBasis}
+              valueKey="fireTargetAssets"
+            />
+          </div>
         ) : (
           <DepletionProjectionTable
             annualInflationRate={inputs.annualInflationRate}
@@ -477,6 +478,107 @@ function SummaryGrid({
         </article>
       ))}
     </div>
+  );
+}
+
+function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode }) {
+  return (
+    <section className="chart-card impact-section" aria-labelledby="impact-section-title">
+      <div className="impact-heading">
+        <p className="eyebrow">EXPERIMENTS</p>
+        <h3 id="impact-section-title">가정 바꿔보기</h3>
+        <p>
+          현재 입력값은 그대로 두고, 특정 가정만 바꿔 FIRE 시점이 얼마나 달라지는지
+          비교합니다.
+        </p>
+      </div>
+      <div className="impact-grid">
+        <ImpactCard
+          inputs={inputs}
+          kind="expenses"
+          mode={mode}
+          options={expenseImpactOptions}
+          title="월 소비 영향"
+          description="현재 월 소비를 기준으로 FIRE 시점 변화를 비교합니다."
+        />
+        <ImpactCard
+          inputs={inputs}
+          kind="savings"
+          mode={mode}
+          options={savingsImpactOptions}
+          title="월 저축 영향"
+          description="월 저축은 현재 월 수입에서 월 소비액을 뺀 금액으로 계산합니다."
+        />
+        <ImpactCard
+          inputs={inputs}
+          kind="return-rate"
+          mode={mode}
+          options={returnImpactOptions}
+          title="수익률 영향"
+          description="명목 연평균 투자 수익률만 바꿔 비교합니다."
+        />
+      </div>
+    </section>
+  );
+}
+
+function ImpactCard({
+  description,
+  inputs,
+  kind,
+  mode,
+  options,
+  title,
+}: {
+  description: string;
+  inputs: FireInputs;
+  kind: ImpactKind;
+  mode: ImpactMode;
+  options: ImpactOption[];
+  title: string;
+}) {
+  const [selectedDelta, setSelectedDelta] = useState<number | null>(null);
+  const selectedOption = options.find((option) => option.delta === selectedDelta) ?? null;
+  const impact = selectedOption
+    ? calculateImpact(mode, inputs, changeImpactInputs(inputs, kind, selectedOption.delta))
+    : null;
+
+  return (
+    <article className="impact-card">
+      <div>
+        <h4>{title}</h4>
+        <p>{description}</p>
+      </div>
+      <div className="impact-options" aria-label={`${title} 선택`}>
+        {options.map((option) => (
+          <button
+            className={selectedDelta === option.delta ? "button-primary" : "button-secondary"}
+            key={option.label}
+            type="button"
+            onClick={() => setSelectedDelta(option.delta)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      {impact && selectedOption ? (
+        <div className="impact-result">
+          <strong>{selectedOption.summaryLabel}</strong>
+          <span>
+            {mode === "trinity" ? "FIRE 시점" : "최소 근로 기간"}:{" "}
+            {formatImpactYears(impact.baseMonths)} → {formatImpactYears(impact.changedMonths)}
+          </span>
+          <span>변화: {formatImpactChange(impact.diffMonths)}</span>
+          {kind === "expenses" && (
+            <span>
+              {formatRequiredAssetImpact(selectedOption.delta, inputs.targetWithdrawalRate)}
+            </span>
+          )}
+        </div>
+      ) : (
+        <p className="impact-placeholder">버튼을 선택하면 기준 결과와 변경 결과를 비교합니다.</p>
+      )}
+    </article>
   );
 }
 
@@ -667,75 +769,37 @@ function DepletionChart({
   );
 }
 
-function ScenarioGrid({
-  scenarios,
-  valueBasis,
-}: {
-  scenarios: FireScenarioResult[];
-  valueBasis: ValueBasis;
-}) {
-  return (
-    <div className="scenario-grid">
-      {scenarios.map((scenario, index) => (
-        <article className={`scenario-card ${scenarioClassNames[index]}`} key={scenario.name}>
-          <span>{scenario.description}</span>
-          <h3>{scenario.name} 시나리오</h3>
-          <strong>{formatMonthsToFire(scenario)}</strong>
-          <p>
-            {scenario.retirementInvestableAssets === null
-              ? "100년 제한 안에서 FIRE 목표 자산에 도달하지 못합니다."
-              : `은퇴 시 투자 가능 자산 ${formatMoney(
-                  toDisplayMoney(
-                    scenario.retirementInvestableAssets,
-                    scenario.inputs.annualInflationRate,
-                    scenario.monthsToFire ?? 0,
-                    valueBasis,
-                  ),
-                )}`}
-          </p>
-        </article>
-      ))}
-    </div>
-  );
-}
-
 function AssetChart({
-  scenarios,
+  scenario,
   valueBasis,
 }: {
-  scenarios: FireScenarioResult[];
+  scenario: FireScenarioResult;
   valueBasis: ValueBasis;
 }) {
   const isMobile = useMediaQuery("(max-width: 767px)");
-  const allRows = scenarios.flatMap((scenario) => scenario.projections);
   const width = isMobile ? 520 : 760;
   const height = isMobile ? 320 : 280;
   const padding = isMobile
     ? { top: 20, right: 16, bottom: 34, left: 54 }
     : { top: 24, right: 24, bottom: 44, left: 88 };
-  const values = scenarios.flatMap((scenario) =>
-    scenario.projections.flatMap((row) => [
-      toDisplayMoney(
-        row.investableAssets,
-        scenario.inputs.annualInflationRate,
-        row.month,
-        valueBasis,
-      ),
-      toDisplayMoney(
-        row.fireTargetAssets,
-        scenario.inputs.annualInflationRate,
-        row.month,
-        valueBasis,
-      ),
-    ]),
-  );
+  const values = scenario.projections.flatMap((row) => [
+    toDisplayMoney(
+      row.investableAssets,
+      scenario.inputs.annualInflationRate,
+      row.month,
+      valueBasis,
+    ),
+    toDisplayMoney(
+      row.fireTargetAssets,
+      scenario.inputs.annualInflationRate,
+      row.month,
+      valueBasis,
+    ),
+  ]);
   const minValue = Math.min(...values, 0);
   const maxValue = Math.max(...values, 1);
   const valueRange = maxValue - minValue || 1;
-  const maxMonth = Math.max(
-    ...scenarios.map((scenario) => scenario.projections.at(-1)?.month ?? 1),
-    1,
-  );
+  const maxMonth = Math.max(scenario.projections.at(-1)?.month ?? 1, 1);
   const yTicks = Array.from({ length: 4 }, (_, index) => minValue + (valueRange / 3) * index);
   const xTicks = Array.from(new Set([0, Math.round(maxMonth / 2), maxMonth]));
 
@@ -769,9 +833,7 @@ function AssetChart({
           <h3>월별 자산 추이 그래프</h3>
         </div>
         <div className="legend">
-          <span className="legend-conservative">보수적</span>
-          <span className="legend-base">기본</span>
-          <span className="legend-optimistic">낙관적</span>
+          <span className="legend-base">투자 가능 자산</span>
           <span className="legend-target">점선: FIRE 목표 자산</span>
         </div>
       </div>
@@ -814,24 +876,18 @@ function AssetChart({
           x2={padding.left}
           y2={height - padding.bottom}
         />
-        {scenarios.map((scenario) => (
-          <polyline
-            className={`target-line ${getScenarioLineClassName(scenario.name)}`}
-            key={`${scenario.name}-target`}
-            points={scenario.projections
-              .map((row) => toPoint(scenario, row, row.fireTargetAssets))
-              .join(" ")}
-          />
-        ))}
-        {scenarios.map((scenario) => (
-          <polyline
-            className={`scenario-line ${getScenarioLineClassName(scenario.name)}`}
-            key={scenario.name}
-            points={scenario.projections
-              .map((row) => toPoint(scenario, row, row.investableAssets))
-              .join(" ")}
-          />
-        ))}
+        <polyline
+          className="target-line base-line"
+          points={scenario.projections
+            .map((row) => toPoint(scenario, row, row.fireTargetAssets))
+            .join(" ")}
+        />
+        <polyline
+          className="scenario-line base-line"
+          points={scenario.projections
+            .map((row) => toPoint(scenario, row, row.investableAssets))
+            .join(" ")}
+        />
       </svg>
     </article>
   );
@@ -1111,7 +1167,6 @@ function createDefaultAppState(): CachedAppState {
     formValues: presetToFormValues(fireExamplePreset.values),
     calculationMode: "trinity",
     valueBasis: "nominal",
-    selectedScenarioName: defaultSelectedScenarioName,
   };
 }
 
@@ -1130,9 +1185,6 @@ function normalizeCachedAppState(
       ? value.calculationMode
       : defaultState.calculationMode,
     valueBasis: isValueBasis(value.valueBasis) ? value.valueBasis : defaultState.valueBasis,
-    selectedScenarioName: isScenarioName(value.selectedScenarioName)
-      ? value.selectedScenarioName
-      : defaultState.selectedScenarioName,
   };
 }
 
@@ -1164,10 +1216,6 @@ function isCalculationMode(value: unknown): value is CalculationMode {
 
 function isValueBasis(value: unknown): value is ValueBasis {
   return typeof value === "string" && validValueBases.includes(value as ValueBasis);
-}
-
-function isScenarioName(value: unknown): value is string {
-  return typeof value === "string" && validScenarioNames.includes(value);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -1229,6 +1277,63 @@ function getDepletionPeakMonth(result: DepletionResult): number | null {
     }, null)?.month ?? null;
 }
 
+function calculateImpact(
+  mode: ImpactMode,
+  baseInputs: FireInputs,
+  changedInputs: FireInputs,
+): {
+  baseMonths: number | null;
+  changedMonths: number | null;
+  diffMonths: number | null;
+} {
+  if (mode === "depletion") {
+    const baseResult = calculateYearsToWork(baseInputs);
+    const changedResult = calculateYearsToWork(changedInputs);
+
+    return {
+      baseMonths: baseResult.monthsToWork,
+      changedMonths: changedResult.monthsToWork,
+      diffMonths:
+        baseResult.monthsToWork === null || changedResult.monthsToWork === null
+          ? null
+          : changedResult.monthsToWork - baseResult.monthsToWork,
+    };
+  }
+
+  const baseResult = calculateFireScenarios(baseInputs)[1];
+  const changedResult = calculateFireScenarios(changedInputs)[1];
+
+  return {
+    baseMonths: baseResult.monthsToFire,
+    changedMonths: changedResult.monthsToFire,
+    diffMonths:
+      baseResult.monthsToFire === null || changedResult.monthsToFire === null
+        ? null
+        : changedResult.monthsToFire - baseResult.monthsToFire,
+  };
+}
+
+function changeImpactInputs(inputs: FireInputs, kind: ImpactKind, delta: number): FireInputs {
+  if (kind === "expenses") {
+    return {
+      ...inputs,
+      monthlyExpenses: Math.max(inputs.monthlyExpenses + delta, 0),
+    };
+  }
+
+  if (kind === "savings") {
+    return {
+      ...inputs,
+      monthlyIncome: Math.max(inputs.monthlyIncome + delta, 0),
+    };
+  }
+
+  return {
+    ...inputs,
+    annualNominalReturnRate: inputs.annualNominalReturnRate + delta,
+  };
+}
+
 function toDisplayMoney(
   value: number,
   annualInflationRate: number,
@@ -1271,6 +1376,46 @@ function formatMonthsToFire(scenario: FireScenarioResult): string {
   }
 
   return `${formatWorkDuration(scenario.monthsToFire)} 뒤`;
+}
+
+function formatImpactYears(months: number | null): string {
+  if (months === null) {
+    return "계산 불가";
+  }
+
+  return `${formatOneDecimal(months / 12)}년`;
+}
+
+function formatImpactChange(diffMonths: number | null): string {
+  if (diffMonths === null) {
+    return "비교 어려움";
+  }
+
+  if (Math.abs(diffMonths) < 1) {
+    return "거의 변화 없음";
+  }
+
+  const direction = diffMonths > 0 ? "늦어짐" : "빨라짐";
+
+  return `${formatOneDecimal(Math.abs(diffMonths) / 12)}년 ${direction}`;
+}
+
+function formatRequiredAssetImpact(
+  monthlyExpenseDelta: number,
+  targetWithdrawalRate: number,
+): string {
+  const requiredAssetDelta =
+    (monthlyExpenseDelta * 12) / Math.max(targetWithdrawalRate, MIN_WITHDRAWAL_RATE);
+
+  if (Math.abs(requiredAssetDelta) < 1) {
+    return "추가 필요 자산: 거의 변화 없음";
+  }
+
+  if (requiredAssetDelta < 0) {
+    return `필요 자산 감소: 약 ${formatMoney(Math.abs(requiredAssetDelta))}`;
+  }
+
+  return `추가 필요 자산: 약 ${formatMoney(requiredAssetDelta)}`;
 }
 
 function formatWorkRequirementSentence(result: DepletionResult): string {
@@ -1396,6 +1541,13 @@ function formatAxisMoney(value: number): string {
 function formatCompact(value: number): string {
   return new Intl.NumberFormat("ko-KR", {
     maximumFractionDigits: value >= 10 ? 1 : 2,
+  }).format(value);
+}
+
+function formatOneDecimal(value: number): string {
+  return new Intl.NumberFormat("ko-KR", {
+    maximumFractionDigits: 1,
+    minimumFractionDigits: 1,
   }).format(value);
 }
 

@@ -528,6 +528,89 @@ legend {
   line-height: 1.5;
 }
 
+.impact-section {
+  display: grid;
+  gap: 20px;
+}
+
+.impact-heading {
+  display: grid;
+  gap: 10px;
+}
+
+.impact-heading h3,
+.impact-card h4 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.impact-heading p,
+.impact-card p {
+  margin: 0;
+  color: var(--body);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.impact-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.impact-card {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  min-width: 0;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 20px;
+  background: var(--canvas);
+}
+
+.impact-options {
+  display: grid;
+  gap: 8px;
+}
+
+.impact-options .button-primary,
+.impact-options .button-secondary {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 12px;
+  font-size: 14px;
+}
+
+.impact-result {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--hairline);
+  padding-top: 14px;
+  color: var(--body);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.impact-result strong {
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.impact-result span,
+.impact-placeholder {
+  overflow-wrap: anywhere;
+}
+
+.impact-placeholder {
+  color: var(--body-mid);
+}
+
 .chart-heading {
   display: flex;
   align-items: start;
@@ -810,7 +893,8 @@ td {
   }
 
   .summary-grid,
-  .scenario-grid {
+  .scenario-grid,
+  .impact-grid {
     grid-template-columns: 1fr;
   }
 
@@ -823,7 +907,8 @@ td {
   .chart-card,
   .table-card,
   .hero-card,
-  .scenario-card {
+  .scenario-card,
+  .impact-card {
     padding: 20px;
   }
 }
@@ -852,7 +937,8 @@ td {
   .chart-card,
   .table-card,
   .hero-card,
-  .scenario-card {
+  .scenario-card,
+  .impact-card {
     padding: 16px;
   }
 }
