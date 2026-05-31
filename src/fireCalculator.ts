@@ -128,6 +128,16 @@ export function rateToPercentInput(value: number): number {
   return roundForPercentInput(value * 100);
 }
 
+export function calculatePresentValue(
+  value: number,
+  annualInflationRate: number,
+  month: number,
+): number {
+  const normalizedInflationRate = Math.max(finiteOrZero(annualInflationRate), -0.99);
+
+  return value / Math.max(1 + normalizedInflationRate, Number.EPSILON) ** Math.floor(month / 12);
+}
+
 export function calculateFireScenario(
   rawInputs: FireInputs,
   name = "기본",

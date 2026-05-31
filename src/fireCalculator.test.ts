@@ -3,6 +3,7 @@ import {
   FIRE_PRESETS,
   calculateFireScenario,
   calculateFireScenarios,
+  calculatePresentValue,
   calculateYearsToWork,
   percentInputToRate,
   rateToPercentInput,
@@ -124,6 +125,22 @@ describe("calculateFireScenario", () => {
 
     expect(result.status).toBe("not-achieved");
     expect(result.monthsToFire).toBeNull();
+  });
+
+  it("현재 가치 환산 표시가 필요한 미래 목표 금액도 도달 판정은 명목 값으로 유지한다", () => {
+    const exampleInputs = FIRE_PRESETS.find((preset) => preset.id === "fire-example")!.values;
+    const result = calculateFireScenario(exampleInputs);
+
+    expect(result.status).toBe("achieved");
+    expect(result.monthsToFire).not.toBeNull();
+    expect(result.monthsToFire).toBeGreaterThanOrEqual(12);
+    expect(
+      calculatePresentValue(
+        result.retirementFireTargetAssets!,
+        result.inputs.annualInflationRate,
+        result.monthsToFire!,
+      ),
+    ).toBeLessThan(result.retirementFireTargetAssets!);
   });
 });
 
@@ -256,6 +273,22 @@ describe("calculateYearsToWork", () => {
     expect(result.monthsToWork).toBeNull();
     expect(result.projections.at(-1)?.phase).toBe("working");
   });
+
+  it("현재 가치 환산 표시가 필요한 미래 최고점 자산도 최소 근로 기간 판정은 명목 값으로 유지한다", () => {
+    const exampleInputs = FIRE_PRESETS.find((preset) => preset.id === "fire-example")!.values;
+    const result = calculateYearsToWork(exampleInputs);
+
+    expect(result.status).toBe("achievable");
+    expect(result.monthsToWork).not.toBeNull();
+    expect(result.monthsToWork).toBeGreaterThanOrEqual(12);
+    expect(
+      calculatePresentValue(
+        result.peakAssets!,
+        exampleInputs.annualInflationRate,
+        result.monthsToWork!,
+      ),
+    ).toBeLessThan(result.peakAssets!);
+  });
 });
 
 describe("FIRE_PRESETS", () => {
@@ -284,5 +317,19 @@ describe("rateToPercentInput", () => {
   it("계산용 비율을 입력 화면에 표시할 퍼센트 숫자로 깔끔하게 변환한다", () => {
     expect(rateToPercentInput(0.035)).toBe(3.5);
     expect(rateToPercentInput(0.025)).toBe(2.5);
+  });
+});
+
+describe("calculatePresentValue", () => {
+  it("현재 시점 금액은 원래 금액 그대로 반환한다", () => {
+    expect(calculatePresentValue(1_000, 0.25, 0)).toBe(1_000);
+  });
+
+  it("12개월이 지나면 1년치 물가 상승률로 명목 금액을 나눈다", () => {
+    expect(calculatePresentValue(1_250, 0.25, 12)).toBe(1_000);
+  });
+
+  it("12개월 전까지는 아직 첫해 현재 가치로 유지한다", () => {
+    expect(calculatePresentValue(1_000, 0.25, 11)).toBe(1_000);
   });
 });

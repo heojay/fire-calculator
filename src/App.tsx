@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import {
   FIRE_PRESETS,
   calculateFireScenarios,
+  calculatePresentValue,
   calculateYearsToWork,
   percentInputToRate,
   rateToPercentInput,
@@ -15,6 +16,7 @@ import {
 
 type NumericFormValue = number | "";
 type CalculationMode = "trinity" | "depletion";
+type ValueBasis = "nominal" | "present";
 
 type FormValues = {
   investableAssets: NumericFormValue;
@@ -62,6 +64,7 @@ const fireExamplePreset = FIRE_PRESETS.find((preset) => preset.id === "fire-exam
 
 function App() {
   const [calculationMode, setCalculationMode] = useState<CalculationMode>("trinity");
+  const [valueBasis, setValueBasis] = useState<ValueBasis>("nominal");
   const [formValues, setFormValues] = useState<FormValues>(() =>
     presetToFormValues(fireExamplePreset.values),
   );
@@ -168,18 +171,25 @@ function App() {
               <p className="eyebrow">RESULTS</p>
               <h2>계산 결과</h2>
             </div>
-            <ModeTabs selectedMode={calculationMode} onChange={setCalculationMode} />
+            <div className="results-controls">
+              <ValueBasisTabs selectedBasis={valueBasis} onChange={setValueBasis} />
+              <ModeTabs selectedMode={calculationMode} onChange={setCalculationMode} />
+            </div>
           </div>
 
           {calculationMode === "trinity" ? (
             <>
               <WithdrawalRateNote withdrawalRate={inputs.targetWithdrawalRate} />
-              <SummaryGrid scenario={baseScenario} />
-              <ScenarioGrid scenarios={scenarios} />
-              <AssetChart scenarios={scenarios} />
+              <SummaryGrid scenario={baseScenario} valueBasis={valueBasis} />
+              <ScenarioGrid scenarios={scenarios} valueBasis={valueBasis} />
+              <AssetChart scenarios={scenarios} valueBasis={valueBasis} />
             </>
           ) : (
-            <DepletionSummary result={depletionResult} />
+            <DepletionSummary
+              annualInflationRate={inputs.annualInflationRate}
+              result={depletionResult}
+              valueBasis={valueBasis}
+            />
           )}
         </section>
       </section>
@@ -209,17 +219,25 @@ function App() {
               <ProjectionTable
                 title="투자 가능 자산 추이"
                 rows={getTableRows(selectedScenario.projections)}
+                annualInflationRate={selectedScenario.inputs.annualInflationRate}
+                valueBasis={valueBasis}
                 valueKey="investableAssets"
               />
               <ProjectionTable
                 title="FIRE 목표 자산 추이"
                 rows={getTableRows(selectedScenario.projections)}
+                annualInflationRate={selectedScenario.inputs.annualInflationRate}
+                valueBasis={valueBasis}
                 valueKey="fireTargetAssets"
               />
             </div>
           </>
         ) : (
-          <DepletionProjectionTable rows={getDepletionTableRows(depletionResult.projections)} />
+          <DepletionProjectionTable
+            annualInflationRate={inputs.annualInflationRate}
+            rows={getDepletionTableRows(depletionResult.projections)}
+            valueBasis={valueBasis}
+          />
         )}
       </section>
     </main>
@@ -248,6 +266,36 @@ function ModeTabs({
           role="tab"
           type="button"
           onClick={() => onChange(mode)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ValueBasisTabs({
+  selectedBasis,
+  onChange,
+}: {
+  selectedBasis: ValueBasis;
+  onChange: (basis: ValueBasis) => void;
+}) {
+  const tabs = [
+    ["nominal", "명목 기준"],
+    ["present", "현재 가치"],
+  ] as const;
+
+  return (
+    <div className="mode-tabs value-basis-tabs" role="tablist" aria-label="금액 표시 기준">
+      {tabs.map(([basis, label]) => (
+        <button
+          aria-selected={selectedBasis === basis}
+          className={selectedBasis === basis ? "mode-tab mode-tab-active" : "mode-tab"}
+          key={basis}
+          role="tab"
+          type="button"
+          onClick={() => onChange(basis)}
         >
           {label}
         </button>
@@ -305,28 +353,47 @@ function WithdrawalRateNote({ withdrawalRate }: { withdrawalRate: number }) {
   );
 }
 
-function SummaryGrid({ scenario }: { scenario: FireScenarioResult }) {
+function SummaryGrid({
+  scenario,
+  valueBasis,
+}: {
+  scenario: FireScenarioResult;
+  valueBasis: ValueBasis;
+}) {
+  const retirementMonth = scenario.monthsToFire ?? 0;
+  const retirementFirstExpenseMonth = scenario.monthsToFire === null ? 0 : scenario.monthsToFire + 1;
+  const formatScenarioMoney = (value: number, month: number) =>
+    formatMoney(toDisplayMoney(value, scenario.inputs.annualInflationRate, month, valueBasis));
   const items = [
-    ["현재 기준 FIRE 목표 자산", formatMoney(scenario.currentFireTargetAssets)],
+    ["현재 FIRE 목표 자산", formatScenarioMoney(scenario.currentFireTargetAssets, 0)],
     ["앞으로 더 일해야 하는 기간", formatMonthsToFire(scenario)],
     ["적용된 목표 인출률", `${rateToPercentInput(scenario.inputs.targetWithdrawalRate)}%`],
     [
-      "은퇴 시 예상 투자 가능 자산",
+      basisLabel("은퇴 시 필요 FIRE 목표 자산", valueBasis),
+      scenario.retirementFireTargetAssets === null
+        ? "도달 어려움"
+        : formatScenarioMoney(scenario.retirementFireTargetAssets, retirementMonth),
+    ],
+    [
+      basisLabel("은퇴 시 예상 투자 가능 자산", valueBasis),
       scenario.retirementInvestableAssets === null
         ? "도달 어려움"
-        : formatMoney(scenario.retirementInvestableAssets),
+        : formatScenarioMoney(scenario.retirementInvestableAssets, retirementMonth),
     ],
     [
-      "은퇴 후 첫 달 예상 생활비",
+      basisLabel("은퇴 후 첫 달 예상 생활비", valueBasis),
       scenario.retirementMonthlyExpenses === null
         ? "도달 어려움"
-        : `${formatMoney(scenario.retirementFirstMonthExpenses ?? scenario.retirementMonthlyExpenses)} / 월`,
+        : `${formatScenarioMoney(
+            scenario.retirementFirstMonthExpenses ?? scenario.retirementMonthlyExpenses,
+            retirementFirstExpenseMonth,
+          )} / 월`,
     ],
     [
-      "은퇴 후 안전 인출 가능 금액",
+      basisLabel("은퇴 후 안전 인출 가능 금액", valueBasis),
       scenario.retirementSafeWithdrawalAmount === null
         ? "도달 어려움"
-        : `${formatMoney(scenario.retirementSafeWithdrawalAmount)} / 년`,
+        : `${formatScenarioMoney(scenario.retirementSafeWithdrawalAmount, retirementMonth)} / 년`,
     ],
   ];
 
@@ -342,20 +409,40 @@ function SummaryGrid({ scenario }: { scenario: FireScenarioResult }) {
   );
 }
 
-function DepletionSummary({ result }: { result: DepletionResult }) {
+function DepletionSummary({
+  annualInflationRate,
+  result,
+  valueBasis,
+}: {
+  annualInflationRate: number;
+  result: DepletionResult;
+  valueBasis: ValueBasis;
+}) {
+  const peakMonth = getDepletionPeakMonth(result);
+  const retirementFirstExpenseMonth =
+    result.monthsToWork === null ? 0 : result.monthsToWork + 1;
+  const formatDepletionMoney = (value: number, month: number) =>
+    formatMoney(toDisplayMoney(value, annualInflationRate, month, valueBasis));
   const items = [
     ["필요 최소 근로 기간", formatWorkDuration(result.monthsToWork)],
     ["은퇴 예상 나이", formatRetirementAge(result.retirementAge)],
     [
-      "은퇴 후 첫 달 예상 생활비",
+      basisLabel("은퇴 후 첫 달 예상 생활비", valueBasis),
       result.retirementFirstMonthExpenses === null
         ? "계산 불가"
-        : `${formatMoney(result.retirementFirstMonthExpenses)} / 월`,
+        : `${formatDepletionMoney(result.retirementFirstMonthExpenses, retirementFirstExpenseMonth)} / 월`,
     ],
-    ["최고점 자산 규모", result.peakAssets === null ? "계산 불가" : formatMoney(result.peakAssets)],
     [
-      "기대수명 시점 잔여 자산",
-      result.finalAssets === null ? "계산 불가" : formatMoney(result.finalAssets),
+      basisLabel("최고점 자산 규모", valueBasis),
+      result.peakAssets === null || peakMonth === null
+        ? "계산 불가"
+        : formatDepletionMoney(result.peakAssets, peakMonth),
+    ],
+    [
+      basisLabel("기대수명 시점 잔여 자산", valueBasis),
+      result.finalAssets === null
+        ? "계산 불가"
+        : formatDepletionMoney(result.finalAssets, result.totalMonths),
     ],
   ];
 
@@ -379,12 +466,24 @@ function DepletionSummary({ result }: { result: DepletionResult }) {
           </article>
         ))}
       </div>
-      <DepletionChart result={result} />
+      <DepletionChart
+        annualInflationRate={annualInflationRate}
+        result={result}
+        valueBasis={valueBasis}
+      />
     </>
   );
 }
 
-function DepletionChart({ result }: { result: DepletionResult }) {
+function DepletionChart({
+  annualInflationRate,
+  result,
+  valueBasis,
+}: {
+  annualInflationRate: number;
+  result: DepletionResult;
+  valueBasis: ValueBasis;
+}) {
   const isMobile = useMediaQuery("(max-width: 767px)");
   const rows = result.projections;
   const width = isMobile ? 360 : 760;
@@ -407,7 +506,9 @@ function DepletionChart({ result }: { result: DepletionResult }) {
     );
   }
 
-  const values = rows.map((row) => row.assets);
+  const rowAssets = (row: DepletionProjection) =>
+    toDisplayMoney(row.assets, annualInflationRate, row.month, valueBasis);
+  const values = rows.map(rowAssets);
   const minValue = Math.min(...values, 0);
   const maxValue = Math.max(...values, 1);
   const valueRange = maxValue - minValue || 1;
@@ -416,7 +517,7 @@ function DepletionChart({ result }: { result: DepletionResult }) {
   const xTicks = Array.from(new Set([0, Math.round(maxMonth / 2), maxMonth]));
   const retirementMonth = result.monthsToWork;
 
-  const toPoint = (row: DepletionProjection) => `${toX(row.month)},${toY(row.assets)}`;
+  const toPoint = (row: DepletionProjection) => `${toX(row.month)},${toY(rowAssets(row))}`;
   const toX = (month: number) =>
     padding.left + (month / maxMonth) * (width - padding.left - padding.right);
   const toY = (value: number) =>
@@ -490,7 +591,13 @@ function DepletionChart({ result }: { result: DepletionResult }) {
   );
 }
 
-function ScenarioGrid({ scenarios }: { scenarios: FireScenarioResult[] }) {
+function ScenarioGrid({
+  scenarios,
+  valueBasis,
+}: {
+  scenarios: FireScenarioResult[];
+  valueBasis: ValueBasis;
+}) {
   return (
     <div className="scenario-grid">
       {scenarios.map((scenario, index) => (
@@ -501,7 +608,14 @@ function ScenarioGrid({ scenarios }: { scenarios: FireScenarioResult[] }) {
           <p>
             {scenario.retirementInvestableAssets === null
               ? "100년 제한 안에서 FIRE 목표 자산에 도달하지 못합니다."
-              : `은퇴 시 투자 가능 자산 ${formatMoney(scenario.retirementInvestableAssets)}`}
+              : `은퇴 시 투자 가능 자산 ${formatMoney(
+                  toDisplayMoney(
+                    scenario.retirementInvestableAssets,
+                    scenario.inputs.annualInflationRate,
+                    scenario.monthsToFire ?? 0,
+                    valueBasis,
+                  ),
+                )}`}
           </p>
         </article>
       ))}
@@ -509,7 +623,13 @@ function ScenarioGrid({ scenarios }: { scenarios: FireScenarioResult[] }) {
   );
 }
 
-function AssetChart({ scenarios }: { scenarios: FireScenarioResult[] }) {
+function AssetChart({
+  scenarios,
+  valueBasis,
+}: {
+  scenarios: FireScenarioResult[];
+  valueBasis: ValueBasis;
+}) {
   const isMobile = useMediaQuery("(max-width: 767px)");
   const allRows = scenarios.flatMap((scenario) => scenario.projections);
   const width = isMobile ? 520 : 760;
@@ -517,10 +637,22 @@ function AssetChart({ scenarios }: { scenarios: FireScenarioResult[] }) {
   const padding = isMobile
     ? { top: 20, right: 16, bottom: 34, left: 54 }
     : { top: 24, right: 24, bottom: 44, left: 88 };
-  const values = [
-    ...allRows.map((row) => row.investableAssets),
-    ...allRows.map((row) => row.fireTargetAssets),
-  ];
+  const values = scenarios.flatMap((scenario) =>
+    scenario.projections.flatMap((row) => [
+      toDisplayMoney(
+        row.investableAssets,
+        scenario.inputs.annualInflationRate,
+        row.month,
+        valueBasis,
+      ),
+      toDisplayMoney(
+        row.fireTargetAssets,
+        scenario.inputs.annualInflationRate,
+        row.month,
+        valueBasis,
+      ),
+    ]),
+  );
   const minValue = Math.min(...values, 0);
   const maxValue = Math.max(...values, 1);
   const valueRange = maxValue - minValue || 1;
@@ -531,13 +663,19 @@ function AssetChart({ scenarios }: { scenarios: FireScenarioResult[] }) {
   const yTicks = Array.from({ length: 4 }, (_, index) => minValue + (valueRange / 3) * index);
   const xTicks = Array.from(new Set([0, Math.round(maxMonth / 2), maxMonth]));
 
-  const toPoint = (row: FireProjection, value: number) => {
+  const toPoint = (scenario: FireScenarioResult, row: FireProjection, value: number) => {
+    const displayValue = toDisplayMoney(
+      value,
+      scenario.inputs.annualInflationRate,
+      row.month,
+      valueBasis,
+    );
     const x =
       padding.left + (row.month / maxMonth) * (width - padding.left - padding.right);
     const y =
       height -
       padding.bottom -
-      ((value - minValue) / valueRange) * (height - padding.top - padding.bottom);
+      ((displayValue - minValue) / valueRange) * (height - padding.top - padding.bottom);
     return `${x},${y}`;
   };
 
@@ -605,7 +743,7 @@ function AssetChart({ scenarios }: { scenarios: FireScenarioResult[] }) {
             className={`target-line ${getScenarioLineClassName(scenario.name)}`}
             key={`${scenario.name}-target`}
             points={scenario.projections
-              .map((row) => toPoint(row, row.fireTargetAssets))
+              .map((row) => toPoint(scenario, row, row.fireTargetAssets))
               .join(" ")}
           />
         ))}
@@ -614,7 +752,7 @@ function AssetChart({ scenarios }: { scenarios: FireScenarioResult[] }) {
             className={`scenario-line ${getScenarioLineClassName(scenario.name)}`}
             key={scenario.name}
             points={scenario.projections
-              .map((row) => toPoint(row, row.investableAssets))
+              .map((row) => toPoint(scenario, row, row.investableAssets))
               .join(" ")}
           />
         ))}
@@ -646,14 +784,21 @@ function useMediaQuery(query: string): boolean {
 }
 
 function ProjectionTable({
+  annualInflationRate,
   title,
   rows,
+  valueBasis,
   valueKey,
 }: {
+  annualInflationRate: number;
   title: string;
   rows: FireProjection[];
+  valueBasis: ValueBasis;
   valueKey: "investableAssets" | "fireTargetAssets";
 }) {
+  const moneyHeader =
+    valueKey === "investableAssets" ? "투자 가능 자산" : "FIRE 목표 자산";
+
   return (
     <article className="table-card">
       <h3>{title}</h3>
@@ -662,18 +807,31 @@ function ProjectionTable({
           <thead>
             <tr>
               <th>시점</th>
-              <th>{valueKey === "investableAssets" ? "투자 가능 자산" : "FIRE 목표 자산"}</th>
+              <th>{basisLabel(moneyHeader, valueBasis)}</th>
               <th>목표 인출률</th>
-              <th>월 소비액</th>
+              <th>{basisLabel("월 소비액", valueBasis)}</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
               <tr key={`${valueKey}-${row.month}`}>
                 <td>{formatProjectionMonth(row.month)}</td>
-                <td>{formatMoney(row[valueKey])}</td>
+                <td>
+                  {formatMoney(
+                    toDisplayMoney(row[valueKey], annualInflationRate, row.month, valueBasis),
+                  )}
+                </td>
                 <td>{rateToPercentInput(row.targetWithdrawalRate)}%</td>
-                <td>{formatMoney(row.monthlyExpenses)}</td>
+                <td>
+                  {formatMoney(
+                    toDisplayMoney(
+                      row.monthlyExpenses,
+                      annualInflationRate,
+                      row.month,
+                      valueBasis,
+                    ),
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -683,7 +841,15 @@ function ProjectionTable({
   );
 }
 
-function DepletionProjectionTable({ rows }: { rows: DepletionProjection[] }) {
+function DepletionProjectionTable({
+  annualInflationRate,
+  rows,
+  valueBasis,
+}: {
+  annualInflationRate: number;
+  rows: DepletionProjection[];
+  valueBasis: ValueBasis;
+}) {
   return (
     <div className="table-grid single-table-grid">
       <article className="table-card">
@@ -695,9 +861,9 @@ function DepletionProjectionTable({ rows }: { rows: DepletionProjection[] }) {
                 <th>시점</th>
                 <th>나이</th>
                 <th>상태</th>
-                <th>월 현금흐름</th>
-                <th>월 생활비</th>
-                <th>자산</th>
+                <th>{basisLabel("월 현금흐름", valueBasis)}</th>
+                <th>{basisLabel("월 생활비", valueBasis)}</th>
+                <th>{basisLabel("자산", valueBasis)}</th>
               </tr>
             </thead>
             <tbody>
@@ -706,9 +872,26 @@ function DepletionProjectionTable({ rows }: { rows: DepletionProjection[] }) {
                   <td>{formatProjectionMonth(row.month)}</td>
                   <td>{formatRetirementAge(row.age)}</td>
                   <td>{formatDepletionPhase(row.phase)}</td>
-                  <td>{formatMoney(row.cashFlow)}</td>
-                  <td>{formatMoney(row.monthlyExpenses)}</td>
-                  <td>{formatMoney(row.assets)}</td>
+                  <td>
+                    {formatMoney(
+                      toDisplayMoney(row.cashFlow, annualInflationRate, row.month, valueBasis),
+                    )}
+                  </td>
+                  <td>
+                    {formatMoney(
+                      toDisplayMoney(
+                        row.monthlyExpenses,
+                        annualInflationRate,
+                        row.month,
+                        valueBasis,
+                      ),
+                    )}
+                  </td>
+                  <td>
+                    {formatMoney(
+                      toDisplayMoney(row.assets, annualInflationRate, row.month, valueBasis),
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -825,6 +1008,39 @@ function getDepletionTableRows(rows: DepletionProjection[]): DepletionProjection
   }
 
   return rows.filter((row) => row.month % 12 === 0 || keyMonths.has(row.month));
+}
+
+function getDepletionPeakMonth(result: DepletionResult): number | null {
+  if (result.peakAssets === null || result.monthsToWork === null) {
+    return result.status === "already-sufficient" ? 0 : null;
+  }
+
+  return result.projections
+    .filter((row) => row.month <= result.monthsToWork!)
+    .reduce<DepletionProjection | null>((peakRow, row) => {
+      if (!peakRow || row.assets > peakRow.assets) {
+        return row;
+      }
+
+      return peakRow;
+    }, null)?.month ?? null;
+}
+
+function toDisplayMoney(
+  value: number,
+  annualInflationRate: number,
+  month: number,
+  valueBasis: ValueBasis,
+): number {
+  if (valueBasis === "nominal") {
+    return value;
+  }
+
+  return calculatePresentValue(value, annualInflationRate, month);
+}
+
+function basisLabel(label: string, valueBasis: ValueBasis): string {
+  return `${label} (${valueBasis === "nominal" ? "명목" : "현재 가치"})`;
 }
 
 function formatMoney(value: number): string {
