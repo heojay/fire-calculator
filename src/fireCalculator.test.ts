@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   FIRE_PRESETS,
-  calculateAutoWithdrawalRate,
   calculateFireScenario,
   calculateFireScenarios,
+  calculateYearsToWork,
   percentInputToRate,
   rateToPercentInput,
   type FireInputs,
@@ -11,12 +11,9 @@ import {
 
 const baseInputs: FireInputs = {
   investableAssets: 100_000_000,
-  annualIncome: 80_000_000,
-  annualExpenses: 30_000_000,
-  annualReturnRate: 0.04,
-  incomeGrowthRate: 0.02,
-  inflationRate: 0.02,
-  withdrawalMode: "manual",
+  monthlySavings: 4_000_000,
+  monthlyExpenses: 3_000_000,
+  annualRealReturnRate: 0.04,
   targetWithdrawalRate: 0.04,
   currentAge: 40,
   lifeExpectancy: 90,
@@ -27,50 +24,38 @@ describe("calculateFireScenario", () => {
     const result = calculateFireScenario({
       ...baseInputs,
       investableAssets: 1_000_000_000,
-      annualExpenses: 30_000_000,
+      monthlyExpenses: 3_000_000,
       targetWithdrawalRate: 0.04,
     });
 
     expect(result.status).toBe("achieved");
-    expect(result.yearsToFire).toBe(0);
+    expect(result.monthsToFire).toBe(0);
   });
 
-  it("저축액은 연 수입에서 연 생활비를 뺀 값으로 계산한다", () => {
+  it("현재 FIRE 목표 자산은 월 소비액의 12개월치를 목표 인출률로 나누어 계산한다", () => {
     const result = calculateFireScenario({
       ...baseInputs,
-      annualIncome: 90_000_000,
-      annualExpenses: 35_000_000,
-    });
-
-    expect(result.projections[0].savings).toBe(55_000_000);
-  });
-
-  it("1년 뒤 투자 가능 자산에는 당해 저축액의 중간 납입 복리를 반영한다", () => {
-    const result = calculateFireScenario({
-      ...baseInputs,
-      investableAssets: 100,
-      annualIncome: 50,
-      annualExpenses: 10,
-      annualReturnRate: 0.1,
-      incomeGrowthRate: 0,
-      inflationRate: 0,
-      targetWithdrawalRate: 0.01,
-    });
-
-    expect(result.projections[1].investableAssets).toBeCloseTo(152);
-  });
-
-  it("현재 FIRE 목표 자산은 연 생활비를 목표 인출률로 나누어 계산한다", () => {
-    const result = calculateFireScenario({
-      ...baseInputs,
-      annualExpenses: 40_000_000,
+      monthlyExpenses: 4_000_000,
       targetWithdrawalRate: 0.04,
     });
 
-    expect(result.currentFireTargetAssets).toBe(1_000_000_000);
+    expect(result.currentFireTargetAssets).toBe(1_200_000_000);
   });
 
-  it("수동 모드는 입력한 목표 인출률을 그대로 적용한다", () => {
+  it("1개월 뒤 투자 가능 자산에는 월 복리와 월 저축액을 반영한다", () => {
+    const result = calculateFireScenario({
+      ...baseInputs,
+      investableAssets: 100,
+      monthlySavings: 10,
+      monthlyExpenses: 1_000,
+      annualRealReturnRate: 0.12682503013196977,
+      targetWithdrawalRate: 0.01,
+    });
+
+    expect(result.projections[1].investableAssets).toBeCloseTo(111);
+  });
+
+  it("목표 인출률은 입력값을 그대로 적용한다", () => {
     const result = calculateFireScenario({
       ...baseInputs,
       targetWithdrawalRate: 0.035,
@@ -79,148 +64,111 @@ describe("calculateFireScenario", () => {
     expect(result.projections[0].targetWithdrawalRate).toBe(0.035);
   });
 
-  it("자동 모드는 나이와 기대수명으로 목표 인출률을 계산한다", () => {
-    const result = calculateFireScenario({
-      ...baseInputs,
-      withdrawalMode: "auto",
-      currentAge: 40,
-      lifeExpectancy: 90,
-      annualReturnRate: 0.05,
-      inflationRate: 0.02,
-    });
-
-    expect(result.projections[0].targetWithdrawalRate).toBeGreaterThan(0.03);
-    expect(result.projections[0].targetWithdrawalRate).toBeLessThan(0.05);
-  });
-
-  it("자동 모드는 연도가 지날수록 해당 연도의 나이를 반영한다", () => {
-    const result = calculateFireScenario({
-      ...baseInputs,
-      investableAssets: 0,
-      annualIncome: 0,
-      annualExpenses: 60_000_000,
-      withdrawalMode: "auto",
-      currentAge: 40,
-      lifeExpectancy: 90,
-      annualReturnRate: 0.05,
-      inflationRate: 0.02,
-    });
-
-    expect(result.projections[1].targetWithdrawalRate).toBeGreaterThan(
-      result.projections[0].targetWithdrawalRate,
-    );
-  });
-
   it("100년 안에 도달하지 못하면 도달 어려움 상태를 반환한다", () => {
     const result = calculateFireScenario({
       ...baseInputs,
       investableAssets: 0,
-      annualIncome: 10_000_000,
-      annualExpenses: 60_000_000,
-      annualReturnRate: 0,
-      incomeGrowthRate: 0,
-      inflationRate: 0.03,
+      monthlySavings: 0,
+      monthlyExpenses: 6_000_000,
+      annualRealReturnRate: 0,
       targetWithdrawalRate: 0.03,
     });
 
     expect(result.status).toBe("not-achieved");
-    expect(result.yearsToFire).toBeNull();
-  });
-});
-
-describe("calculateAutoWithdrawalRate", () => {
-  it("실질 수익률은 피셔 방정식으로 계산한다", () => {
-    const rate = calculateAutoWithdrawalRate({
-      ...baseInputs,
-      withdrawalMode: "auto",
-      currentAge: 40,
-      lifeExpectancy: 90,
-      annualReturnRate: 0.05,
-      inflationRate: 0.02,
-    });
-    const realReturn = 1.05 / 1.02 - 1;
-    const expectedRate = realReturn / (1 - (1 + realReturn) ** -50);
-
-    expect(rate).toBeCloseTo(expectedRate);
-  });
-
-  it("기대수명이 현재 나이 이하더라도 최소 1년으로 계산한다", () => {
-    const rate = calculateAutoWithdrawalRate({
-      ...baseInputs,
-      withdrawalMode: "auto",
-      currentAge: 90,
-      lifeExpectancy: 80,
-    });
-
-    expect(rate).toBe(0.1);
-  });
-
-  it("자동 인출률은 1%에서 10% 사이로 제한된다", () => {
-    const lowRate = calculateAutoWithdrawalRate({
-      ...baseInputs,
-      withdrawalMode: "auto",
-      currentAge: 20,
-      lifeExpectancy: 200,
-      annualReturnRate: 0,
-      inflationRate: 0,
-    });
-    const highRate = calculateAutoWithdrawalRate({
-      ...baseInputs,
-      withdrawalMode: "auto",
-      currentAge: 90,
-      lifeExpectancy: 91,
-      annualReturnRate: 0.2,
-      inflationRate: 0,
-    });
-
-    expect(lowRate).toBe(0.01);
-    expect(highRate).toBe(0.1);
+    expect(result.monthsToFire).toBeNull();
   });
 });
 
 describe("calculateFireScenarios", () => {
-  it("보수적 시나리오의 투자 수익률은 0% 아래로 내려가지 않는다", () => {
+  it("보수적 시나리오의 실질 수익률은 입력값보다 2%p 낮다", () => {
     const [conservativeScenario] = calculateFireScenarios({
       ...baseInputs,
-      annualReturnRate: 0.01,
+      annualRealReturnRate: 0.04,
     });
 
-    expect(conservativeScenario.inputs.annualReturnRate).toBe(0);
+    expect(conservativeScenario.inputs.annualRealReturnRate).toBeCloseTo(0.02);
   });
 
-  it("낙관적 시나리오의 인플레이션율은 0% 아래로 내려가지 않는다", () => {
+  it("낙관적 시나리오의 실질 수익률은 입력값보다 2%p 높다", () => {
     const optimisticScenario = calculateFireScenarios({
       ...baseInputs,
-      inflationRate: 0.005,
+      annualRealReturnRate: 0.04,
     })[2];
 
-    expect(optimisticScenario.inputs.inflationRate).toBe(0);
+    expect(optimisticScenario.inputs.annualRealReturnRate).toBeCloseTo(0.06);
   });
+});
 
-  it("자동 인출률은 시나리오별 수익률과 물가 변동을 반영한다", () => {
-    const scenarios = calculateFireScenarios({
+describe("calculateYearsToWork", () => {
+  it("현재 자산만으로 기대수명까지 버틸 수 있으면 0개월을 반환한다", () => {
+    const result = calculateYearsToWork({
       ...baseInputs,
-      withdrawalMode: "auto",
+      investableAssets: 1_000_000_000,
+      monthlyExpenses: 1_000_000,
+      annualRealReturnRate: 0,
+      currentAge: 40,
+      lifeExpectancy: 50,
     });
 
-    const [conservativeScenario, baseScenario, optimisticScenario] = scenarios;
+    expect(result.status).toBe("already-sufficient");
+    expect(result.monthsToWork).toBe(0);
+    expect(result.retirementAge).toBe(40);
+  });
 
-    expect(conservativeScenario.projections[0].targetWithdrawalRate).toBeLessThan(
-      baseScenario.projections[0].targetWithdrawalRate,
-    );
-    expect(optimisticScenario.projections[0].targetWithdrawalRate).toBeGreaterThan(
-      baseScenario.projections[0].targetWithdrawalRate,
-    );
+  it("수익률 0%에서는 단순 저축과 소비 흐름으로 필요한 근로 개월 수를 찾는다", () => {
+    const result = calculateYearsToWork({
+      ...baseInputs,
+      investableAssets: 0,
+      monthlySavings: 100,
+      monthlyExpenses: 100,
+      annualRealReturnRate: 0,
+      currentAge: 40,
+      lifeExpectancy: 41,
+    });
+
+    expect(result.status).toBe("achievable");
+    expect(result.monthsToWork).toBe(6);
+    expect(result.retirementAge).toBe(40.5);
+    expect(result.peakAssets).toBe(600);
+    expect(result.finalAssets).toBe(0);
+  });
+
+  it("기대수명이 현재 나이 이하이면 계산 불가 상태를 반환한다", () => {
+    const result = calculateYearsToWork({
+      ...baseInputs,
+      currentAge: 90,
+      lifeExpectancy: 90,
+    });
+
+    expect(result.status).toBe("invalid-time-horizon");
+    expect(result.monthsToWork).toBeNull();
+  });
+
+  it("기대수명까지 계속 일해도 자산이 부족하면 도달 어려움 상태를 반환한다", () => {
+    const result = calculateYearsToWork({
+      ...baseInputs,
+      investableAssets: 0,
+      monthlySavings: -100,
+      monthlyExpenses: 100,
+      annualRealReturnRate: 0,
+      currentAge: 40,
+      lifeExpectancy: 41,
+    });
+
+    expect(result.status).toBe("not-achievable");
+    expect(result.monthsToWork).toBeNull();
   });
 });
 
 describe("FIRE_PRESETS", () => {
-  it("기본 장기 가정은 투자 5%, 수입 증가 3%, 인플레이션 2%를 사용한다", () => {
-    FIRE_PRESETS.forEach((preset) => {
-      expect(preset.values.annualReturnRate).toBe(0.05);
-      expect(preset.values.incomeGrowthRate).toBe(0.03);
-      expect(preset.values.inflationRate).toBe(0.02);
-    });
+  it("기본 예시값은 월 단위 소비와 4% 실질 수익률을 사용한다", () => {
+    const examplePreset = FIRE_PRESETS.find((preset) => preset.id === "fire-example");
+
+    expect(examplePreset?.values.investableAssets).toBe(360_000_000);
+    expect(examplePreset?.values.monthlyExpenses).toBe(3_500_000);
+    expect(examplePreset?.values.annualRealReturnRate).toBe(0.04);
+    expect(examplePreset?.values.currentAge).toBe(31);
+    expect(examplePreset?.values.lifeExpectancy).toBe(90);
   });
 });
 
