@@ -256,7 +256,7 @@ export function calculateYearsToWork(rawInputs: FireInputs): DepletionResult {
   const cappedTotalMonths = Math.min(totalMonths, MAX_SIMULATION_MONTHS);
   const nowRetirementSimulation = simulateDepletion(inputs, cappedTotalMonths, 0);
 
-  if (nowRetirementSimulation.finalAssets >= 0) {
+  if (isSolventThroughLifeExpectancy(nowRetirementSimulation)) {
     return {
       status: "already-sufficient",
       monthsToWork: 0,
@@ -273,7 +273,7 @@ export function calculateYearsToWork(rawInputs: FireInputs): DepletionResult {
   for (let monthsToWork = 1; monthsToWork <= cappedTotalMonths; monthsToWork += 1) {
     const simulation = simulateDepletion(inputs, cappedTotalMonths, monthsToWork);
 
-    if (simulation.finalAssets >= 0) {
+    if (isSolventThroughLifeExpectancy(simulation)) {
       return {
         status: "achievable",
         monthsToWork,
@@ -363,12 +363,14 @@ function simulateDepletion(
   monthsToWork: number,
 ): {
   finalAssets: number;
+  minimumAssets: number;
   peakAssets: number;
   retirementFirstMonthExpenses: number;
   projections: DepletionProjection[];
 } {
   const monthlyReturnRate = annualRateToMonthlyRate(inputs.annualNominalReturnRate);
   let assets = inputs.investableAssets;
+  let minimumAssets = assets;
   let peakAssets = assets;
   let retirementFirstMonthExpenses: number | null = null;
   const projections: DepletionProjection[] = [
@@ -392,6 +394,7 @@ function simulateDepletion(
     const cashFlow =
       (isWorking ? monthlyIncome : 0) + nationalPensionIncome - monthlyExpenses;
     assets = assets * (1 + monthlyReturnRate) + cashFlow;
+    minimumAssets = Math.min(minimumAssets, assets);
 
     if (month <= monthsToWork) {
       peakAssets = Math.max(peakAssets, assets);
@@ -415,11 +418,19 @@ function simulateDepletion(
 
   return {
     finalAssets: assets,
+    minimumAssets,
     peakAssets,
     retirementFirstMonthExpenses:
       retirementFirstMonthExpenses ?? calculateMonthlyExpenses(inputs, monthsToWork + 1),
     projections,
   };
+}
+
+function isSolventThroughLifeExpectancy(simulation: {
+  finalAssets: number;
+  minimumAssets: number;
+}): boolean {
+  return simulation.finalAssets >= 0 && simulation.minimumAssets >= 0;
 }
 
 function annualRateToMonthlyRate(annualRate: number): number {

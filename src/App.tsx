@@ -1295,7 +1295,7 @@ function formatDepletionStatus(result: DepletionResult): string {
   }
 
   if (result.status === "achievable") {
-    return "기대수명 시점에 자산이 0 이상이 되는 가장 빠른 은퇴 시점입니다.";
+    return "기대수명까지 자산이 마이너스가 되지 않는 가장 빠른 은퇴 시점입니다.";
   }
 
   if (result.status === "invalid-time-horizon") {

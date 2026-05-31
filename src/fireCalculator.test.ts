@@ -373,6 +373,27 @@ describe("calculateYearsToWork", () => {
     });
   });
 
+  it("국민연금으로 나중에 회복되더라도 중간에 자산이 마이너스가 되면 은퇴 가능으로 보지 않는다", () => {
+    const result = calculateYearsToWork({
+      ...baseInputs,
+      investableAssets: 0,
+      monthlyIncome: 100,
+      monthlyExpenses: 100,
+      annualNominalReturnRate: 0,
+      annualInflationRate: 0,
+      annualIncomeGrowthRate: 0,
+      birthYear: 1968,
+      lifeExpectancy: calculateNationalPensionStartAge(1968) + 1,
+      nationalPensionMonthlyAmount: 1_000,
+    });
+
+    expect(result.status).toBe("achievable");
+    expect(result.monthsToWork).toBe(
+      (calculateNationalPensionStartAge(1968) - calculateCurrentAgeFromBirthYear(1968)) * 12 - 1,
+    );
+    expect(Math.min(...result.projections.map((row) => row.assets))).toBeGreaterThanOrEqual(0);
+  });
+
   it("국민연금 현재 기준 금액은 물가상승률에 따라 명목 금액으로 환산한다", () => {
     const result = calculateYearsToWork({
       ...baseInputs,
