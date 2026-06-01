@@ -242,12 +242,6 @@ function App() {
               </Fieldset>
             </>
           )}
-
-          <ResultHero
-            mode={calculationMode}
-            scenario={baseScenario}
-            depletionResult={depletionResult}
-          />
         </section>
 
         <section className="results-panel">
@@ -261,6 +255,12 @@ function App() {
               <ModeTabs selectedMode={calculationMode} onChange={setCalculationMode} />
             </div>
           </div>
+
+          <ResultHero
+            mode={calculationMode}
+            scenario={baseScenario}
+            depletionResult={depletionResult}
+          />
 
           <ResultTabs selectedTab={activeResultTab} onChange={setActiveResultTab} />
 
