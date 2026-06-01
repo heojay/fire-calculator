@@ -368,11 +368,6 @@ h1 {
   line-height: 1.06;
 }
 
-.depletion-hero-card strong {
-  font-size: 34px;
-  line-height: 1.18;
-}
-
 .hero-card span {
   color: #f2f2f2;
   font-size: 16px;
@@ -658,10 +653,6 @@ legend {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-}
-
-.depletion-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .metric-card,
@@ -1081,8 +1072,7 @@ td {
 @media (max-width: 991px) {
   .hero-grid,
   .content-grid,
-  .table-grid,
-  .depletion-grid {
+  .table-grid {
     grid-template-columns: 1fr;
   }
 

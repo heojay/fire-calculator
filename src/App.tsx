@@ -165,8 +165,8 @@ function App() {
           <p className="eyebrow">FIRE CALCULATOR</p>
           <h1 className="hero-title">경제적 자유까지 얼마나 걸릴까요?</h1>
           <p className="lead">
-            현재 자산, 월 수입, 월 소비액을 바탕으로 FIRE 목표 도달 시점과 기대수명까지
-            버티기 위한 최소 근로 기간을 계산합니다.
+            현재 자산, 월 수입, 월 소비액을 바탕으로 FIRE 목표 도달 시점과 기대수명 기준
+            은퇴 시점을 계산합니다.
           </p>
         </section>
       </header>
@@ -677,7 +677,7 @@ function ResultHero({
 }) {
   if (mode === "depletion") {
     return (
-      <aside className="hero-card depletion-hero-card">
+      <aside className="hero-card">
         <p className="card-label">기대수명 기준 은퇴 시점</p>
         <strong>{formatDepletionTiming(depletionResult)}</strong>
         <span>{formatDepletionStatus(depletionResult)}</span>
@@ -772,13 +772,15 @@ function SummaryGrid({
 }
 
 function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode }) {
+  const timingLabel = mode === "trinity" ? "FIRE 시점" : "은퇴 시점";
+
   return (
     <section className="chart-card impact-section" aria-labelledby="impact-section-title">
       <div className="impact-heading">
         <p className="eyebrow">EXPERIMENTS</p>
         <h3 id="impact-section-title">가정 바꿔보기</h3>
         <p>
-          현재 입력값은 그대로 두고, 특정 가정만 바꿔 FIRE 시점이 얼마나 달라지는지
+          현재 입력값은 그대로 두고, 특정 가정만 바꿔 {timingLabel}이 얼마나 달라지는지
           비교합니다.
         </p>
       </div>
@@ -789,7 +791,7 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
           mode={mode}
           options={expenseImpactOptions}
           title="월 소비 영향"
-          description="현재 월 소비를 기준으로 FIRE 시점 변화를 비교합니다."
+          description={`현재 월 소비를 기준으로 ${timingLabel} 변화를 비교합니다.`}
         />
         <ImpactCard
           inputs={inputs}
@@ -855,7 +857,7 @@ function ImpactCard({
         <div className="impact-result">
           <strong>{selectedOption.summaryLabel}</strong>
           <span>
-            {mode === "trinity" ? "FIRE 시점" : "최소 근로 기간"}:{" "}
+            {mode === "trinity" ? "FIRE 시점" : "은퇴 시점"}:{" "}
             {formatImpactYears(impact.baseMonths)} → {formatImpactYears(impact.changedMonths)}
           </span>
           <span>변화: {formatImpactChange(impact.diffMonths)}</span>
@@ -884,10 +886,12 @@ function DepletionSummary({
   const peakMonth = getDepletionPeakMonth(result);
   const retirementFirstExpenseMonth =
     result.monthsToWork === null ? 0 : result.monthsToWork + 1;
+  const timeHorizonLabel =
+    result.totalMonths <= 0 ? "계산 불가" : formatWorkDuration(result.totalMonths);
   const formatDepletionMoney = (value: number, month: number) =>
     formatMoney(toDisplayMoney(value, annualInflationRate, month, valueBasis));
   const items = [
-    ["필요 최소 근로 기간", formatWorkDuration(result.monthsToWork)],
+    ["기대수명 기준 은퇴 시점", formatDepletionTiming(result)],
     ["은퇴 예상 나이", formatRetirementAge(result.retirementAge)],
     [
       "국민연금 수령 시작",
@@ -925,8 +929,9 @@ function DepletionSummary({
           차감합니다. 국민연금은 출생연도별 수령 시작 나이부터 더하고, 월 수입과 소비액은
           매년 입력한 증가율을 반영합니다.
         </p>
+        <strong>현재 적용 기간 기대수명까지 {timeHorizonLabel}</strong>
       </article>
-      <div className="summary-grid depletion-grid">
+      <div className="summary-grid">
         {items.map(([label, value]) => (
           <article className="metric-card" key={label}>
             <span>{label}</span>
