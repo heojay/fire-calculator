@@ -373,15 +373,23 @@ function simulateDepletion(
   let minimumAssets = assets;
   let peakAssets = assets;
   let retirementFirstMonthExpenses: number | null = null;
+  const initialPhase = monthsToWork > 0 ? "working" : "retired";
+  const initialMonthlyIncome = calculateMonthlyIncome(inputs, 0);
+  const initialNationalPensionIncome = calculateMonthlyNationalPension(inputs, 0);
+  const initialMonthlyExpenses = calculateMonthlyExpenses(inputs, 0);
+  const initialCashFlow =
+    (initialPhase === "working" ? initialMonthlyIncome : 0) +
+    initialNationalPensionIncome -
+    initialMonthlyExpenses;
   const projections: DepletionProjection[] = [
     {
       month: 0,
       age: calculateCurrentAgeFromBirthYear(inputs.birthYear),
-      phase: monthsToWork > 0 ? "working" : "retired",
-      cashFlow: 0,
-      monthlyIncome: calculateMonthlyIncome(inputs, 0),
-      nationalPensionIncome: calculateMonthlyNationalPension(inputs, 0),
-      monthlyExpenses: calculateMonthlyExpenses(inputs, 0),
+      phase: initialPhase,
+      cashFlow: initialCashFlow,
+      monthlyIncome: initialMonthlyIncome,
+      nationalPensionIncome: initialNationalPensionIncome,
+      monthlyExpenses: initialMonthlyExpenses,
       assets,
     },
   ];

@@ -281,6 +281,12 @@ describe("calculateYearsToWork", () => {
     expect(result.status).toBe("already-sufficient");
     expect(result.monthsToWork).toBe(0);
     expect(result.retirementAge).toBe(40);
+    expect(result.projections[0]).toMatchObject({
+      month: 0,
+      phase: "retired",
+      cashFlow: -1_000_000,
+      assets: 1_000_000_000,
+    });
   });
 
   it("수익률 0%에서는 단순 저축과 소비 흐름으로 필요한 근로 개월 수를 찾는다", () => {
@@ -303,6 +309,12 @@ describe("calculateYearsToWork", () => {
     expect(result.finalAssets).toBe(0);
     expect(result.retirementFirstMonthExpenses).toBe(100);
     expect(result.projections).toHaveLength(13);
+    expect(result.projections[0]).toMatchObject({
+      month: 0,
+      phase: "working",
+      cashFlow: 100,
+      assets: 0,
+    });
     expect(result.projections[6]).toMatchObject({
       month: 6,
       phase: "working",

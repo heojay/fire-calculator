@@ -678,8 +678,8 @@ function ResultHero({
   if (mode === "depletion") {
     return (
       <aside className="hero-card depletion-hero-card">
-        <p className="card-label">기대수명까지 버티기 위한 최소 근로 기간</p>
-        <strong>{formatWorkRequirementSentence(depletionResult)}</strong>
+        <p className="card-label">기대수명 기준 은퇴 시점</p>
+        <strong>{formatDepletionTiming(depletionResult)}</strong>
         <span>{formatDepletionStatus(depletionResult)}</span>
       </aside>
     );
@@ -1703,36 +1703,36 @@ function formatRequiredAssetImpact(
   return `추가 필요 자산: 약 ${formatMoney(requiredAssetDelta)}`;
 }
 
-function formatWorkRequirementSentence(result: DepletionResult): string {
+function formatDepletionTiming(result: DepletionResult): string {
   if (result.status === "invalid-time-horizon") {
-    return "계산할 기간이 없습니다.";
+    return "계산 불가";
   }
 
   if (result.status === "not-achievable" || result.monthsToWork === null) {
-    return "현재 조건으로는 어렵습니다.";
+    return "도달 어려움";
   }
 
   if (result.monthsToWork === 0) {
-    return "지금 은퇴하셔도 좋습니다.";
+    return "이미 도달";
   }
 
-  return `앞으로 ${formatWorkDuration(result.monthsToWork)} 더 일해야 합니다.`;
+  return `${formatWorkDuration(result.monthsToWork)} 뒤`;
 }
 
 function formatDepletionStatus(result: DepletionResult): string {
   if (result.status === "already-sufficient") {
-    return "현재 자산만으로도 기대수명까지 현재 소비 수준을 유지할 수 있습니다.";
+    return "현재 입력값 기준으로 기대수명까지 버틸 수 있는 시점입니다.";
   }
 
   if (result.status === "achievable") {
-    return "기대수명까지 자산이 마이너스가 되지 않는 가장 빠른 은퇴 시점입니다.";
+    return "현재 입력값 기준으로 기대수명까지 버틸 수 있는 시점입니다.";
   }
 
   if (result.status === "invalid-time-horizon") {
     return "기대 수명이 현재 나이보다 커야 합니다.";
   }
 
-  return "기대수명까지 계속 일해도 현재 소비 수준을 유지하기 어렵습니다.";
+  return "기대수명 안에 은퇴 가능 시점에 도달하지 못합니다.";
 }
 
 function formatWorkDuration(months: number | null): string {
