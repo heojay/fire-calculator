@@ -55,6 +55,7 @@ button {
 
 button:focus-visible,
 a:focus-visible,
+.about-panel:focus-visible,
 .result-tab-panel:focus-visible {
   outline: 2px solid var(--blue-info);
   outline-offset: 2px;
@@ -319,6 +320,49 @@ main {
   max-width: 920px;
 }
 
+.main-tabs {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(100%, 420px);
+  margin-top: 32px;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  background: var(--canvas);
+  overflow: hidden;
+}
+
+.main-tab {
+  min-height: 44px;
+  border: 0;
+  border-right: 1px solid var(--hairline);
+  padding: 10px 14px;
+  color: var(--body);
+  background: var(--canvas);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+  text-wrap: balance;
+}
+
+.main-tab:last-child {
+  border-right: 0;
+}
+
+.main-tab:hover,
+.main-tab:focus-visible {
+  color: var(--ink);
+}
+
+.main-tab-active {
+  color: var(--on-primary);
+  background: var(--primary);
+}
+
+.main-tab-active:hover,
+.main-tab-active:focus-visible {
+  color: var(--on-primary);
+}
+
 .eyebrow {
   margin: 0 0 12px;
   color: var(--body-mid);
@@ -397,6 +441,70 @@ h1 {
   gap: 32px;
   align-items: start;
   border-top: 1px solid var(--hairline);
+}
+
+.about-panel {
+  display: grid;
+  gap: 28px;
+  border-top: 1px solid var(--hairline);
+  padding: 32px;
+}
+
+.about-intro {
+  display: grid;
+  gap: 12px;
+  max-width: 860px;
+}
+
+.about-intro h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 36px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.about-intro p {
+  max-width: 780px;
+  margin: 0;
+  color: var(--body);
+  font-size: 17px;
+  line-height: 1.75;
+  word-break: keep-all;
+}
+
+.about-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.about-card {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  min-height: 220px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 22px;
+  background: var(--canvas);
+}
+
+.about-card h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.35;
+  word-break: keep-all;
+}
+
+.about-card p {
+  margin: 0;
+  color: var(--body);
+  font-size: 15px;
+  line-height: 1.75;
+  word-break: keep-all;
 }
 
 .input-panel,
@@ -524,6 +632,18 @@ h1 {
 .result-tab-panel {
   display: grid;
   gap: 16px;
+}
+
+.result-caution {
+  margin: 0;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 16px 18px;
+  color: var(--body);
+  background: #f8f8f8;
+  font-size: 14px;
+  line-height: 1.65;
+  word-break: keep-all;
 }
 
 .input-actions {
@@ -1295,6 +1415,7 @@ td {
 }
 
 @media (max-width: 991px) {
+  .about-card-grid,
   .hero-grid,
   .content-grid,
   .table-grid {
@@ -1308,6 +1429,7 @@ td {
 
 @media (max-width: 767px) {
   .hero-band,
+  .about-panel,
   .content-grid,
   .site-footer {
     padding: 24px 16px;
@@ -1328,6 +1450,17 @@ td {
 
   .help-button {
     flex: 0 0 auto;
+  }
+
+  .main-tabs {
+    width: 100%;
+    margin-top: 28px;
+  }
+
+  .main-tab {
+    padding-right: 10px;
+    padding-left: 10px;
+    font-size: 14px;
   }
 
   .results-controls {
@@ -1363,6 +1496,33 @@ td {
   .lead {
     font-size: 18px;
     line-height: 1.55;
+  }
+
+  .about-panel {
+    gap: 22px;
+  }
+
+  .about-intro h2 {
+    font-size: 30px;
+  }
+
+  .about-intro p {
+    font-size: 16px;
+    line-height: 1.65;
+  }
+
+  .about-card {
+    min-height: 0;
+    padding: 20px;
+  }
+
+  .about-card h3 {
+    font-size: 19px;
+  }
+
+  .about-card p {
+    font-size: 14px;
+    line-height: 1.7;
   }
 
   .scenario-grid,
@@ -1466,6 +1626,7 @@ td {
 
 @media (max-width: 359px) {
   .hero-band,
+  .about-panel,
   .content-grid,
   .site-footer {
     padding-right: 12px;

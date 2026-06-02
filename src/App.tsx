@@ -25,6 +25,7 @@ import {
 type NumericFormValue = number | "";
 type CalculationMode = "trinity" | "depletion";
 type ValueBasis = "nominal" | "present";
+type MainTab = "calculator" | "about";
 type ResultTab = "summary" | "monthly" | "experiments";
 
 type FormValues = {
@@ -101,7 +102,7 @@ const fieldHelpText: Partial<Record<NumericFormField, string>> = {
   annualIncomeGrowthRate:
     "장기 임금과 소득 증가 가정은 과도하게 높이지 않고 명목 3%를 기본값으로 둡니다.",
   targetWithdrawalRate:
-    "은퇴 후 월 지출을 FIRE 목표 자산으로 환산하는 비율입니다. 낮을수록 더 보수적인 목표 자산이 나옵니다.",
+    "은퇴 후 월 지출을 경제적 자립 목표 자산으로 환산하는 비율입니다. 낮을수록 더 보수적인 목표 자산이 나옵니다.",
   birthYear:
     "기대수명 소진 모드에서는 출생연도로 현재 나이와 국민연금 수령 시작 나이를 계산합니다.",
   lifeExpectancy:
@@ -116,7 +117,12 @@ const cacheVersion = 3;
 const cacheKey = "firecalc:lastState:v3";
 const validCalculationModes: CalculationMode[] = ["trinity", "depletion"];
 const validValueBases: ValueBasis[] = ["nominal", "present"];
+const validMainTabs: MainTab[] = ["calculator", "about"];
 const validResultTabs: ResultTab[] = ["summary", "monthly", "experiments"];
+const mainTabOptions = [
+  ["calculator", "계산기"],
+  ["about", "계산기에 대해서"],
+] as const;
 const resultTabOptions = [
   ["summary", "요약"],
   ["monthly", "월별추이"],
@@ -177,6 +183,7 @@ function App() {
     initialState.calculationMode,
   );
   const [valueBasis, setValueBasis] = useState<ValueBasis>(initialState.valueBasis);
+  const [activeMainTab, setActiveMainTab] = useState<MainTab>("calculator");
   const [activeResultTab, setActiveResultTab] = useState<ResultTab>(initialState.activeResultTab);
   const [formValues, setFormValues] = useState<FormValues>(initialState.formValues);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -218,183 +225,197 @@ function App() {
             type="button"
             onClick={() => setIsHelpOpen(true)}
           >
-            도움말
+            계산 기준
           </button>
         </nav>
 
         <section className="hero-grid">
           <p className="eyebrow">FIRE CALCULATOR</p>
-          <h1 className="hero-title">경제적 자유까지 얼마나 걸릴까요?</h1>
+          <h1 className="hero-title">경제적 자립까지 얼마나 남았을까요?</h1>
           <p className="lead">
-            현재 자산, 월 수입, 현재 소비액, 은퇴 후 지출을 바탕으로 FIRE 목표 도달
-            시점과 기대수명 기준 은퇴 시점을 계산합니다.
+            현재 자산, 월 수입, 소비, 수익률 가정을 바탕으로 경제적 자립까지의
+            거리를 가늠합니다. 흔히 경제적 자유라고 부르는 상태를 조금 더 현실적인
+            의미의 경제적 자립으로 다룹니다.
           </p>
         </section>
+
+        <MainTabs selectedTab={activeMainTab} onChange={setActiveMainTab} />
       </header>
 
-      <section className="content-grid" aria-label="계산 입력과 결과">
-        <section className="input-panel">
-          <div className="section-heading">
-            <p className="eyebrow">INPUTS</p>
-            <h2>입력값</h2>
-          </div>
-
-          <div className="input-actions">
-            <button
-              className="button-secondary"
-              type="button"
-              onClick={() => setFormValues(presetToFormValues(koreaAveragePreset.values))}
-            >
-              대한민국 평균 가구 값 입력해보기
-            </button>
-          </div>
-
-          <Fieldset title="공통 입력">
-            {commonFields.map(([field, label, suffix]) => (
-              <NumberField
-                field={field}
-                key={field}
-                label={label}
-                suffix={suffix}
-                value={formValues[field]}
-                helpText={fieldHelpText[field]}
-                onChange={(value) => handleFieldChange(field, value)}
-              />
-            ))}
-          </Fieldset>
-
-          {calculationMode === "trinity" && (
-            <Fieldset title="목표 인출률 입력">
-              <NumberField
-                field="targetWithdrawalRate"
-                label="목표 인출률"
-                suffix="%"
-                value={formValues.targetWithdrawalRate}
-                helpText={fieldHelpText.targetWithdrawalRate}
-                onChange={(value) => handleFieldChange("targetWithdrawalRate", value)}
-              />
-            </Fieldset>
-          )}
-
-          {calculationMode === "depletion" && (
-            <>
-              <Fieldset title="기대수명 입력">
-                {depletionFields.map(([field, label, suffix]) => (
-                  <NumberField
-                    field={field}
-                    key={field}
-                    label={label}
-                    suffix={suffix}
-                    value={formValues[field]}
-                    helpText={fieldHelpText[field]}
-                    onChange={(value) => handleFieldChange(field, value)}
-                  />
-                ))}
-              </Fieldset>
-              <Fieldset title="국민연금 입력">
-                {pensionFields.map(([field, label, suffix]) => (
-                  <NumberField
-                    field={field}
-                    key={field}
-                    label={label}
-                    suffix={suffix}
-                    value={formValues[field]}
-                    helpText={fieldHelpText[field]}
-                    onChange={(value) => handleFieldChange(field, value)}
-                  />
-                ))}
-                <PensionStartAgeNote birthYear={normalizeFormNumber(formValues.birthYear)} />
-              </Fieldset>
-            </>
-          )}
-        </section>
-
-        <section className="results-panel">
-          <div className="section-heading results-heading">
-            <div>
-              <p className="eyebrow">RESULTS</p>
-              <h2>계산 결과</h2>
+      {activeMainTab === "calculator" ? (
+        <section
+          aria-labelledby={getMainTabId("calculator")}
+          className="content-grid"
+          id={getMainPanelId("calculator")}
+          role="tabpanel"
+        >
+          <section className="input-panel">
+            <div className="section-heading">
+              <p className="eyebrow">INPUTS</p>
+              <h2>입력값</h2>
             </div>
-            <div className="results-controls">
-              <ValueBasisTabs selectedBasis={valueBasis} onChange={setValueBasis} />
-              <ModeTabs selectedMode={calculationMode} onChange={setCalculationMode} />
+
+            <div className="input-actions">
+              <button
+                className="button-secondary"
+                type="button"
+                onClick={() => setFormValues(presetToFormValues(koreaAveragePreset.values))}
+              >
+                대한민국 평균 가구 값 입력해보기
+              </button>
             </div>
-          </div>
 
-          <ResultHero
-            mode={calculationMode}
-            scenario={baseScenario}
-            depletionResult={depletionResult}
-          />
-
-          <ResultTabs selectedTab={activeResultTab} onChange={setActiveResultTab} />
-
-          {activeResultTab === "summary" && (
-            <ResultTabPanel tab="summary">
-              {calculationMode === "trinity" ? (
-                <>
-                  <WithdrawalRateNote withdrawalRate={inputs.targetWithdrawalRate} />
-                  <SummaryGrid scenario={baseScenario} valueBasis={valueBasis} />
-                </>
-              ) : (
-                <DepletionSummary
-                  annualInflationRate={inputs.annualInflationRate}
-                  result={depletionResult}
-                  valueBasis={valueBasis}
+            <Fieldset title="공통 입력">
+              {commonFields.map(([field, label, suffix]) => (
+                <NumberField
+                  field={field}
+                  key={field}
+                  label={label}
+                  suffix={suffix}
+                  value={formValues[field]}
+                  helpText={fieldHelpText[field]}
+                  onChange={(value) => handleFieldChange(field, value)}
                 />
-              )}
-            </ResultTabPanel>
-          )}
+              ))}
+            </Fieldset>
 
-          {activeResultTab === "monthly" && (
-            <ResultTabPanel tab="monthly">
-              {calculationMode === "trinity" ? (
-                <>
-                  <AssetChart scenario={baseScenario} valueBasis={valueBasis} />
-                  <div className="table-grid">
-                    <ProjectionTable
-                      title="투자 가능 자산 추이"
-                      rows={getTableRows(baseScenario.projections)}
-                      annualInflationRate={baseScenario.inputs.annualInflationRate}
-                      valueBasis={valueBasis}
-                      valueKey="investableAssets"
+            {calculationMode === "trinity" && (
+              <Fieldset title="목표 인출률 입력">
+                <NumberField
+                  field="targetWithdrawalRate"
+                  label="목표 인출률"
+                  suffix="%"
+                  value={formValues.targetWithdrawalRate}
+                  helpText={fieldHelpText.targetWithdrawalRate}
+                  onChange={(value) => handleFieldChange("targetWithdrawalRate", value)}
+                />
+              </Fieldset>
+            )}
+
+            {calculationMode === "depletion" && (
+              <>
+                <Fieldset title="기대수명 입력">
+                  {depletionFields.map(([field, label, suffix]) => (
+                    <NumberField
+                      field={field}
+                      key={field}
+                      label={label}
+                      suffix={suffix}
+                      value={formValues[field]}
+                      helpText={fieldHelpText[field]}
+                      onChange={(value) => handleFieldChange(field, value)}
                     />
-                    <ProjectionTable
-                      title="FIRE 목표 자산 추이"
-                      rows={getTableRows(baseScenario.projections)}
-                      annualInflationRate={baseScenario.inputs.annualInflationRate}
-                      valueBasis={valueBasis}
-                      valueKey="fireTargetAssets"
+                  ))}
+                </Fieldset>
+                <Fieldset title="국민연금 입력">
+                  {pensionFields.map(([field, label, suffix]) => (
+                    <NumberField
+                      field={field}
+                      key={field}
+                      label={label}
+                      suffix={suffix}
+                      value={formValues[field]}
+                      helpText={fieldHelpText[field]}
+                      onChange={(value) => handleFieldChange(field, value)}
                     />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <DepletionChart
+                  ))}
+                  <PensionStartAgeNote birthYear={normalizeFormNumber(formValues.birthYear)} />
+                </Fieldset>
+              </>
+            )}
+          </section>
+
+          <section className="results-panel">
+            <div className="section-heading results-heading">
+              <div>
+                <p className="eyebrow">RESULTS</p>
+                <h2>계산 결과</h2>
+              </div>
+              <div className="results-controls">
+                <ValueBasisTabs selectedBasis={valueBasis} onChange={setValueBasis} />
+                <ModeTabs selectedMode={calculationMode} onChange={setCalculationMode} />
+              </div>
+            </div>
+
+            <ResultHero
+              mode={calculationMode}
+              scenario={baseScenario}
+              depletionResult={depletionResult}
+            />
+
+            <ResultTabs selectedTab={activeResultTab} onChange={setActiveResultTab} />
+
+            {activeResultTab === "summary" && (
+              <ResultTabPanel tab="summary">
+                {calculationMode === "trinity" ? (
+                  <>
+                    <WithdrawalRateNote withdrawalRate={inputs.targetWithdrawalRate} />
+                    <SummaryGrid scenario={baseScenario} valueBasis={valueBasis} />
+                  </>
+                ) : (
+                  <DepletionSummary
                     annualInflationRate={inputs.annualInflationRate}
                     result={depletionResult}
                     valueBasis={valueBasis}
                   />
-                  <DepletionProjectionTable
-                    annualInflationRate={inputs.annualInflationRate}
-                    rows={getDepletionTableRows(depletionResult.projections)}
-                    valueBasis={valueBasis}
-                  />
-                </>
-              )}
-            </ResultTabPanel>
-          )}
+                )}
+              </ResultTabPanel>
+            )}
 
-          {activeResultTab === "experiments" && (
-            <ResultTabPanel tab="experiments">
-              <ImpactSection
-                inputs={inputs}
-                mode={calculationMode === "trinity" ? "trinity" : "depletion"}
-              />
-            </ResultTabPanel>
-          )}
+            {activeResultTab === "monthly" && (
+              <ResultTabPanel tab="monthly">
+                {calculationMode === "trinity" ? (
+                  <>
+                    <AssetChart scenario={baseScenario} valueBasis={valueBasis} />
+                    <div className="table-grid">
+                      <ProjectionTable
+                        title="투자 가능 자산 추이"
+                        rows={getTableRows(baseScenario.projections)}
+                        annualInflationRate={baseScenario.inputs.annualInflationRate}
+                        valueBasis={valueBasis}
+                        valueKey="investableAssets"
+                      />
+                      <ProjectionTable
+                        title="경제적 자립 목표 자산 추이"
+                        rows={getTableRows(baseScenario.projections)}
+                        annualInflationRate={baseScenario.inputs.annualInflationRate}
+                        valueBasis={valueBasis}
+                        valueKey="fireTargetAssets"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <DepletionChart
+                      annualInflationRate={inputs.annualInflationRate}
+                      result={depletionResult}
+                      valueBasis={valueBasis}
+                    />
+                    <DepletionProjectionTable
+                      annualInflationRate={inputs.annualInflationRate}
+                      rows={getDepletionTableRows(depletionResult.projections)}
+                      valueBasis={valueBasis}
+                    />
+                  </>
+                )}
+              </ResultTabPanel>
+            )}
+
+            {activeResultTab === "experiments" && (
+              <ResultTabPanel tab="experiments">
+                <ImpactSection
+                  inputs={inputs}
+                  mode={calculationMode === "trinity" ? "trinity" : "depletion"}
+                />
+              </ResultTabPanel>
+            )}
+
+            <ResultCaution />
+          </section>
         </section>
-      </section>
+      ) : (
+        <AboutCalculatorTab />
+      )}
 
       <footer className="site-footer">
         만든 사람{" "}
@@ -450,10 +471,10 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
         <div className="help-dialog-header">
           <div>
             <p className="eyebrow">HELP</p>
-            <h2 id={titleId}>도움말</h2>
+            <h2 id={titleId}>계산 기준 도움말</h2>
           </div>
           <button
-            aria-label="도움말 닫기"
+            aria-label="계산 기준 도움말 닫기"
             className="help-close-button"
             ref={closeButtonRef}
             type="button"
@@ -463,7 +484,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <nav className="help-toc" aria-label="도움말 목차">
+        <nav className="help-toc" aria-label="계산 기준 도움말 목차">
           <a href="#help-formulas">1. 주요 계산식</a>
           <a href="#help-value-basis">2. 명목 기준과 현재 가치</a>
           <a href="#help-withdrawal-rate">3. 목표 인출률 방식</a>
@@ -617,7 +638,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
               빨라질 수 있습니다.
             </p>
             <p>
-              따라서 계산 결과는 확정적인 은퇴 가능 시점이 아니라, 소비·저축·투자 가정이
+              따라서 계산 결과는 확정적인 은퇴일이 아니라, 소비·저축·투자 가정이
               장기적으로 어떤 차이를 만드는지 확인하는 참고값으로 봐주세요.
             </p>
           </HelpSection>
@@ -650,6 +671,153 @@ function FormulaBlock({ children, label }: { children: ReactNode; label: string 
       <span>{label}</span>
       <code>{children}</code>
     </div>
+  );
+}
+
+function MainTabs({
+  selectedTab,
+  onChange,
+}: {
+  selectedTab: MainTab;
+  onChange: (tab: MainTab) => void;
+}) {
+  return (
+    <div
+      className="main-tabs"
+      role="tablist"
+      aria-label="주요 화면"
+      onKeyDown={(event) =>
+        handleRovingTabKey(event, validMainTabs, selectedTab, onChange)
+      }
+    >
+      {mainTabOptions.map(([tab, label]) => (
+        <button
+          aria-controls={getMainPanelId(tab)}
+          aria-selected={selectedTab === tab}
+          className={selectedTab === tab ? "main-tab main-tab-active" : "main-tab"}
+          id={getMainTabId(tab)}
+          key={tab}
+          role="tab"
+          tabIndex={selectedTab === tab ? 0 : -1}
+          type="button"
+          onClick={() => onChange(tab)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function getMainTabId(tab: MainTab): string {
+  return `main-tab-${tab}`;
+}
+
+function getMainPanelId(tab: MainTab): string {
+  return `main-panel-${tab}`;
+}
+
+function AboutCalculatorTab() {
+  return (
+    <section
+      aria-labelledby={getMainTabId("about")}
+      className="about-panel"
+      id={getMainPanelId("about")}
+      role="tabpanel"
+      tabIndex={0}
+    >
+      <div className="about-intro">
+        <p className="eyebrow">ABOUT</p>
+        <h2>계산기에 대해서</h2>
+        <p>
+          이 계산기는 확정적인 은퇴일을 알려주는 도구가 아니라, 현재의 자산·소비·수익률
+          가정에서 경제적 자립까지의 거리를 가늠해보는 도구입니다. 결과 자체보다 어떤
+          가정이 결과를 크게 바꾸는지 함께 보는 것이 중요합니다.
+        </p>
+      </div>
+
+      <div className="about-card-grid">
+        <AboutCard title="경제적 자립이란?">
+          <p>
+            경제적 자립은 노동소득에 전적으로 의존하지 않아도 생활을 유지할 수 있는
+            상태를 뜻합니다. 반드시 일을 그만둔다는 의미는 아니며, 원치 않는 일을 생계
+            때문에 계속해야 하는 압박이 줄어드는 상태에 가깝습니다. 따라서 이 계산기의
+            결과는 퇴사 가능일보다 선택권이 넓어지는 시점으로 해석하는 것이 좋습니다.
+          </p>
+        </AboutCard>
+        <AboutCard title="FIRE와 경제적 자립의 관계">
+          <p>
+            FIRE는 Financial Independence, Retire Early의 약자입니다. 흔히 조기은퇴가
+            강조되지만, 이 계산기에서는 Retire Early보다 Financial Independence, 즉 경제적
+            자립에 더 초점을 둡니다. 경제적 자립 이후에도 일을 계속하거나, 더 적게 일하거나,
+            다른 일을 선택할 수 있습니다.
+          </p>
+        </AboutCard>
+        <AboutCard title="명목 기준과 현재가치 기준">
+          <p>
+            미래의 10억 원은 오늘의 10억 원과 구매력이 다릅니다. 물가가 오르면 같은
+            금액으로 살 수 있는 것이 줄어들기 때문입니다. 그래서 계산 결과를 볼 때는
+            미래의 명목 금액과 오늘 돈 기준의 현재가치를 구분해서 이해해야 합니다.
+          </p>
+        </AboutCard>
+        <AboutCard title="4% 룰은 법칙이 아니다">
+          <p>
+            4% 룰은 은퇴 첫해에 자산의 4%를 인출하고, 이후 물가상승률만큼 인출액을
+            조정하는 방식으로 자주 설명됩니다. 하지만 모든 사람에게 보장되는 법칙이 아니라,
+            과거 시장 데이터를 바탕으로 한 경험칙에 가깝습니다. 투자 국가, 자산 배분,
+            은퇴 기간, 세금, 수수료, 시장 상황에 따라 실제 안전한 인출률은 달라질 수 있습니다.
+          </p>
+        </AboutCard>
+        <AboutCard title="평균 수익률의 함정">
+          <p>
+            장기 평균 수익률이 같더라도 실제 결과는 달라질 수 있습니다. 특히 은퇴 직후
+            큰 하락장이 오면, 자산을 인출하면서 손실을 견뎌야 하기 때문에 회복이 어려워질 수
+            있습니다. 이처럼 수익률이 발생하는 순서가 결과에 큰 영향을 주는 문제를 수익률
+            순서 리스크라고 합니다.
+          </p>
+        </AboutCard>
+        <AboutCard title="소비가 자립 시점에 미치는 영향">
+          <p>
+            소비는 경제적 자립 시점에 매우 큰 영향을 줍니다. 생활비가 늘어나면 필요한
+            은퇴 자산이 커지고, 동시에 저축 가능한 금액은 줄어듭니다. 따라서 월소비를
+            조금만 바꿔도 경제적 자립 시점이 크게 달라질 수 있습니다.
+          </p>
+        </AboutCard>
+        <AboutCard title="실거주 주택과 금융자산의 차이">
+          <p>
+            실거주 주택은 중요한 자산이지만, 매달 생활비를 만들어주는 자산은 아닙니다.
+            집을 팔거나 담보로 활용하지 않는 한 생활비 인출에 직접 쓰기는 어렵습니다.
+            따라서 경제적 자립을 계산할 때는 순자산과 인출 가능한 금융자산을 구분해서 보는
+            것이 좋습니다.
+          </p>
+        </AboutCard>
+        <AboutCard title="원금 보존형과 자산 소진형">
+          <p>
+            경제적 자립에는 여러 방식이 있습니다. 원금을 최대한 보존하면서 생활비를
+            충당하려면 더 많은 자산이 필요합니다. 반대로 일정 나이까지 자산을 소진해도
+            된다고 가정하면 필요한 자산은 줄어들지만, 장수, 의료비, 가족 상황 변화에 더
+            취약해질 수 있습니다.
+          </p>
+        </AboutCard>
+        <AboutCard title="이 계산기의 한계">
+          <p>
+            이 계산기는 미래를 예측하는 도구가 아니라, 입력한 가정에 따른 시뮬레이션
+            도구입니다. 실제 결과는 수익률, 물가상승률, 소득, 지출, 세금, 건강보험료, 가족
+            상황, 시장 하락 등에 따라 달라질 수 있습니다. 따라서 계산 결과는 확정된 답이
+            아니라 현재 조건에서의 기준선으로 이해해야 합니다.
+          </p>
+        </AboutCard>
+      </div>
+    </section>
+  );
+}
+
+function AboutCard({ children, title }: { children: ReactNode; title: string }) {
+  return (
+    <article className="about-card">
+      <h3>{title}</h3>
+      {children}
+    </article>
   );
 }
 
@@ -829,12 +997,12 @@ function ResultHero({
 
   return (
     <aside className="hero-card">
-      <p className="card-label">경제적 자유 도달 시점</p>
+      <p className="card-label">경제적 자립 시점</p>
       <strong>{formatMonthsToFire(scenario)}</strong>
       <span>
         {scenario.status === "achieved"
           ? "현재 입력값 기준으로 목표 자산에 도달하는 시점입니다."
-          : "100년 안에 목표 자산에 도달하지 못합니다."}
+          : "100년 안에 경제적 자립 목표 자산에 도달하지 못합니다."}
       </span>
     </aside>
   );
@@ -848,9 +1016,9 @@ function WithdrawalRateNote({ withdrawalRate }: { withdrawalRate: number }) {
         <h3>목표 인출률 모델</h3>
       </div>
       <p>
-        입력한 목표 인출률로 은퇴 후 월 지출을 감당할 FIRE 목표 자산을 계산합니다. 흔히
-        언급되는 4% 법칙은 트리니티 연구에서 알려진 30년 은퇴 기간 기준 참고값입니다. 조기
-        은퇴처럼 은퇴 기간이 길수록 3~3.5%처럼 더 보수적으로 잡는 경우가 많습니다.
+        입력한 목표 인출률로 은퇴 후 월 지출을 감당할 경제적 자립 목표 자산을 계산합니다.
+        흔히 언급되는 4% 법칙은 트리니티 연구에서 알려진 30년 은퇴 기간 기준 참고값입니다.
+        은퇴 기간이 길수록 3~3.5%처럼 더 보수적으로 잡는 경우가 많습니다.
       </p>
       <strong>현재 적용 인출률 {rateToPercentInput(withdrawalRate)}%</strong>
     </article>
@@ -869,11 +1037,11 @@ function SummaryGrid({
   const formatScenarioMoney = (value: number, month: number) =>
     formatMoney(toDisplayMoney(value, scenario.inputs.annualInflationRate, month, valueBasis));
   const items = [
-    ["현재 FIRE 목표 자산", formatScenarioMoney(scenario.currentFireTargetAssets, 0)],
+    ["현재 경제적 자립 목표 자산", formatScenarioMoney(scenario.currentFireTargetAssets, 0)],
     ["앞으로 더 일해야 하는 기간", formatMonthsToFire(scenario)],
     ["적용된 목표 인출률", `${rateToPercentInput(scenario.inputs.targetWithdrawalRate)}%`],
     [
-      basisLabel("은퇴 시 필요 FIRE 목표 자산", valueBasis),
+      basisLabel("은퇴 시 필요 목표 자산", valueBasis),
       scenario.retirementFireTargetAssets === null
         ? "도달 어려움"
         : formatScenarioMoney(scenario.retirementFireTargetAssets, retirementMonth),
@@ -914,7 +1082,7 @@ function SummaryGrid({
 }
 
 function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode }) {
-  const timingLabel = mode === "trinity" ? "FIRE 시점" : "은퇴 시점";
+  const timingLabel = mode === "trinity" ? "경제적 자립 시점" : "은퇴 시점";
 
   return (
     <section className="chart-card impact-section" aria-labelledby="impact-section-title">
@@ -1010,7 +1178,7 @@ function ImpactCard({
         <div className="impact-result">
           <strong>{selectedOption.summaryLabel}</strong>
           <span>
-            {mode === "trinity" ? "FIRE 시점" : "은퇴 시점"}:{" "}
+            {mode === "trinity" ? "경제적 자립 시점" : "은퇴 시점"}:{" "}
             {formatImpactYears(impact.baseMonths)} → {formatImpactYears(impact.changedMonths)}
           </span>
           <span>변화: {formatImpactChange(impact.diffMonths)}</span>
@@ -1088,6 +1256,15 @@ function DepletionSummary({
         ))}
       </div>
     </>
+  );
+}
+
+function ResultCaution() {
+  return (
+    <p className="result-caution">
+      이 결과는 입력한 가정에 따른 시뮬레이션입니다. 자세한 해석은 “계산기에 대해서”
+      탭을 참고하세요.
+    </p>
   );
 }
 
@@ -1503,7 +1680,7 @@ function AssetChart({
         </div>
         <div className="legend">
           <span className="legend-base">투자 가능 자산</span>
-          <span className="legend-target">점선: FIRE 목표 자산</span>
+          <span className="legend-target">점선: 경제적 자립 목표</span>
         </div>
       </div>
       <div className="interactive-chart">
@@ -1677,7 +1854,7 @@ function AssetChart({
                 <dd>{formatMoney(getDisplayValue(activeRow, activeRow.investableAssets))}</dd>
               </div>
               <div>
-                <dt>FIRE 목표</dt>
+                <dt>경제적 자립 목표</dt>
                 <dd>{formatMoney(getDisplayValue(activeRow, activeRow.fireTargetAssets))}</dd>
               </div>
             </dl>
@@ -1724,7 +1901,7 @@ function ProjectionTable({
   valueKey: "investableAssets" | "fireTargetAssets";
 }) {
   const moneyHeader =
-    valueKey === "investableAssets" ? "투자 가능 자산" : "FIRE 목표 자산";
+    valueKey === "investableAssets" ? "투자 가능 자산" : "경제적 자립 목표 자산";
 
   return (
     <article className="table-card">
@@ -2379,7 +2556,7 @@ function formatDepletionStatus(result: DepletionResult): string {
     return "기대 수명이 현재 나이보다 커야 합니다.";
   }
 
-  return "기대수명 안에 은퇴 가능 시점에 도달하지 못합니다.";
+  return "입력한 기대수명 범위에서는 자립 기준을 충족하기 어렵습니다.";
 }
 
 function formatWorkDuration(months: number | null): string {
