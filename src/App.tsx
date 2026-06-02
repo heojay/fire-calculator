@@ -1,6 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type {
-  CSSProperties,
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent,
   ReactNode,
@@ -2073,47 +2072,27 @@ function NumberField({
   const describedBy = [helpText ? helpId : null, moneyHint ? hintId : null]
     .filter(Boolean)
     .join(" ");
-  const [tooltipPosition, setTooltipPosition] = useState({ left: 16, top: 0 });
-
-  const updateTooltipPosition = (trigger: HTMLButtonElement) => {
-    const triggerRect = trigger.getBoundingClientRect();
-    const tooltipWidth = Math.min(360, window.innerWidth - 32);
-    const left = clampNumber(
-      triggerRect.left + triggerRect.width / 2 - tooltipWidth / 2,
-      16,
-      window.innerWidth - tooltipWidth - 16,
-    );
-
-    setTooltipPosition({
-      left,
-      top: Math.max(triggerRect.top - 8, 16),
-    });
-  };
-  const tooltipStyle = {
-    "--field-tooltip-left": `${tooltipPosition.left}px`,
-    "--field-tooltip-top": `${tooltipPosition.top}px`,
-  } as CSSProperties;
 
   return (
     <div className="number-field">
       <div className="number-field-label">
         <label htmlFor={inputId}>{label}</label>
         {helpText && (
-          <span className="field-help">
-            <button
-              type="button"
-              aria-describedby={helpId}
-              aria-label={`${label} 설명`}
-              className="field-help-trigger"
-              onFocus={(event) => updateTooltipPosition(event.currentTarget)}
-              onPointerEnter={(event) => updateTooltipPosition(event.currentTarget)}
-            >
-              ?
-            </button>
-            <span className="field-tooltip" id={helpId} role="tooltip" style={tooltipStyle}>
+          <>
+            <span className="field-help">
+              <button
+                type="button"
+                aria-describedby={helpId}
+                aria-label={`${label} 설명`}
+                className="field-help-trigger"
+              >
+                ?
+              </button>
+            </span>
+            <span className="field-tooltip" id={helpId} role="tooltip">
               {helpText}
             </span>
-          </span>
+          </>
         )}
       </div>
       <div className="number-field-control">

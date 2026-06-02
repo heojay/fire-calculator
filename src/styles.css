@@ -679,8 +679,10 @@ legend {
 }
 
 .number-field-label {
-  display: inline-flex;
+  position: relative;
+  display: flex;
   align-items: center;
+  justify-self: start;
   gap: 8px;
 }
 
@@ -689,7 +691,6 @@ legend {
 }
 
 .field-help {
-  position: relative;
   display: inline-flex;
   align-items: center;
 }
@@ -715,11 +716,11 @@ legend {
 }
 
 .field-tooltip {
-  position: fixed;
+  position: absolute;
   z-index: 5;
   display: none;
-  top: var(--field-tooltip-top);
-  left: var(--field-tooltip-left);
+  top: calc(100% + 8px);
+  left: 0;
   width: min(360px, calc(100vw - 32px));
   border: 1px solid var(--hairline);
   border-radius: 6px;
@@ -732,17 +733,17 @@ legend {
   line-height: 1.5;
   opacity: 0;
   pointer-events: none;
-  transform: translateY(calc(-100% + 4px));
+  transform: translateY(-4px);
   transition:
     opacity 160ms ease,
     transform 160ms ease;
 }
 
-.field-help:hover .field-tooltip,
-.field-help:focus-within .field-tooltip {
+.field-help:hover + .field-tooltip,
+.field-help:focus-within + .field-tooltip {
   display: block;
   opacity: 1;
-  transform: translateY(-100%);
+  transform: translateY(0);
 }
 
 .number-field-control {
@@ -1550,8 +1551,21 @@ td {
     line-height: 1.25;
   }
 
+  .number-field-label {
+    flex-wrap: wrap;
+  }
+
   .field-tooltip {
-    width: min(238px, calc(100vw - 48px));
+    position: static;
+    flex: 0 0 min(320px, calc(100vw - 48px));
+    max-width: 100%;
+    width: auto;
+    transform: none;
+  }
+
+  .field-help:hover + .field-tooltip,
+  .field-help:focus-within + .field-tooltip {
+    transform: none;
   }
 
   .help-overlay {
@@ -1661,8 +1675,10 @@ td {
   .animated-line,
   .chart-area,
   .chart-active-point,
-  .chart-tooltip {
+  .chart-tooltip,
+  .field-tooltip {
     animation: none;
+    transition: none;
   }
 
   .animated-line {
