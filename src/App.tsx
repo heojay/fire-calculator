@@ -144,9 +144,21 @@ const numericFormFields: NumericFormField[] = [
   "nationalPensionMonthlyAmount",
 ];
 const expenseImpactOptions: ImpactOption[] = [
-  { label: "월 소비 -50만원", summaryLabel: "월 소비 -50만원이면", delta: -500_000 },
-  { label: "월 소비 +50만원", summaryLabel: "월 소비 +50만원이면", delta: 500_000 },
-  { label: "월 소비 +100만원", summaryLabel: "월 소비 +100만원이면", delta: 1_000_000 },
+  {
+    label: "은퇴 후 소비 -100만원",
+    summaryLabel: "은퇴 후 소비 -100만원이면",
+    delta: -1_000_000,
+  },
+  {
+    label: "은퇴 후 소비 -50만원",
+    summaryLabel: "은퇴 후 소비 -50만원이면",
+    delta: -500_000,
+  },
+  {
+    label: "은퇴 후 소비 +50만원",
+    summaryLabel: "은퇴 후 소비 +50만원이면",
+    delta: 500_000,
+  },
 ];
 const savingsImpactOptions: ImpactOption[] = [
   { label: "월 저축 -50만원", summaryLabel: "월 저축 -50만원이면", delta: -500_000 },
@@ -586,7 +598,8 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
             </p>
             <p>예를 들어 다음과 같은 질문을 확인할 수 있습니다.</p>
             <ul>
-              <li>근로 중 월 소비가 50만 원 늘면 은퇴가 얼마나 늦어질까?</li>
+              <li>은퇴 후 월 소비를 100만 원 줄이면 은퇴가 얼마나 빨라질까?</li>
+              <li>은퇴 후 월 소비가 50만 원 늘면 은퇴가 얼마나 늦어질까?</li>
               <li>월 저축을 100만 원 늘리면 은퇴가 얼마나 빨라질까?</li>
               <li>수익률이 1%p 달라지면 결과가 얼마나 바뀔까?</li>
             </ul>
@@ -919,8 +932,8 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
           kind="expenses"
           mode={mode}
           options={expenseImpactOptions}
-          title="월 소비 영향"
-          description={`근로 중 현재 월 소비를 기준으로 ${timingLabel} 변화를 비교합니다.`}
+          title="은퇴 후 소비 영향"
+          description={`은퇴 후 월 지출을 기준으로 ${timingLabel} 변화를 비교합니다.`}
         />
         <ImpactCard
           inputs={inputs}
@@ -2254,7 +2267,7 @@ function changeImpactInputs(inputs: FireInputs, kind: ImpactKind, delta: number)
   if (kind === "expenses") {
     return {
       ...inputs,
-      monthlyExpenses: Math.max(inputs.monthlyExpenses + delta, 0),
+      retirementMonthlyExpenses: Math.max(inputs.retirementMonthlyExpenses + delta, 0),
     };
   }
 
