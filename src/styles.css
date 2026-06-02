@@ -948,6 +948,33 @@ svg polyline {
   stroke-linejoin: round;
 }
 
+.interactive-chart {
+  position: relative;
+  isolation: isolate;
+}
+
+.chart-area {
+  opacity: 0;
+  pointer-events: none;
+  animation: chart-area-in 720ms ease-out 120ms forwards;
+}
+
+.chart-line-shadow {
+  opacity: 0.2;
+  stroke-width: 8;
+  pointer-events: none;
+}
+
+.chart-glow-line {
+  pointer-events: none;
+}
+
+.animated-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: chart-line-draw 980ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
 .scenario-line {
   stroke-width: 3.5;
 }
@@ -966,13 +993,171 @@ svg polyline {
 
 .target-line {
   stroke-dasharray: 8 8;
-  opacity: 0.78;
+  opacity: 0.86;
 }
 
 .retirement-line {
   stroke: var(--purple);
   stroke-dasharray: 6 6;
   stroke-width: 2;
+}
+
+.chart-guide-line {
+  stroke: var(--primary);
+  stroke-dasharray: 3 5;
+  stroke-width: 1.5;
+  opacity: 0.48;
+  pointer-events: none;
+}
+
+.chart-active-point,
+.chart-target-point {
+  pointer-events: none;
+  filter: drop-shadow(0 8px 14px rgb(0 0 0 / 18%));
+}
+
+.chart-active-point {
+  fill: var(--blue-info);
+  stroke: var(--canvas);
+  stroke-width: 4;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: chart-point-pulse 1.8s ease-in-out infinite;
+}
+
+.chart-target-point {
+  fill: var(--canvas);
+  stroke: var(--purple);
+  stroke-width: 3;
+}
+
+.chart-hit-area {
+  fill: transparent;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.chart-tooltip {
+  position: absolute;
+  z-index: 2;
+  min-width: 196px;
+  max-width: min(244px, calc(100% - 24px));
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: rgb(8 8 8 / 94%);
+  box-shadow:
+    0 20px 34px rgb(0 0 0 / 20%),
+    0 4px 12px rgb(0 0 0 / 12%);
+  color: var(--on-primary);
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 14px));
+  animation: chart-tooltip-in 140ms ease-out;
+}
+
+.chart-tooltip::after {
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  border-right: 1px solid rgb(255 255 255 / 16%);
+  border-bottom: 1px solid rgb(255 255 255 / 16%);
+  background: rgb(8 8 8 / 94%);
+  content: "";
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.chart-tooltip-below {
+  transform: translate(-50%, 14px);
+}
+
+.chart-tooltip-below::after {
+  top: -7px;
+  bottom: auto;
+  border: 0;
+  border-top: 1px solid rgb(255 255 255 / 16%);
+  border-left: 1px solid rgb(255 255 255 / 16%);
+}
+
+.chart-tooltip p,
+.chart-tooltip dl {
+  margin: 0;
+}
+
+.chart-tooltip p {
+  color: rgb(255 255 255 / 72%);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.chart-tooltip dl {
+  display: grid;
+  gap: 7px;
+  margin-top: 9px;
+}
+
+.chart-tooltip div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.chart-tooltip dt {
+  color: rgb(255 255 255 / 58%);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.chart-tooltip dd {
+  margin: 0;
+  color: var(--on-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: right;
+}
+
+@keyframes chart-line-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes chart-area-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes chart-point-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.2);
+  }
+}
+
+@keyframes chart-tooltip-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .empty-chart-message {
@@ -1113,6 +1298,15 @@ td {
     justify-content: flex-start;
   }
 
+  .chart-tooltip {
+    min-width: 174px;
+    padding: 10px 12px;
+  }
+
+  .chart-tooltip div {
+    gap: 12px;
+  }
+
   h1 {
     font-size: 40px;
   }
@@ -1229,5 +1423,22 @@ td {
 
   .metric-card {
     padding: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animated-line,
+  .chart-area,
+  .chart-active-point,
+  .chart-tooltip {
+    animation: none;
+  }
+
+  .animated-line {
+    stroke-dashoffset: 0;
+  }
+
+  .chart-area {
+    opacity: 1;
   }
 }

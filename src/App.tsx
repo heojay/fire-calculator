@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { PointerEvent, ReactNode } from "react";
 import {
   FIRE_PRESETS,
   MIN_WITHDRAWAL_RATE,
@@ -49,6 +49,16 @@ type ImpactOption = {
   label: string;
   summaryLabel: string;
   delta: number;
+};
+type ChartPadding = {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+};
+type ChartPoint = {
+  x: number;
+  y: number;
 };
 
 const commonFields = [
@@ -943,6 +953,58 @@ function DepletionSummary({
   );
 }
 
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function formatSvgPoints(points: ChartPoint[]): string {
+  return points.map((point) => `${point.x},${point.y}`).join(" ");
+}
+
+function formatAreaPoints(points: ChartPoint[], baseY: number): string {
+  if (points.length === 0) {
+    return "";
+  }
+
+  const firstPoint = points[0];
+  const lastPoint = points[points.length - 1];
+
+  return `${firstPoint.x},${baseY} ${formatSvgPoints(points)} ${lastPoint.x},${baseY}`;
+}
+
+function getNearestProjectionIndex<T extends { month: number }>({
+  event,
+  maxMonth,
+  padding,
+  rows,
+  svg,
+  width,
+}: {
+  event: PointerEvent<SVGRectElement>;
+  maxMonth: number;
+  padding: ChartPadding;
+  rows: T[];
+  svg: SVGSVGElement;
+  width: number;
+}): number {
+  const svgRect = svg.getBoundingClientRect();
+  const svgX = ((event.clientX - svgRect.left) / svgRect.width) * width;
+  const plotWidth = width - padding.left - padding.right;
+  const progress = clampNumber((svgX - padding.left) / plotWidth, 0, 1);
+  const selectedMonth = progress * maxMonth;
+
+  return rows.reduce((nearestIndex, row, index) => {
+    const nearestDistance = Math.abs(rows[nearestIndex].month - selectedMonth);
+    const rowDistance = Math.abs(row.month - selectedMonth);
+
+    return rowDistance < nearestDistance ? index : nearestIndex;
+  }, 0);
+}
+
+function getTooltipLeftPercent(x: number, width: number): number {
+  return clampNumber((x / width) * 100, 14, 86);
+}
+
 function DepletionChart({
   annualInflationRate,
   result,
@@ -959,6 +1021,9 @@ function DepletionChart({
   const padding = isMobile
     ? { top: 20, right: 16, bottom: 36, left: 54 }
     : { top: 24, right: 24, bottom: 44, left: 88 };
+  const chartId = useId().replace(/:/g, "");
+  const chartRef = useRef<SVGSVGElement | null>(null);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   if (rows.length === 0) {
     return (
@@ -985,13 +1050,39 @@ function DepletionChart({
   const xTicks = Array.from(new Set([0, Math.round(maxMonth / 2), maxMonth]));
   const retirementMonth = result.monthsToWork;
 
-  const toPoint = (row: DepletionProjection) => `${toX(row.month)},${toY(rowAssets(row))}`;
   const toX = (month: number) =>
     padding.left + (month / maxMonth) * (width - padding.left - padding.right);
   const toY = (value: number) =>
     height -
     padding.bottom -
     ((value - minValue) / valueRange) * (height - padding.top - padding.bottom);
+  const baseY = height - padding.bottom;
+  const assetPoints = rows.map((row) => ({
+    x: toX(row.month),
+    y: toY(rowAssets(row)),
+  }));
+  const activeRow = activeIndex === null ? null : rows[activeIndex];
+  const activePoint = activeIndex === null ? null : assetPoints[activeIndex];
+  const assetGradientId = `${chartId}-depletion-asset-gradient`;
+  const areaGradientId = `${chartId}-depletion-area-gradient`;
+  const glowId = `${chartId}-depletion-glow`;
+
+  const updateActiveIndex = (event: PointerEvent<SVGRectElement>) => {
+    if (!chartRef.current) {
+      return;
+    }
+
+    setActiveIndex(
+      getNearestProjectionIndex({
+        event,
+        maxMonth,
+        padding,
+        rows,
+        svg: chartRef.current,
+        width,
+      }),
+    );
+  };
 
   return (
     <article className="chart-card">
@@ -1005,56 +1096,171 @@ function DepletionChart({
           <span className="legend-retirement">은퇴 시점</span>
         </div>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="기대수명 자산 추이">
-        {yTicks.map((tick) => (
-          <g key={`depletion-y-${tick}`}>
-            <line
-              className="grid-line"
+      <div className="interactive-chart">
+        <svg
+          ref={chartRef}
+          viewBox={`0 0 ${width} ${height}`}
+          role="img"
+          aria-label="기대수명 자산 추이"
+        >
+          <defs>
+            <linearGradient
+              id={assetGradientId}
               x1={padding.left}
-              y1={toY(tick)}
               x2={width - padding.right}
-              y2={toY(tick)}
-            />
-            <text className="y-axis-label" x={padding.left - 12} y={toY(tick)}>
-              {formatAxisMoney(tick)}
+              y1="0"
+              y2="0"
+              gradientUnits="userSpaceOnUse"
+            >
+              <stop offset="0%" stopColor="var(--blue-info)" />
+              <stop offset="58%" stopColor="var(--purple)" />
+              <stop offset="100%" stopColor="var(--pink)" />
+            </linearGradient>
+            <linearGradient
+              id={areaGradientId}
+              x1="0"
+              x2="0"
+              y1={padding.top}
+              y2={baseY}
+              gradientUnits="userSpaceOnUse"
+            >
+              <stop offset="0%" stopColor="var(--blue-info)" stopOpacity="0.22" />
+              <stop offset="78%" stopColor="var(--purple)" stopOpacity="0.06" />
+              <stop offset="100%" stopColor="var(--canvas)" stopOpacity="0" />
+            </linearGradient>
+            <filter id={glowId} x="-16%" y="-48%" width="132%" height="196%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
+              <feColorMatrix
+                in="blur"
+                result="glow"
+                values="0 0 0 0 0.08 0 0 0 0 0.43 0 0 0 0 0.96 0 0 0 0.45 0"
+              />
+              <feMerge>
+                <feMergeNode in="glow" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          {yTicks.map((tick) => (
+            <g key={`depletion-y-${tick}`}>
+              <line
+                className="grid-line"
+                x1={padding.left}
+                y1={toY(tick)}
+                x2={width - padding.right}
+                y2={toY(tick)}
+              />
+              <text className="y-axis-label" x={padding.left - 12} y={toY(tick)}>
+                {formatAxisMoney(tick)}
+              </text>
+            </g>
+          ))}
+          {xTicks.map((tick) => (
+            <text
+              className="x-axis-label"
+              key={`depletion-x-${tick}`}
+              x={toX(tick)}
+              y={height - 12}
+            >
+              {tick === 0 ? "현재" : formatProjectionMonth(tick)}
             </text>
-          </g>
-        ))}
-        {xTicks.map((tick) => (
-          <text
-            className="x-axis-label"
-            key={`depletion-x-${tick}`}
-            x={toX(tick)}
-            y={height - 12}
-          >
-            {tick === 0 ? "현재" : formatProjectionMonth(tick)}
-          </text>
-        ))}
-        <line
-          className="axis-line"
-          x1={padding.left}
-          y1={height - padding.bottom}
-          x2={width - padding.right}
-          y2={height - padding.bottom}
-        />
-        <line
-          className="axis-line"
-          x1={padding.left}
-          y1={padding.top}
-          x2={padding.left}
-          y2={height - padding.bottom}
-        />
-        {retirementMonth !== null && (
+          ))}
           <line
-            className="retirement-line"
-            x1={toX(retirementMonth)}
-            y1={padding.top}
-            x2={toX(retirementMonth)}
+            className="axis-line"
+            x1={padding.left}
+            y1={height - padding.bottom}
+            x2={width - padding.right}
             y2={height - padding.bottom}
           />
+          <line
+            className="axis-line"
+            x1={padding.left}
+            y1={padding.top}
+            x2={padding.left}
+            y2={height - padding.bottom}
+          />
+          <polygon
+            className="chart-area"
+            fill={`url(#${areaGradientId})`}
+            points={formatAreaPoints(assetPoints, baseY)}
+          />
+          {retirementMonth !== null && (
+            <line
+              className="retirement-line"
+              x1={toX(retirementMonth)}
+              y1={padding.top}
+              x2={toX(retirementMonth)}
+              y2={height - padding.bottom}
+            />
+          )}
+          <polyline
+            className="scenario-line chart-line-shadow"
+            filter={`url(#${glowId})`}
+            points={formatSvgPoints(assetPoints)}
+            stroke={`url(#${assetGradientId})`}
+          />
+          <polyline
+            className="scenario-line chart-glow-line animated-line"
+            pathLength={1}
+            points={formatSvgPoints(assetPoints)}
+            stroke={`url(#${assetGradientId})`}
+          />
+          {activeRow && activePoint && (
+            <g className="chart-active-layer">
+              <line
+                className="chart-guide-line"
+                x1={activePoint.x}
+                y1={padding.top}
+                x2={activePoint.x}
+                y2={baseY}
+              />
+              <circle
+                className="chart-active-point"
+                cx={activePoint.x}
+                cy={activePoint.y}
+                r={isMobile ? 5.5 : 6.5}
+              />
+            </g>
+          )}
+          <rect
+            className="chart-hit-area"
+            x={padding.left}
+            y={padding.top}
+            width={width - padding.left - padding.right}
+            height={height - padding.top - padding.bottom}
+            onPointerDown={updateActiveIndex}
+            onPointerMove={updateActiveIndex}
+            onPointerLeave={(event) => {
+              if (event.pointerType === "mouse") {
+                setActiveIndex(null);
+              }
+            }}
+          />
+        </svg>
+        {activeRow && activePoint && (
+          <div
+            className={`chart-tooltip ${
+              activePoint.y < 86 ? "chart-tooltip-below" : ""
+            }`}
+            style={{
+              left: `${getTooltipLeftPercent(activePoint.x, width)}%`,
+              top: `${(activePoint.y / height) * 100}%`,
+            }}
+          >
+            <p>{formatProjectionMonth(activeRow.month)}</p>
+            <dl>
+              <div>
+                <dt>자산</dt>
+                <dd>{formatMoney(rowAssets(activeRow))}</dd>
+              </div>
+              <div>
+                <dt>상태</dt>
+                <dd>{formatDepletionPhase(activeRow.phase)}</dd>
+              </div>
+            </dl>
+          </div>
         )}
-        <polyline className="scenario-line base-line" points={rows.map(toPoint).join(" ")} />
-      </svg>
+      </div>
     </article>
   );
 }
@@ -1072,6 +1278,9 @@ function AssetChart({
   const padding = isMobile
     ? { top: 20, right: 16, bottom: 34, left: 54 }
     : { top: 24, right: 24, bottom: 44, left: 88 };
+  const chartId = useId().replace(/:/g, "");
+  const chartRef = useRef<SVGSVGElement | null>(null);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const values = scenario.projections.flatMap((row) => [
     toDisplayMoney(
       row.investableAssets,
@@ -1093,28 +1302,48 @@ function AssetChart({
   const yTicks = Array.from({ length: 4 }, (_, index) => minValue + (valueRange / 3) * index);
   const xTicks = Array.from(new Set([0, Math.round(maxMonth / 2), maxMonth]));
 
-  const toPoint = (scenario: FireScenarioResult, row: FireProjection, value: number) => {
-    const displayValue = toDisplayMoney(
-      value,
-      scenario.inputs.annualInflationRate,
-      row.month,
-      valueBasis,
-    );
-    const x =
-      padding.left + (row.month / maxMonth) * (width - padding.left - padding.right);
-    const y =
-      height -
-      padding.bottom -
-      ((displayValue - minValue) / valueRange) * (height - padding.top - padding.bottom);
-    return `${x},${y}`;
-  };
-
   const toX = (month: number) =>
     padding.left + (month / maxMonth) * (width - padding.left - padding.right);
   const toY = (value: number) =>
     height -
     padding.bottom -
     ((value - minValue) / valueRange) * (height - padding.top - padding.bottom);
+  const baseY = height - padding.bottom;
+  const getDisplayValue = (row: FireProjection, value: number) =>
+    toDisplayMoney(value, scenario.inputs.annualInflationRate, row.month, valueBasis);
+  const assetPoints = scenario.projections.map((row) => ({
+    x: toX(row.month),
+    y: toY(getDisplayValue(row, row.investableAssets)),
+  }));
+  const targetPoints = scenario.projections.map((row) => ({
+    x: toX(row.month),
+    y: toY(getDisplayValue(row, row.fireTargetAssets)),
+  }));
+  const activeRow = activeIndex === null ? null : scenario.projections[activeIndex];
+  const activeAssetPoint = activeIndex === null ? null : assetPoints[activeIndex];
+  const activeTargetPoint = activeIndex === null ? null : targetPoints[activeIndex];
+  const assetGradientId = `${chartId}-asset-gradient`;
+  const targetGradientId = `${chartId}-target-gradient`;
+  const areaGradientId = `${chartId}-asset-area-gradient`;
+  const glowId = `${chartId}-asset-glow`;
+
+  const updateActiveIndex = (event: PointerEvent<SVGRectElement>) => {
+    if (!chartRef.current) {
+      return;
+    }
+
+    setActiveIndex(
+      getNearestProjectionIndex({
+        event,
+        maxMonth,
+        padding,
+        rows: scenario.projections,
+        svg: chartRef.current,
+        width,
+      }),
+    );
+  };
+
   return (
     <article className="chart-card">
       <div className="chart-heading">
@@ -1127,58 +1356,184 @@ function AssetChart({
           <span className="legend-target">점선: FIRE 목표 자산</span>
         </div>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="월별 자산 추이">
-        {yTicks.map((tick) => (
-          <g key={`y-${tick}`}>
-            <line
-              className="grid-line"
+      <div className="interactive-chart">
+        <svg
+          ref={chartRef}
+          viewBox={`0 0 ${width} ${height}`}
+          role="img"
+          aria-label="월별 자산 추이"
+        >
+          <defs>
+            <linearGradient
+              id={assetGradientId}
               x1={padding.left}
-              y1={toY(tick)}
               x2={width - padding.right}
-              y2={toY(tick)}
-            />
-            <text className="y-axis-label" x={padding.left - 12} y={toY(tick)}>
-              {formatAxisMoney(tick)}
+              y1="0"
+              y2="0"
+              gradientUnits="userSpaceOnUse"
+            >
+              <stop offset="0%" stopColor="var(--blue-info)" />
+              <stop offset="56%" stopColor="var(--purple)" />
+              <stop offset="100%" stopColor="var(--pink)" />
+            </linearGradient>
+            <linearGradient
+              id={targetGradientId}
+              x1={padding.left}
+              x2={width - padding.right}
+              y1="0"
+              y2="0"
+              gradientUnits="userSpaceOnUse"
+            >
+              <stop offset="0%" stopColor="var(--body-mid)" />
+              <stop offset="100%" stopColor="var(--purple)" />
+            </linearGradient>
+            <linearGradient
+              id={areaGradientId}
+              x1="0"
+              x2="0"
+              y1={padding.top}
+              y2={baseY}
+              gradientUnits="userSpaceOnUse"
+            >
+              <stop offset="0%" stopColor="var(--blue-info)" stopOpacity="0.22" />
+              <stop offset="72%" stopColor="var(--purple)" stopOpacity="0.07" />
+              <stop offset="100%" stopColor="var(--canvas)" stopOpacity="0" />
+            </linearGradient>
+            <filter id={glowId} x="-16%" y="-48%" width="132%" height="196%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
+              <feColorMatrix
+                in="blur"
+                result="glow"
+                values="0 0 0 0 0.08 0 0 0 0 0.43 0 0 0 0 0.96 0 0 0 0.45 0"
+              />
+              <feMerge>
+                <feMergeNode in="glow" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          {yTicks.map((tick) => (
+            <g key={`y-${tick}`}>
+              <line
+                className="grid-line"
+                x1={padding.left}
+                y1={toY(tick)}
+                x2={width - padding.right}
+                y2={toY(tick)}
+              />
+              <text className="y-axis-label" x={padding.left - 12} y={toY(tick)}>
+                {formatAxisMoney(tick)}
+              </text>
+            </g>
+          ))}
+          {xTicks.map((tick) => (
+            <text
+              className="x-axis-label"
+              key={`x-${tick}`}
+              x={toX(tick)}
+              y={height - 12}
+            >
+              {tick === 0 ? "현재" : formatProjectionMonth(tick)}
             </text>
-          </g>
-        ))}
-        {xTicks.map((tick) => (
-          <text
-            className="x-axis-label"
-            key={`x-${tick}`}
-            x={toX(tick)}
-            y={height - 12}
+          ))}
+          <line
+            className="axis-line"
+            x1={padding.left}
+            y1={height - padding.bottom}
+            x2={width - padding.right}
+            y2={height - padding.bottom}
+          />
+          <line
+            className="axis-line"
+            x1={padding.left}
+            y1={padding.top}
+            x2={padding.left}
+            y2={height - padding.bottom}
+          />
+          <polygon
+            className="chart-area"
+            fill={`url(#${areaGradientId})`}
+            points={formatAreaPoints(assetPoints, baseY)}
+          />
+          <polyline
+            className="target-line"
+            points={formatSvgPoints(targetPoints)}
+            stroke={`url(#${targetGradientId})`}
+          />
+          <polyline
+            className="scenario-line chart-line-shadow"
+            filter={`url(#${glowId})`}
+            points={formatSvgPoints(assetPoints)}
+            stroke={`url(#${assetGradientId})`}
+          />
+          <polyline
+            className="scenario-line chart-glow-line animated-line"
+            pathLength={1}
+            points={formatSvgPoints(assetPoints)}
+            stroke={`url(#${assetGradientId})`}
+          />
+          {activeRow && activeAssetPoint && activeTargetPoint && (
+            <g className="chart-active-layer">
+              <line
+                className="chart-guide-line"
+                x1={activeAssetPoint.x}
+                y1={padding.top}
+                x2={activeAssetPoint.x}
+                y2={baseY}
+              />
+              <circle
+                className="chart-target-point"
+                cx={activeTargetPoint.x}
+                cy={activeTargetPoint.y}
+                r={isMobile ? 4.5 : 5.5}
+              />
+              <circle
+                className="chart-active-point"
+                cx={activeAssetPoint.x}
+                cy={activeAssetPoint.y}
+                r={isMobile ? 5.5 : 6.5}
+              />
+            </g>
+          )}
+          <rect
+            className="chart-hit-area"
+            x={padding.left}
+            y={padding.top}
+            width={width - padding.left - padding.right}
+            height={height - padding.top - padding.bottom}
+            onPointerDown={updateActiveIndex}
+            onPointerMove={updateActiveIndex}
+            onPointerLeave={(event) => {
+              if (event.pointerType === "mouse") {
+                setActiveIndex(null);
+              }
+            }}
+          />
+        </svg>
+        {activeRow && activeAssetPoint && (
+          <div
+            className={`chart-tooltip ${
+              activeAssetPoint.y < 86 ? "chart-tooltip-below" : ""
+            }`}
+            style={{
+              left: `${getTooltipLeftPercent(activeAssetPoint.x, width)}%`,
+              top: `${(activeAssetPoint.y / height) * 100}%`,
+            }}
           >
-            {tick === 0 ? "현재" : formatProjectionMonth(tick)}
-          </text>
-        ))}
-        <line
-          className="axis-line"
-          x1={padding.left}
-          y1={height - padding.bottom}
-          x2={width - padding.right}
-          y2={height - padding.bottom}
-        />
-        <line
-          className="axis-line"
-          x1={padding.left}
-          y1={padding.top}
-          x2={padding.left}
-          y2={height - padding.bottom}
-        />
-        <polyline
-          className="target-line base-line"
-          points={scenario.projections
-            .map((row) => toPoint(scenario, row, row.fireTargetAssets))
-            .join(" ")}
-        />
-        <polyline
-          className="scenario-line base-line"
-          points={scenario.projections
-            .map((row) => toPoint(scenario, row, row.investableAssets))
-            .join(" ")}
-        />
-      </svg>
+            <p>{formatProjectionMonth(activeRow.month)}</p>
+            <dl>
+              <div>
+                <dt>투자 가능 자산</dt>
+                <dd>{formatMoney(getDisplayValue(activeRow, activeRow.investableAssets))}</dd>
+              </div>
+              <div>
+                <dt>FIRE 목표</dt>
+                <dd>{formatMoney(getDisplayValue(activeRow, activeRow.fireTargetAssets))}</dd>
+              </div>
+            </dl>
+          </div>
+        )}
+      </div>
     </article>
   );
 }
