@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import type { PointerEvent, ReactNode } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent, ReactNode } from "react";
 import {
   FIRE_PRESETS,
   MIN_WITHDRAWAL_RATE,
@@ -41,6 +41,9 @@ type CachedAppState = {
   formValues: FormValues;
   calculationMode: CalculationMode;
   valueBasis: ValueBasis;
+};
+type InitialAppState = CachedAppState & {
+  activeResultTab: ResultTab;
 };
 
 type ImpactMode = "trinity" | "depletion";
@@ -102,6 +105,20 @@ const cacheVersion = 2;
 const cacheKey = "firecalc:lastState:v2";
 const validCalculationModes: CalculationMode[] = ["trinity", "depletion"];
 const validValueBases: ValueBasis[] = ["nominal", "present"];
+const validResultTabs: ResultTab[] = ["summary", "monthly", "experiments"];
+const resultTabOptions = [
+  ["summary", "요약"],
+  ["monthly", "월별추이"],
+  ["experiments", "실험"],
+] as const;
+const calculationModeOptions = [
+  ["trinity", "목표 인출률"],
+  ["depletion", "기대수명 소진"],
+] as const;
+const valueBasisOptions = [
+  ["nominal", "명목 기준"],
+  ["present", "현재 가치"],
+] as const;
 const numericFormFields: NumericFormField[] = [
   "investableAssets",
   "monthlyIncome",
@@ -131,14 +148,15 @@ const returnImpactOptions: ImpactOption[] = [
 ];
 
 function App() {
-  const [initialState] = useState(loadCachedAppState);
+  const [initialState] = useState(loadInitialAppState);
   const [calculationMode, setCalculationMode] = useState<CalculationMode>(
     initialState.calculationMode,
   );
   const [valueBasis, setValueBasis] = useState<ValueBasis>(initialState.valueBasis);
-  const [activeResultTab, setActiveResultTab] = useState<ResultTab>("summary");
+  const [activeResultTab, setActiveResultTab] = useState<ResultTab>(initialState.activeResultTab);
   const [formValues, setFormValues] = useState<FormValues>(initialState.formValues);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const helpButtonRef = useRef<HTMLButtonElement>(null);
 
   const inputs = useMemo(() => formValuesToInputs(formValues), [formValues]);
   const scenarios = useMemo(() => calculateFireScenarios(inputs), [inputs]);
@@ -154,6 +172,10 @@ function App() {
     });
   }, [calculationMode, formValues, valueBasis]);
 
+  useEffect(() => {
+    syncViewStateToUrl({ activeResultTab, calculationMode, valueBasis });
+  }, [activeResultTab, calculationMode, valueBasis]);
+
   const handleFieldChange = (field: NumericFormField, value: string) => {
     setFormValues((current) => ({
       ...current,
@@ -166,7 +188,12 @@ function App() {
       <header className="hero-band">
         <nav className="top-nav" aria-label="상단">
           <div className="brand">FIRE 계산기</div>
-          <button className="help-button" type="button" onClick={() => setIsHelpOpen(true)}>
+          <button
+            className="help-button"
+            ref={helpButtonRef}
+            type="button"
+            onClick={() => setIsHelpOpen(true)}
+          >
             도움말
           </button>
         </nav>
@@ -201,6 +228,7 @@ function App() {
           <Fieldset title="공통 입력">
             {commonFields.map(([field, label, suffix]) => (
               <NumberField
+                field={field}
                 key={field}
                 label={label}
                 suffix={suffix}
@@ -214,6 +242,7 @@ function App() {
           {calculationMode === "trinity" && (
             <Fieldset title="목표 인출률 입력">
               <NumberField
+                field="targetWithdrawalRate"
                 label="목표 인출률"
                 suffix="%"
                 value={formValues.targetWithdrawalRate}
@@ -228,6 +257,7 @@ function App() {
               <Fieldset title="기대수명 입력">
                 {depletionFields.map(([field, label, suffix]) => (
                   <NumberField
+                    field={field}
                     key={field}
                     label={label}
                     suffix={suffix}
@@ -240,6 +270,7 @@ function App() {
               <Fieldset title="국민연금 입력">
                 {pensionFields.map(([field, label, suffix]) => (
                   <NumberField
+                    field={field}
                     key={field}
                     label={label}
                     suffix={suffix}
@@ -275,7 +306,7 @@ function App() {
           <ResultTabs selectedTab={activeResultTab} onChange={setActiveResultTab} />
 
           {activeResultTab === "summary" && (
-            <div className="result-tab-panel" role="tabpanel">
+            <ResultTabPanel tab="summary">
               {calculationMode === "trinity" ? (
                 <>
                   <WithdrawalRateNote withdrawalRate={inputs.targetWithdrawalRate} />
@@ -288,11 +319,11 @@ function App() {
                   valueBasis={valueBasis}
                 />
               )}
-            </div>
+            </ResultTabPanel>
           )}
 
           {activeResultTab === "monthly" && (
-            <div className="result-tab-panel" role="tabpanel">
+            <ResultTabPanel tab="monthly">
               {calculationMode === "trinity" ? (
                 <>
                   <AssetChart scenario={baseScenario} valueBasis={valueBasis} />
@@ -327,16 +358,16 @@ function App() {
                   />
                 </>
               )}
-            </div>
+            </ResultTabPanel>
           )}
 
           {activeResultTab === "experiments" && (
-            <div className="result-tab-panel" role="tabpanel">
+            <ResultTabPanel tab="experiments">
               <ImpactSection
                 inputs={inputs}
                 mode={calculationMode === "trinity" ? "trinity" : "depletion"}
               />
-            </div>
+            </ResultTabPanel>
           )}
         </section>
       </section>
@@ -348,7 +379,14 @@ function App() {
         </a>
       </footer>
 
-      {isHelpOpen && <HelpDialog onClose={() => setIsHelpOpen(false)} />}
+      {isHelpOpen && (
+        <HelpDialog
+          onClose={() => {
+            setIsHelpOpen(false);
+            window.setTimeout(() => helpButtonRef.current?.focus(), 0);
+          }}
+        />
+      )}
     </main>
   );
 }
@@ -592,20 +630,24 @@ function ResultTabs({
   selectedTab: ResultTab;
   onChange: (tab: ResultTab) => void;
 }) {
-  const tabs = [
-    ["summary", "요약"],
-    ["monthly", "월별추이"],
-    ["experiments", "실험"],
-  ] as const;
-
   return (
-    <div className="result-tabs" role="tablist" aria-label="결과 탭">
-      {tabs.map(([tab, label]) => (
+    <div
+      className="result-tabs"
+      role="tablist"
+      aria-label="결과 탭"
+      onKeyDown={(event) =>
+        handleRovingTabKey(event, validResultTabs, selectedTab, onChange)
+      }
+    >
+      {resultTabOptions.map(([tab, label]) => (
         <button
+          aria-controls={getResultPanelId(tab)}
           aria-selected={selectedTab === tab}
           className={selectedTab === tab ? "result-tab result-tab-active" : "result-tab"}
+          id={getResultTabId(tab)}
           key={tab}
           role="tab"
+          tabIndex={selectedTab === tab ? 0 : -1}
           type="button"
           onClick={() => onChange(tab)}
         >
@@ -623,19 +665,22 @@ function ModeTabs({
   selectedMode: CalculationMode;
   onChange: (mode: CalculationMode) => void;
 }) {
-  const tabs = [
-    ["trinity", "목표 인출률"],
-    ["depletion", "기대수명 소진"],
-  ] as const;
-
   return (
-    <div className="mode-tabs" role="tablist" aria-label="계산 모드">
-      {tabs.map(([mode, label]) => (
+    <div
+      className="mode-tabs"
+      role="tablist"
+      aria-label="계산 모드"
+      onKeyDown={(event) =>
+        handleRovingTabKey(event, validCalculationModes, selectedMode, onChange)
+      }
+    >
+      {calculationModeOptions.map(([mode, label]) => (
         <button
           aria-selected={selectedMode === mode}
           className={selectedMode === mode ? "mode-tab mode-tab-active" : "mode-tab"}
           key={mode}
           role="tab"
+          tabIndex={selectedMode === mode ? 0 : -1}
           type="button"
           onClick={() => onChange(mode)}
         >
@@ -653,19 +698,22 @@ function ValueBasisTabs({
   selectedBasis: ValueBasis;
   onChange: (basis: ValueBasis) => void;
 }) {
-  const tabs = [
-    ["nominal", "명목 기준"],
-    ["present", "현재 가치"],
-  ] as const;
-
   return (
-    <div className="mode-tabs value-basis-tabs" role="tablist" aria-label="금액 표시 기준">
-      {tabs.map(([basis, label]) => (
+    <div
+      className="mode-tabs value-basis-tabs"
+      role="tablist"
+      aria-label="금액 표시 기준"
+      onKeyDown={(event) =>
+        handleRovingTabKey(event, validValueBases, selectedBasis, onChange)
+      }
+    >
+      {valueBasisOptions.map(([basis, label]) => (
         <button
           aria-selected={selectedBasis === basis}
           className={selectedBasis === basis ? "mode-tab mode-tab-active" : "mode-tab"}
           key={basis}
           role="tab"
+          tabIndex={selectedBasis === basis ? 0 : -1}
           type="button"
           onClick={() => onChange(basis)}
         >
@@ -674,6 +722,60 @@ function ValueBasisTabs({
       ))}
     </div>
   );
+}
+
+function ResultTabPanel({ children, tab }: { children: ReactNode; tab: ResultTab }) {
+  return (
+    <div
+      aria-labelledby={getResultTabId(tab)}
+      className="result-tab-panel"
+      id={getResultPanelId(tab)}
+      role="tabpanel"
+      tabIndex={0}
+    >
+      {children}
+    </div>
+  );
+}
+
+function getResultTabId(tab: ResultTab): string {
+  return `result-tab-${tab}`;
+}
+
+function getResultPanelId(tab: ResultTab): string {
+  return `result-panel-${tab}`;
+}
+
+function handleRovingTabKey<T extends string>(
+  event: ReactKeyboardEvent<HTMLDivElement>,
+  options: readonly T[],
+  selectedValue: T,
+  onChange: (value: T) => void,
+) {
+  const keyOffset: Partial<Record<string, number>> = {
+    ArrowLeft: -1,
+    ArrowUp: -1,
+    ArrowRight: 1,
+    ArrowDown: 1,
+  };
+  const currentIndex = options.indexOf(selectedValue);
+  const offset = keyOffset[event.key];
+  const nextIndex =
+    event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? options.length - 1
+        : offset === undefined
+          ? -1
+          : (currentIndex + offset + options.length) % options.length;
+
+  if (nextIndex < 0) {
+    return;
+  }
+
+  event.preventDefault();
+  onChange(options[nextIndex]);
+  event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[nextIndex]?.focus();
 }
 
 function ResultHero({
@@ -840,10 +942,21 @@ function ImpactCard({
   title: string;
 }) {
   const [selectedDelta, setSelectedDelta] = useState<number | null>(null);
-  const selectedOption = options.find((option) => option.delta === selectedDelta) ?? null;
-  const impact = selectedOption
-    ? calculateImpact(mode, inputs, changeImpactInputs(inputs, kind, selectedOption.delta))
-    : null;
+  const selectedOption = useMemo(
+    () => options.find((option) => option.delta === selectedDelta) ?? null,
+    [options, selectedDelta],
+  );
+  const changedInputs = useMemo(
+    () => (selectedOption ? changeImpactInputs(inputs, kind, selectedOption.delta) : null),
+    [inputs, kind, selectedOption],
+  );
+  const impact = useMemo(
+    () =>
+      selectedOption && changedInputs
+        ? calculateImpact(mode, inputs, changedInputs)
+        : null,
+    [changedInputs, inputs, mode, selectedOption],
+  );
 
   return (
     <article className="impact-card">
@@ -1281,20 +1394,24 @@ function AssetChart({
   const chartId = useId().replace(/:/g, "");
   const chartRef = useRef<SVGSVGElement | null>(null);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const values = scenario.projections.flatMap((row) => [
-    toDisplayMoney(
-      row.investableAssets,
-      scenario.inputs.annualInflationRate,
-      row.month,
-      valueBasis,
-    ),
-    toDisplayMoney(
-      row.fireTargetAssets,
-      scenario.inputs.annualInflationRate,
-      row.month,
-      valueBasis,
-    ),
-  ]);
+  const values = useMemo(
+    () =>
+      scenario.projections.flatMap((row) => [
+        toDisplayMoney(
+          row.investableAssets,
+          scenario.inputs.annualInflationRate,
+          row.month,
+          valueBasis,
+        ),
+        toDisplayMoney(
+          row.fireTargetAssets,
+          scenario.inputs.annualInflationRate,
+          row.month,
+          valueBasis,
+        ),
+      ]),
+    [scenario.inputs.annualInflationRate, scenario.projections, valueBasis],
+  );
   const minValue = Math.min(...values, 0);
   const maxValue = Math.max(...values, 1);
   const valueRange = maxValue - minValue || 1;
@@ -1311,14 +1428,22 @@ function AssetChart({
   const baseY = height - padding.bottom;
   const getDisplayValue = (row: FireProjection, value: number) =>
     toDisplayMoney(value, scenario.inputs.annualInflationRate, row.month, valueBasis);
-  const assetPoints = scenario.projections.map((row) => ({
-    x: toX(row.month),
-    y: toY(getDisplayValue(row, row.investableAssets)),
-  }));
-  const targetPoints = scenario.projections.map((row) => ({
-    x: toX(row.month),
-    y: toY(getDisplayValue(row, row.fireTargetAssets)),
-  }));
+  const assetPoints = useMemo(
+    () =>
+      scenario.projections.map((row) => ({
+        x: toX(row.month),
+        y: toY(getDisplayValue(row, row.investableAssets)),
+      })),
+    [scenario.projections, valueBasis, valueRange, minValue, maxMonth, width, height],
+  );
+  const targetPoints = useMemo(
+    () =>
+      scenario.projections.map((row) => ({
+        x: toX(row.month),
+        y: toY(getDisplayValue(row, row.fireTargetAssets)),
+      })),
+    [scenario.projections, valueBasis, valueRange, minValue, maxMonth, width, height],
+  );
   const activeRow = activeIndex === null ? null : scenario.projections[activeIndex];
   const activeAssetPoint = activeIndex === null ? null : assetPoints[activeIndex];
   const activeTargetPoint = activeIndex === null ? null : targetPoints[activeIndex];
@@ -1713,12 +1838,14 @@ function Fieldset({ title, children }: { title: string; children: ReactNode }) {
 }
 
 function NumberField({
+  field,
   label,
   suffix,
   value,
   helpText,
   onChange,
 }: {
+  field: NumericFormField;
   label: string;
   suffix: string;
   value: NumericFormValue;
@@ -1726,8 +1853,13 @@ function NumberField({
   onChange: (value: string) => void;
 }) {
   const inputId = useId();
+  const helpId = `${inputId}-help`;
+  const hintId = `${inputId}-hint`;
   const inputValue = typeof value === "number" && !Number.isNaN(value) ? value : "";
   const moneyHint = suffix === "원" && typeof value === "number" ? formatMoneyInputHint(value) : "";
+  const describedBy = [helpText ? helpId : null, moneyHint ? hintId : null]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className="number-field">
@@ -1735,10 +1867,15 @@ function NumberField({
         <label htmlFor={inputId}>{label}</label>
         {helpText && (
           <span className="field-help">
-            <button type="button" aria-label={`${label} 설명`} className="field-help-trigger">
+            <button
+              type="button"
+              aria-describedby={helpId}
+              aria-label={`${label} 설명`}
+              className="field-help-trigger"
+            >
               ?
             </button>
-            <span className="field-tooltip" role="tooltip">
+            <span className="field-tooltip" id={helpId} role="tooltip">
               {helpText}
             </span>
           </span>
@@ -1746,7 +1883,12 @@ function NumberField({
       </div>
       <div className="number-field-control">
         <input
+          aria-describedby={describedBy || undefined}
+          autoComplete="off"
           id={inputId}
+          min={getNumberFieldMin(field)}
+          name={field}
+          step={getNumberFieldStep(field)}
           type="number"
           inputMode="decimal"
           value={inputValue}
@@ -1754,7 +1896,7 @@ function NumberField({
         />
         <em>{suffix}</em>
       </div>
-      {moneyHint && <small>{moneyHint}</small>}
+      {moneyHint && <small id={hintId}>{moneyHint}</small>}
     </div>
   );
 }
@@ -1771,6 +1913,15 @@ function presetToFormValues(values: FireInputs): FormValues {
     birthYear: values.birthYear,
     lifeExpectancy: values.lifeExpectancy,
     nationalPensionMonthlyAmount: values.nationalPensionMonthlyAmount,
+  };
+}
+
+function loadInitialAppState(): InitialAppState {
+  const cachedState = loadCachedAppState();
+
+  return {
+    ...cachedState,
+    ...loadViewStateFromUrl(cachedState),
   };
 }
 
@@ -1804,6 +1955,47 @@ function saveCachedAppState(state: CachedAppState) {
   } catch {
     // Storage can be unavailable in private browsing or restrictive browser settings.
   }
+}
+
+function loadViewStateFromUrl(fallbackState: CachedAppState): Pick<
+  InitialAppState,
+  "activeResultTab" | "calculationMode" | "valueBasis"
+> {
+  if (typeof window === "undefined") {
+    return {
+      activeResultTab: "summary",
+      calculationMode: fallbackState.calculationMode,
+      valueBasis: fallbackState.valueBasis,
+    };
+  }
+
+  const params = new URLSearchParams(window.location.search);
+
+  return {
+    activeResultTab: parseResultTab(params.get("tab")) ?? "summary",
+    calculationMode: parseCalculationMode(params.get("mode")) ?? fallbackState.calculationMode,
+    valueBasis: parseValueBasis(params.get("basis")) ?? fallbackState.valueBasis,
+  };
+}
+
+function syncViewStateToUrl({
+  activeResultTab,
+  calculationMode,
+  valueBasis,
+}: {
+  activeResultTab: ResultTab;
+  calculationMode: CalculationMode;
+  valueBasis: ValueBasis;
+}) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  url.searchParams.set("mode", calculationMode);
+  url.searchParams.set("basis", valueBasis);
+  url.searchParams.set("tab", activeResultTab);
+  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
 function createDefaultAppState(): CachedAppState {
@@ -1863,6 +2055,22 @@ function isValueBasis(value: unknown): value is ValueBasis {
   return typeof value === "string" && validValueBases.includes(value as ValueBasis);
 }
 
+function isResultTab(value: unknown): value is ResultTab {
+  return typeof value === "string" && validResultTabs.includes(value as ResultTab);
+}
+
+function parseCalculationMode(value: string | null): CalculationMode | null {
+  return isCalculationMode(value) ? value : null;
+}
+
+function parseValueBasis(value: string | null): ValueBasis | null {
+  return isValueBasis(value) ? value : null;
+}
+
+function parseResultTab(value: string | null): ResultTab | null {
+  return isResultTab(value) ? value : null;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -1884,6 +2092,43 @@ function formValuesToInputs(values: FormValues): FireInputs {
 
 function normalizeFormNumber(value: NumericFormValue): number {
   return value === "" ? 0 : value;
+}
+
+function getNumberFieldMin(field: NumericFormField): number {
+  if (field === "birthYear") {
+    return 1900;
+  }
+
+  if (field === "lifeExpectancy") {
+    return 1;
+  }
+
+  if (field === "annualNominalReturnRate" || field === "annualInflationRate" || field === "annualIncomeGrowthRate") {
+    return -99;
+  }
+
+  if (field === "targetWithdrawalRate") {
+    return rateToPercentInput(MIN_WITHDRAWAL_RATE);
+  }
+
+  return 0;
+}
+
+function getNumberFieldStep(field: NumericFormField): number {
+  if (field === "birthYear" || field === "lifeExpectancy") {
+    return 1;
+  }
+
+  if (
+    field === "annualNominalReturnRate" ||
+    field === "annualInflationRate" ||
+    field === "annualIncomeGrowthRate" ||
+    field === "targetWithdrawalRate"
+  ) {
+    return 0.1;
+  }
+
+  return 10_000;
 }
 
 function getTableRows(rows: FireProjection[]): FireProjection[] {
