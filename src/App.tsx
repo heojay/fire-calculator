@@ -1,5 +1,10 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent, ReactNode } from "react";
+import type {
+  CSSProperties,
+  KeyboardEvent as ReactKeyboardEvent,
+  PointerEvent,
+  ReactNode,
+} from "react";
 import {
   FIRE_PRESETS,
   MIN_WITHDRAWAL_RATE,
@@ -26,6 +31,7 @@ type FormValues = {
   investableAssets: NumericFormValue;
   monthlyIncome: NumericFormValue;
   monthlyExpenses: NumericFormValue;
+  retirementMonthlyExpenses: NumericFormValue;
   annualNominalReturnRate: NumericFormValue;
   annualInflationRate: NumericFormValue;
   annualIncomeGrowthRate: NumericFormValue;
@@ -68,6 +74,7 @@ const commonFields = [
   ["investableAssets", "현재 보유 자산", "원"],
   ["monthlyIncome", "현재 월 수입", "원"],
   ["monthlyExpenses", "월 평균 소비액", "원"],
+  ["retirementMonthlyExpenses", "은퇴 후 월 지출", "원"],
   ["annualNominalReturnRate", "명목 연평균 투자 수익률", "%"],
   ["annualInflationRate", "연평균 물가 상승률", "%"],
   ["annualIncomeGrowthRate", "연평균 수입 증가율", "%"],
@@ -84,13 +91,17 @@ const pensionFields = [
 
 const fieldHelpText: Partial<Record<NumericFormField, string>> = {
   monthlyIncome: "매월 저축액은 현재 월 수입에서 월 소비액을 뺀 금액으로 계산합니다.",
+  monthlyExpenses:
+    "근로 중 월 저축액을 계산할 때 쓰는 현재 생활비입니다. 은퇴 후 생활비는 별도로 입력합니다.",
+  retirementMonthlyExpenses:
+    "현재 가치 기준 은퇴 후 월 생활비입니다. 목표 자산과 은퇴 후 현금흐름 계산에 사용합니다.",
   annualNominalReturnRate:
     "개인 투자자의 비용, 세금, 위험 감수 차이를 감안해 장기 기본값은 명목 5%로 둡니다.",
   annualInflationRate: "장기 계산에서는 한국은행 물가안정목표에 가까운 2%를 기본값으로 둡니다.",
   annualIncomeGrowthRate:
     "장기 임금과 소득 증가 가정은 과도하게 높이지 않고 명목 3%를 기본값으로 둡니다.",
   targetWithdrawalRate:
-    "월 소비액을 FIRE 목표 자산으로 환산하는 비율입니다. 낮을수록 더 보수적인 목표 자산이 나옵니다.",
+    "은퇴 후 월 지출을 FIRE 목표 자산으로 환산하는 비율입니다. 낮을수록 더 보수적인 목표 자산이 나옵니다.",
   birthYear:
     "기대수명 소진 모드에서는 출생연도로 현재 나이와 국민연금 수령 시작 나이를 계산합니다.",
   lifeExpectancy:
@@ -101,8 +112,8 @@ const fieldHelpText: Partial<Record<NumericFormField, string>> = {
 
 const koreaAveragePreset = FIRE_PRESETS.find((preset) => preset.id === "korea-average")!;
 const fireExamplePreset = FIRE_PRESETS.find((preset) => preset.id === "fire-example")!;
-const cacheVersion = 2;
-const cacheKey = "firecalc:lastState:v2";
+const cacheVersion = 3;
+const cacheKey = "firecalc:lastState:v3";
 const validCalculationModes: CalculationMode[] = ["trinity", "depletion"];
 const validValueBases: ValueBasis[] = ["nominal", "present"];
 const validResultTabs: ResultTab[] = ["summary", "monthly", "experiments"];
@@ -123,6 +134,7 @@ const numericFormFields: NumericFormField[] = [
   "investableAssets",
   "monthlyIncome",
   "monthlyExpenses",
+  "retirementMonthlyExpenses",
   "annualNominalReturnRate",
   "annualInflationRate",
   "annualIncomeGrowthRate",
@@ -202,8 +214,8 @@ function App() {
           <p className="eyebrow">FIRE CALCULATOR</p>
           <h1 className="hero-title">경제적 자유까지 얼마나 걸릴까요?</h1>
           <p className="lead">
-            현재 자산, 월 수입, 월 소비액을 바탕으로 FIRE 목표 도달 시점과 기대수명 기준
-            은퇴 시점을 계산합니다.
+            현재 자산, 월 수입, 현재 소비액, 은퇴 후 지출을 바탕으로 FIRE 목표 도달
+            시점과 기대수명 기준 은퇴 시점을 계산합니다.
           </p>
         </section>
       </header>
@@ -451,29 +463,33 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
 
         <div className="help-content">
           <HelpSection id="help-formulas" title="1. 주요 계산식">
-            <p>월 저축액은 월 수입에서 월 소비를 뺀 금액입니다.</p>
-            <FormulaBlock label="월 저축액">월 저축액 = 월 수입 - 월 소비</FormulaBlock>
+            <p>월 저축액은 월 수입에서 현재 월 소비를 뺀 금액입니다.</p>
+            <FormulaBlock label="월 저축액">
+              월 저축액 = 월 수입 - 현재 월 소비
+            </FormulaBlock>
             <p>은퇴 전 월별 자산은 월 수익률과 월 저축액을 반영해 계산합니다.</p>
             <FormulaBlock label="월별 자산 변화">
               다음 달 자산 = 현재 자산 × (1 + 월 수익률) + 월 저축액
             </FormulaBlock>
-            <p>은퇴 후에는 월 저축액 대신 생활비 인출과 국민연금 수령액을 반영합니다.</p>
+            <p>
+              은퇴 후에는 월 저축액 대신 은퇴 후 월 지출과 국민연금 수령액을 반영합니다.
+            </p>
             <FormulaBlock label="은퇴 후 자산">
-              은퇴 후 자산 = 현재 자산 × (1 + 월 수익률) - 월 소비 + 국민연금
+              은퇴 후 자산 = 현재 자산 × (1 + 월 수익률) - 은퇴 후 월 지출 + 국민연금
             </FormulaBlock>
-            <p>목표 인출률 방식의 필요 자산은 연간 소비액을 목표 인출률로 나눕니다.</p>
+            <p>목표 인출률 방식의 필요 자산은 은퇴 후 연간 지출을 목표 인출률로 나눕니다.</p>
             <FormulaBlock label="목표 자산">
-              필요 자산 = 연간 소비액 ÷ 목표 인출률
+              필요 자산 = 은퇴 후 월 지출 × 12 ÷ 목표 인출률
             </FormulaBlock>
             <p>
-              예를 들어 월 소비가 400만 원이고 목표 인출률이 3.5%라면 4,800만 원 ÷
+              예를 들어 은퇴 후 월 지출이 400만 원이고 목표 인출률이 3.5%라면 4,800만 원 ÷
               0.035 = 약 13.7억 원입니다.
             </p>
-            <FormulaBlock label="월 소비 증가에 따른 추가 필요 자산">
-              추가 필요 자산 = 추가 월 소비액 × 12 ÷ 목표 인출률
+            <FormulaBlock label="은퇴 후 월 지출 증가에 따른 추가 필요 자산">
+              추가 필요 자산 = 추가 은퇴 후 월 지출 × 12 ÷ 목표 인출률
             </FormulaBlock>
             <p>
-              예를 들어 월 소비가 50만 원 늘고 목표 인출률이 3.5%라면 600만 원 ÷
+              예를 들어 은퇴 후 월 지출이 50만 원 늘고 목표 인출률이 3.5%라면 600만 원 ÷
               0.035 = 약 1.7억 원입니다.
             </p>
           </HelpSection>
@@ -499,11 +515,11 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
 
           <HelpSection id="help-withdrawal-rate" title="3. 목표 인출률 방식">
             <p>
-              목표 인출률 방식은 은퇴 후 매년 자산의 일정 비율을 꺼내 쓴다고 가정해 필요한
-              자산을 계산합니다.
+              목표 인출률 방식은 은퇴 후 매년 자산의 일정 비율을 꺼내 쓴다고 가정해 은퇴 후
+              월 지출을 감당하는 데 필요한 자산을 계산합니다.
             </p>
             <FormulaBlock label="목표 인출률 방식">
-              필요 자산 = 연간 소비액 ÷ 목표 인출률
+              필요 자산 = 은퇴 후 월 지출 × 12 ÷ 목표 인출률
             </FormulaBlock>
             <p>인출률이 낮을수록 더 보수적인 계산입니다.</p>
             <ul>
@@ -523,7 +539,8 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
               자산이 버틸 수 있는지를 계산합니다.
             </p>
             <p>
-              은퇴 전에는 저축으로 자산을 늘리고, 은퇴 후에는 생활비를 인출합니다.
+              은퇴 전에는 현재 소비를 제외한 저축으로 자산을 늘리고, 은퇴 후에는 은퇴 후
+              월 지출을 인출합니다.
               국민연금이 있다면 특정 나이 이후의 현금흐름으로 반영합니다.
             </p>
             <dl className="help-definition-list">
@@ -533,7 +550,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
               </div>
               <div>
                 <dt>은퇴 후</dt>
-                <dd>자산 증가 - 생활비 + 국민연금</dd>
+                <dd>자산 증가 - 은퇴 후 월 지출 + 국민연금</dd>
               </div>
             </dl>
             <p>
@@ -569,7 +586,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
             </p>
             <p>예를 들어 다음과 같은 질문을 확인할 수 있습니다.</p>
             <ul>
-              <li>월 소비가 50만 원 늘면 은퇴가 얼마나 늦어질까?</li>
+              <li>근로 중 월 소비가 50만 원 늘면 은퇴가 얼마나 늦어질까?</li>
               <li>월 저축을 100만 원 늘리면 은퇴가 얼마나 빨라질까?</li>
               <li>수익률이 1%p 달라지면 결과가 얼마나 바뀔까?</li>
             </ul>
@@ -818,7 +835,7 @@ function WithdrawalRateNote({ withdrawalRate }: { withdrawalRate: number }) {
         <h3>목표 인출률 모델</h3>
       </div>
       <p>
-        입력한 목표 인출률로 현재 월 소비액을 감당할 FIRE 목표 자산을 계산합니다. 흔히
+        입력한 목표 인출률로 은퇴 후 월 지출을 감당할 FIRE 목표 자산을 계산합니다. 흔히
         언급되는 4% 법칙은 트리니티 연구에서 알려진 30년 은퇴 기간 기준 참고값입니다. 조기
         은퇴처럼 은퇴 기간이 길수록 3~3.5%처럼 더 보수적으로 잡는 경우가 많습니다.
       </p>
@@ -903,7 +920,7 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
           mode={mode}
           options={expenseImpactOptions}
           title="월 소비 영향"
-          description={`현재 월 소비를 기준으로 ${timingLabel} 변화를 비교합니다.`}
+          description={`근로 중 현재 월 소비를 기준으로 ${timingLabel} 변화를 비교합니다.`}
         />
         <ImpactCard
           inputs={inputs}
@@ -984,11 +1001,6 @@ function ImpactCard({
             {formatImpactYears(impact.baseMonths)} → {formatImpactYears(impact.changedMonths)}
           </span>
           <span>변화: {formatImpactChange(impact.diffMonths)}</span>
-          {kind === "expenses" && (
-            <span>
-              {formatRequiredAssetImpact(selectedOption.delta, inputs.targetWithdrawalRate)}
-            </span>
-          )}
         </div>
       ) : (
         <p className="impact-placeholder">버튼을 선택하면 기준 결과와 변경 결과를 비교합니다.</p>
@@ -1048,9 +1060,9 @@ function DepletionSummary({
           <h3>기대수명 소진 모델</h3>
         </div>
         <p>
-          근로 기간에는 월 수입에서 월 소비액을 뺀 금액을 더하고, 은퇴 후에는 월 소비액을
-          차감합니다. 국민연금은 출생연도별 수령 시작 나이부터 더하고, 월 수입과 소비액은
-          매년 입력한 증가율을 반영합니다.
+          근로 기간에는 월 수입에서 현재 월 소비액을 뺀 금액을 더하고, 은퇴 후에는 은퇴 후
+          월 지출을 차감합니다. 국민연금은 출생연도별 수령 시작 나이부터 더하고, 월 수입과
+          지출은 매년 입력한 증가율을 반영합니다.
         </p>
         <strong>현재 적용 기간 기대수명까지 {timeHorizonLabel}</strong>
       </article>
@@ -1711,7 +1723,8 @@ function ProjectionTable({
               <th>시점</th>
               <th>{basisLabel(moneyHeader, valueBasis)}</th>
               <th>목표 인출률</th>
-              <th>{basisLabel("월 소비액", valueBasis)}</th>
+              <th>{basisLabel("현재 월 소비액", valueBasis)}</th>
+              <th>{basisLabel("은퇴 후 월 지출", valueBasis)}</th>
             </tr>
           </thead>
           <tbody>
@@ -1728,6 +1741,16 @@ function ProjectionTable({
                   {formatMoney(
                     toDisplayMoney(
                       row.monthlyExpenses,
+                      annualInflationRate,
+                      row.month,
+                      valueBasis,
+                    ),
+                  )}
+                </td>
+                <td>
+                  {formatMoney(
+                    toDisplayMoney(
+                      row.retirementMonthlyExpenses,
                       annualInflationRate,
                       row.month,
                       valueBasis,
@@ -1860,6 +1883,26 @@ function NumberField({
   const describedBy = [helpText ? helpId : null, moneyHint ? hintId : null]
     .filter(Boolean)
     .join(" ");
+  const [tooltipPosition, setTooltipPosition] = useState({ left: 16, top: 0 });
+
+  const updateTooltipPosition = (trigger: HTMLButtonElement) => {
+    const triggerRect = trigger.getBoundingClientRect();
+    const tooltipWidth = Math.min(360, window.innerWidth - 32);
+    const left = clampNumber(
+      triggerRect.left + triggerRect.width / 2 - tooltipWidth / 2,
+      16,
+      window.innerWidth - tooltipWidth - 16,
+    );
+
+    setTooltipPosition({
+      left,
+      top: Math.max(triggerRect.top - 8, 16),
+    });
+  };
+  const tooltipStyle = {
+    "--field-tooltip-left": `${tooltipPosition.left}px`,
+    "--field-tooltip-top": `${tooltipPosition.top}px`,
+  } as CSSProperties;
 
   return (
     <div className="number-field">
@@ -1872,10 +1915,12 @@ function NumberField({
               aria-describedby={helpId}
               aria-label={`${label} 설명`}
               className="field-help-trigger"
+              onFocus={(event) => updateTooltipPosition(event.currentTarget)}
+              onPointerEnter={(event) => updateTooltipPosition(event.currentTarget)}
             >
               ?
             </button>
-            <span className="field-tooltip" id={helpId} role="tooltip">
+            <span className="field-tooltip" id={helpId} role="tooltip" style={tooltipStyle}>
               {helpText}
             </span>
           </span>
@@ -1906,6 +1951,7 @@ function presetToFormValues(values: FireInputs): FormValues {
     investableAssets: values.investableAssets,
     monthlyIncome: values.monthlyIncome,
     monthlyExpenses: values.monthlyExpenses,
+    retirementMonthlyExpenses: values.retirementMonthlyExpenses,
     annualNominalReturnRate: rateToPercentInput(values.annualNominalReturnRate),
     annualInflationRate: rateToPercentInput(values.annualInflationRate),
     annualIncomeGrowthRate: rateToPercentInput(values.annualIncomeGrowthRate),
@@ -2080,6 +2126,7 @@ function formValuesToInputs(values: FormValues): FireInputs {
     investableAssets: normalizeFormNumber(values.investableAssets),
     monthlyIncome: normalizeFormNumber(values.monthlyIncome),
     monthlyExpenses: normalizeFormNumber(values.monthlyExpenses),
+    retirementMonthlyExpenses: normalizeFormNumber(values.retirementMonthlyExpenses),
     annualNominalReturnRate: percentInputToRate(normalizeFormNumber(values.annualNominalReturnRate)),
     annualInflationRate: percentInputToRate(normalizeFormNumber(values.annualInflationRate)),
     annualIncomeGrowthRate: percentInputToRate(normalizeFormNumber(values.annualIncomeGrowthRate)),
@@ -2288,24 +2335,6 @@ function formatImpactChange(diffMonths: number | null): string {
   const direction = diffMonths > 0 ? "늦어짐" : "빨라짐";
 
   return `${formatOneDecimal(Math.abs(diffMonths) / 12)}년 ${direction}`;
-}
-
-function formatRequiredAssetImpact(
-  monthlyExpenseDelta: number,
-  targetWithdrawalRate: number,
-): string {
-  const requiredAssetDelta =
-    (monthlyExpenseDelta * 12) / Math.max(targetWithdrawalRate, MIN_WITHDRAWAL_RATE);
-
-  if (Math.abs(requiredAssetDelta) < 1) {
-    return "추가 필요 자산: 거의 변화 없음";
-  }
-
-  if (requiredAssetDelta < 0) {
-    return `필요 자산 감소: 약 ${formatMoney(Math.abs(requiredAssetDelta))}`;
-  }
-
-  return `추가 필요 자산: 약 ${formatMoney(requiredAssetDelta)}`;
 }
 
 function formatDepletionTiming(result: DepletionResult): string {

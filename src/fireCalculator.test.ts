@@ -21,6 +21,7 @@ const baseInputs: FireInputs = {
   investableAssets: 100_000_000,
   monthlyIncome: 7_000_000,
   monthlyExpenses: 3_000_000,
+  retirementMonthlyExpenses: 3_000_000,
   annualNominalReturnRate: 0.07,
   annualInflationRate: 0.025,
   annualIncomeGrowthRate: 0.035,
@@ -43,14 +44,35 @@ describe("calculateFireScenario", () => {
     expect(result.monthsToFire).toBe(0);
   });
 
-  it("현재 FIRE 목표 자산은 월 소비액의 12개월치를 목표 인출률로 나누어 계산한다", () => {
+  it("현재 FIRE 목표 자산은 은퇴 후 월 지출의 12개월치를 목표 인출률로 나누어 계산한다", () => {
     const result = calculateFireScenario({
       ...baseInputs,
-      monthlyExpenses: 4_000_000,
+      retirementMonthlyExpenses: 4_000_000,
       targetWithdrawalRate: 0.04,
     });
 
     expect(result.currentFireTargetAssets).toBe(1_200_000_000);
+  });
+
+  it("은퇴 후 월 지출이 달라도 월 저축액은 현재 월 소비액 기준으로 계산한다", () => {
+    const result = calculateFireScenario({
+      ...baseInputs,
+      investableAssets: 0,
+      monthlyIncome: 1_000,
+      monthlyExpenses: 400,
+      retirementMonthlyExpenses: 700,
+      annualNominalReturnRate: 0,
+      annualInflationRate: 0,
+      annualIncomeGrowthRate: 0,
+      targetWithdrawalRate: 0.1,
+    });
+
+    expect(result.projections[0]).toMatchObject({
+      monthlySavings: 600,
+      monthlyExpenses: 400,
+      retirementMonthlyExpenses: 700,
+      fireTargetAssets: 84_000,
+    });
   });
 
   it("1개월 뒤 투자 가능 자산에는 월 복리와 월 수입에서 소비를 뺀 저축액을 반영한다", () => {
@@ -99,6 +121,7 @@ describe("calculateFireScenario", () => {
       investableAssets: 0,
       monthlyIncome: 210,
       monthlyExpenses: 100,
+      retirementMonthlyExpenses: 100,
       annualNominalReturnRate: 0,
       annualInflationRate: 1,
       annualIncomeGrowthRate: 0,
@@ -180,6 +203,7 @@ describe("calculateFireScenario", () => {
       investableAssets: -100,
       monthlyIncome: -200,
       monthlyExpenses: -300,
+      retirementMonthlyExpenses: -400,
       birthYear: -40,
       lifeExpectancy: -90,
       nationalPensionMonthlyAmount: -100,
@@ -189,6 +213,7 @@ describe("calculateFireScenario", () => {
       investableAssets: 0,
       monthlyIncome: 0,
       monthlyExpenses: 0,
+      retirementMonthlyExpenses: 0,
       birthYear: currentYear,
       lifeExpectancy: 0,
       nationalPensionMonthlyAmount: 0,
@@ -205,6 +230,7 @@ describe("calculateFireScenario", () => {
       investableAssets: Number.NaN,
       monthlyIncome: Number.POSITIVE_INFINITY,
       monthlyExpenses: Number.NEGATIVE_INFINITY,
+      retirementMonthlyExpenses: Number.NEGATIVE_INFINITY,
       annualNominalReturnRate: -10,
       annualInflationRate: -2,
       annualIncomeGrowthRate: -3,
@@ -218,6 +244,7 @@ describe("calculateFireScenario", () => {
       investableAssets: 0,
       monthlyIncome: 0,
       monthlyExpenses: 0,
+      retirementMonthlyExpenses: 0,
       annualNominalReturnRate: MIN_ANNUAL_NOMINAL_RETURN_RATE,
       annualInflationRate: -0.99,
       annualIncomeGrowthRate: -0.99,
@@ -271,6 +298,7 @@ describe("calculateYearsToWork", () => {
       ...baseInputs,
       investableAssets: 1_000_000_000,
       monthlyExpenses: 1_000_000,
+      retirementMonthlyExpenses: 1_000_000,
       annualNominalReturnRate: 0,
       annualInflationRate: 0,
       annualIncomeGrowthRate: 0,
@@ -295,6 +323,7 @@ describe("calculateYearsToWork", () => {
       investableAssets: 0,
       monthlyIncome: 200,
       monthlyExpenses: 100,
+      retirementMonthlyExpenses: 100,
       annualNominalReturnRate: 0,
       annualInflationRate: 0,
       annualIncomeGrowthRate: 0,
@@ -330,12 +359,44 @@ describe("calculateYearsToWork", () => {
     });
   });
 
+  it("은퇴 전에는 현재 월 소비액을 쓰고 은퇴 후에는 은퇴 후 월 지출로 전환한다", () => {
+    const result = calculateYearsToWork({
+      ...baseInputs,
+      investableAssets: 0,
+      monthlyIncome: 200,
+      monthlyExpenses: 50,
+      retirementMonthlyExpenses: 100,
+      annualNominalReturnRate: 0,
+      annualInflationRate: 0,
+      annualIncomeGrowthRate: 0,
+      birthYear: birthYearForAge(40),
+      lifeExpectancy: 41,
+    });
+
+    expect(result.status).toBe("achievable");
+    expect(result.monthsToWork).toBe(5);
+    expect(result.retirementFirstMonthExpenses).toBe(100);
+    expect(result.projections[5]).toMatchObject({
+      phase: "working",
+      cashFlow: 150,
+      monthlyExpenses: 50,
+      assets: 750,
+    });
+    expect(result.projections[6]).toMatchObject({
+      phase: "retired",
+      cashFlow: -100,
+      monthlyExpenses: 100,
+      assets: 650,
+    });
+  });
+
   it("은퇴 후 소비액은 12개월마다 물가 상승률을 반영한다", () => {
     const result = calculateYearsToWork({
       ...baseInputs,
       investableAssets: 5_000,
       monthlyIncome: 100,
       monthlyExpenses: 100,
+      retirementMonthlyExpenses: 100,
       annualNominalReturnRate: 0,
       annualInflationRate: 0.25,
       annualIncomeGrowthRate: 0,
@@ -367,6 +428,7 @@ describe("calculateYearsToWork", () => {
       investableAssets: 0,
       monthlyIncome: 200,
       monthlyExpenses: 100,
+      retirementMonthlyExpenses: 100,
       annualNominalReturnRate: 0,
       annualInflationRate: 0,
       annualIncomeGrowthRate: 0,
@@ -391,6 +453,7 @@ describe("calculateYearsToWork", () => {
       investableAssets: 0,
       monthlyIncome: 100,
       monthlyExpenses: 100,
+      retirementMonthlyExpenses: 100,
       annualNominalReturnRate: 0,
       annualInflationRate: 0,
       annualIncomeGrowthRate: 0,
@@ -412,6 +475,7 @@ describe("calculateYearsToWork", () => {
       investableAssets: 10_000,
       monthlyIncome: 0,
       monthlyExpenses: 100,
+      retirementMonthlyExpenses: 100,
       annualNominalReturnRate: 0,
       annualInflationRate: 0.25,
       annualIncomeGrowthRate: 0,
@@ -449,6 +513,7 @@ describe("calculateYearsToWork", () => {
       investableAssets: 0,
       monthlyIncome: 0,
       monthlyExpenses: 100,
+      retirementMonthlyExpenses: 100,
       annualNominalReturnRate: 0,
       annualInflationRate: 0,
       annualIncomeGrowthRate: 0,
@@ -467,6 +532,7 @@ describe("calculateYearsToWork", () => {
       investableAssets: 0,
       monthlyIncome: 80,
       monthlyExpenses: 100,
+      retirementMonthlyExpenses: 100,
       annualNominalReturnRate: 0,
       annualInflationRate: 0,
       annualIncomeGrowthRate: 0,
@@ -519,6 +585,7 @@ describe("FIRE_PRESETS", () => {
     expect(examplePreset?.values.investableAssets).toBe(350_000_000);
     expect(examplePreset?.values.monthlyIncome).toBe(120_000_000 / 12);
     expect(examplePreset?.values.monthlyExpenses).toBe(42_000_000 / 12);
+    expect(examplePreset?.values.retirementMonthlyExpenses).toBe(42_000_000 / 12);
     expect(examplePreset?.values.annualNominalReturnRate).toBe(0.05);
     expect(examplePreset?.values.annualInflationRate).toBe(0.02);
     expect(examplePreset?.values.annualIncomeGrowthRate).toBe(0.03);

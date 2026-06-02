@@ -595,12 +595,12 @@ legend {
 }
 
 .field-tooltip {
-  position: absolute;
+  position: fixed;
   z-index: 5;
   display: none;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  width: min(280px, calc(100vw - 48px));
+  top: var(--field-tooltip-top);
+  left: var(--field-tooltip-left);
+  width: min(360px, calc(100vw - 32px));
   border: 1px solid var(--hairline);
   border-radius: 6px;
   padding: 10px 12px;
@@ -612,7 +612,7 @@ legend {
   line-height: 1.5;
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, 4px);
+  transform: translateY(calc(-100% + 4px));
   transition:
     opacity 160ms ease,
     transform 160ms ease;
@@ -622,7 +622,7 @@ legend {
 .field-help:focus-within .field-tooltip {
   display: block;
   opacity: 1;
-  transform: translate(-50%, 0);
+  transform: translateY(-100%);
 }
 
 .number-field-control {

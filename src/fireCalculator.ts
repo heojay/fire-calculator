@@ -2,6 +2,7 @@ export type FireInputs = {
   investableAssets: number;
   monthlyIncome: number;
   monthlyExpenses: number;
+  retirementMonthlyExpenses: number;
   annualNominalReturnRate: number;
   annualInflationRate: number;
   annualIncomeGrowthRate: number;
@@ -18,6 +19,7 @@ export type FireProjection = {
   monthlyIncome: number;
   monthlySavings: number;
   monthlyExpenses: number;
+  retirementMonthlyExpenses: number;
   investableAssets: number;
   targetWithdrawalRate: number;
   fireTargetAssets: number;
@@ -81,6 +83,7 @@ export const FIRE_PRESETS: FirePreset[] = [
       investableAssets: 150_000_000,
       monthlyIncome: 6_189_000,
       monthlyExpenses: 35_268_000 / 12,
+      retirementMonthlyExpenses: 35_268_000 / 12,
       annualNominalReturnRate: 0.05,
       annualInflationRate: 0.02,
       annualIncomeGrowthRate: 0.03,
@@ -97,6 +100,7 @@ export const FIRE_PRESETS: FirePreset[] = [
       investableAssets: 350_000_000,
       monthlyIncome: 120_000_000 / 12,
       monthlyExpenses: 42_000_000 / 12,
+      retirementMonthlyExpenses: 42_000_000 / 12,
       annualNominalReturnRate: 0.05,
       annualInflationRate: 0.02,
       annualIncomeGrowthRate: 0.03,
@@ -198,7 +202,7 @@ export function calculateFireScenario(
 
   const currentProjection = projections[0];
   const retirementFirstMonthExpenses = achievedProjection
-    ? calculateMonthlyExpenses(inputs, achievedProjection.month + 1)
+    ? calculateMonthlyRetirementExpenses(inputs, achievedProjection.month + 1)
     : null;
 
   return {
@@ -210,7 +214,7 @@ export function calculateFireScenario(
     currentFireTargetAssets: currentProjection.fireTargetAssets,
     retirementFireTargetAssets: achievedProjection?.fireTargetAssets ?? null,
     retirementInvestableAssets: achievedProjection?.investableAssets ?? null,
-    retirementMonthlyExpenses: achievedProjection?.monthlyExpenses ?? null,
+    retirementMonthlyExpenses: achievedProjection?.retirementMonthlyExpenses ?? null,
     retirementFirstMonthExpenses,
     retirementSafeWithdrawalAmount: achievedProjection?.safeWithdrawalAmount ?? null,
     projections,
@@ -311,6 +315,10 @@ function normalizeInputs(inputs: FireInputs): FireInputs {
     investableAssets: Math.max(finiteOrZero(inputs.investableAssets), 0),
     monthlyIncome: Math.max(finiteOrZero(inputs.monthlyIncome), 0),
     monthlyExpenses: Math.max(finiteOrZero(inputs.monthlyExpenses), 0),
+    retirementMonthlyExpenses: Math.max(
+      finiteOrZero(inputs.retirementMonthlyExpenses ?? inputs.monthlyExpenses),
+      0,
+    ),
     annualNominalReturnRate: Math.max(
       finiteOrZero(inputs.annualNominalReturnRate),
       MIN_ANNUAL_NOMINAL_RETURN_RATE,
@@ -336,12 +344,13 @@ function calculateProjectionForMonth(
   const monthlyReturnRate = annualRateToMonthlyRate(inputs.annualNominalReturnRate);
   const monthlyIncome = calculateMonthlyIncome(inputs, month);
   const monthlyExpenses = calculateMonthlyExpenses(inputs, month);
+  const retirementMonthlyExpenses = calculateMonthlyRetirementExpenses(inputs, month);
   const monthlySavings = monthlyIncome - monthlyExpenses;
   const investableAssets =
     month === 0
       ? inputs.investableAssets
       : previousProjection!.investableAssets * (1 + monthlyReturnRate) + monthlySavings;
-  const fireTargetAssets = (monthlyExpenses * 12) / inputs.targetWithdrawalRate;
+  const fireTargetAssets = (retirementMonthlyExpenses * 12) / inputs.targetWithdrawalRate;
 
   return {
     month,
@@ -350,6 +359,7 @@ function calculateProjectionForMonth(
     monthlyIncome,
     monthlySavings,
     monthlyExpenses,
+    retirementMonthlyExpenses,
     investableAssets,
     targetWithdrawalRate: inputs.targetWithdrawalRate,
     fireTargetAssets,
@@ -376,7 +386,10 @@ function simulateDepletion(
   const initialPhase = monthsToWork > 0 ? "working" : "retired";
   const initialMonthlyIncome = calculateMonthlyIncome(inputs, 0);
   const initialNationalPensionIncome = calculateMonthlyNationalPension(inputs, 0);
-  const initialMonthlyExpenses = calculateMonthlyExpenses(inputs, 0);
+  const initialMonthlyExpenses =
+    initialPhase === "working"
+      ? calculateMonthlyExpenses(inputs, 0)
+      : calculateMonthlyRetirementExpenses(inputs, 0);
   const initialCashFlow =
     (initialPhase === "working" ? initialMonthlyIncome : 0) +
     initialNationalPensionIncome -
@@ -397,7 +410,9 @@ function simulateDepletion(
   for (let month = 1; month <= totalMonths; month += 1) {
     const isWorking = month <= monthsToWork;
     const monthlyIncome = calculateMonthlyIncome(inputs, month);
-    const monthlyExpenses = calculateMonthlyExpenses(inputs, month);
+    const monthlyExpenses = isWorking
+      ? calculateMonthlyExpenses(inputs, month)
+      : calculateMonthlyRetirementExpenses(inputs, month);
     const nationalPensionIncome = calculateMonthlyNationalPension(inputs, month);
     const cashFlow =
       (isWorking ? monthlyIncome : 0) + nationalPensionIncome - monthlyExpenses;
@@ -429,7 +444,7 @@ function simulateDepletion(
     minimumAssets,
     peakAssets,
     retirementFirstMonthExpenses:
-      retirementFirstMonthExpenses ?? calculateMonthlyExpenses(inputs, monthsToWork + 1),
+      retirementFirstMonthExpenses ?? calculateMonthlyRetirementExpenses(inputs, monthsToWork + 1),
     projections,
   };
 }
@@ -456,6 +471,14 @@ function calculateMonthlyIncome(inputs: FireInputs, month: number): number {
 function calculateMonthlyExpenses(inputs: FireInputs, month: number): number {
   return applyAnnualGrowth(
     inputs.monthlyExpenses,
+    inputs.annualInflationRate,
+    Math.floor(month / 12),
+  );
+}
+
+function calculateMonthlyRetirementExpenses(inputs: FireInputs, month: number): number {
+  return applyAnnualGrowth(
+    inputs.retirementMonthlyExpenses,
     inputs.annualInflationRate,
     Math.floor(month / 12),
   );
