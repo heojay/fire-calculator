@@ -83,7 +83,7 @@ const commonFields = [
 
 const depletionFields = [
   ["birthYear", "출생연도", "년"],
-  ["lifeExpectancy", "기대 수명", "세"],
+  ["lifeExpectancy", "기대수명", "세"],
 ] as const;
 
 const pensionFields = [
@@ -93,9 +93,9 @@ const pensionFields = [
 const fieldHelpText: Partial<Record<NumericFormField, string>> = {
   monthlyIncome: "매월 저축액은 현재 월 수입에서 월 소비액을 뺀 금액으로 계산합니다.",
   monthlyExpenses:
-    "근로 중 월 저축액을 계산할 때 쓰는 현재 생활비입니다. 은퇴 후 생활비는 별도로 입력합니다.",
+    "근로 중 월 저축액을 계산할 때 쓰는 현재 월 소비액입니다. 은퇴 후 월 지출은 별도로 입력합니다.",
   retirementMonthlyExpenses:
-    "현재 가치 기준 은퇴 후 월 생활비입니다. 목표 자산과 은퇴 후 현금흐름 계산에 사용합니다.",
+    "현재 가치 기준 은퇴 후 월 지출입니다. 목표 자산과 은퇴 후 현금흐름 계산에 사용합니다.",
   annualNominalReturnRate:
     "개인 투자자의 비용, 세금, 위험 감수 차이를 감안해 장기 기본값은 5%로 둡니다.",
   annualInflationRate: "장기 계산에서는 한국은행 물가안정목표에 가까운 2%를 기본값으로 둡니다.",
@@ -126,7 +126,7 @@ const mainTabOptions = [
 const resultTabOptions = [
   ["summary", "요약"],
   ["monthly", "월별추이"],
-  ["experiments", "실험"],
+  ["experiments", "가정 비교"],
 ] as const;
 const calculationModeOptions = [
   ["trinity", "목표 인출률"],
@@ -217,7 +217,7 @@ function App() {
 
         <section className="hero-grid">
           <p className="eyebrow">FIRE CALCULATOR</p>
-          <h1 className="hero-title">경제적 자립까지 얼마나 남았을까요?</h1>
+          <h1 className="hero-title">경제적 자립까지의 거리를 계산합니다</h1>
           <p className="lead">
             현재 자산, 월 수입, 소비, 수익률 가정을 바탕으로 경제적 자립까지의
             거리를 가늠합니다. 흔히 경제적 자유라고 부르는 상태를 조금 더 현실적인
@@ -476,15 +476,15 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
           <a href="#help-withdrawal-rate">3. 목표 인출률 방식</a>
           <a href="#help-depletion">4. 기대수명 소진 방식</a>
           <a href="#help-pension">5. 국민연금 입력 기준</a>
-          <a href="#help-experiments">6. 가정 바꿔보기</a>
+          <a href="#help-experiments">6. 가정 비교</a>
           <a href="#help-limitations">7. 계산기의 한계</a>
         </nav>
 
         <div className="help-content">
           <HelpSection id="help-formulas" title="1. 주요 계산식">
-            <p>월 저축액은 월 수입에서 현재 월 소비를 뺀 금액입니다.</p>
+            <p>월 저축액은 월 수입에서 현재 월 소비액을 뺀 금액입니다.</p>
             <FormulaBlock label="월 저축액">
-              월 저축액 = 월 수입 - 현재 월 소비
+              월 저축액 = 월 수입 - 현재 월 소비액
             </FormulaBlock>
             <p>은퇴 전 월별 자산은 월 수익률과 월 저축액을 반영해 계산합니다.</p>
             <FormulaBlock label="월별 자산 변화">
@@ -542,9 +542,9 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
             </FormulaBlock>
             <p>인출률이 낮을수록 더 보수적인 계산입니다.</p>
             <ul>
-              <li>4.0%: 연 생활비의 25배 필요</li>
-              <li>3.5%: 연 생활비의 약 28.6배 필요</li>
-              <li>3.0%: 연 생활비의 약 33.3배 필요</li>
+              <li>4.0%: 연간 지출의 25배 필요</li>
+              <li>3.5%: 연간 지출의 약 28.6배 필요</li>
+              <li>3.0%: 연간 지출의 약 33.3배 필요</li>
             </ul>
             <p>
               이 방식은 단순하고 직관적이지만, 국민연금이나 은퇴 후 현금흐름을 세밀하게
@@ -555,7 +555,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
           <HelpSection id="help-depletion" title="4. 기대수명 소진 방식">
             <p>
               기대수명 소진 방식은 은퇴 후 자산을 영원히 유지한다고 보지 않고, 기대수명까지
-              자산이 버틸 수 있는지를 계산합니다.
+              자산이 유지되는지를 계산합니다.
             </p>
             <p>
               은퇴 전에는 현재 소비를 제외한 저축으로 자산을 늘리고, 은퇴 후에는 은퇴 후
@@ -598,18 +598,19 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
             <p>미래에 받을 명목 금액을 그대로 입력하면 결과가 과대평가될 수 있습니다.</p>
           </HelpSection>
 
-          <HelpSection id="help-experiments" title="6. 가정 바꿔보기">
+          <HelpSection id="help-experiments" title="6. 가정 비교">
             <p>
-              가정 바꿔보기는 현재 입력값은 그대로 두고, 여러 조건을 동시에 바꿨을 때 결과가
-              얼마나 달라지는지 비교하는 기능입니다.
+              가정 비교는 현재 입력값을 저장하지 않고, 여러 조건을 동시에 조정했을 때
+              결과가 얼마나 달라지는지 비교하는 기능입니다.
             </p>
             <p>예를 들어 다음과 같은 질문을 확인할 수 있습니다.</p>
             <ul>
-              <li>월 저축과 은퇴 후 월 지출을 각각 50만 원 단위로 바꾸면 어떻게 달라질까?</li>
-              <li>오늘 100만 원, 1000만 원, 1억 원을 덜 쓰거나 더 쓰면 어떻게 달라질까?</li>
-              <li>연평균 투자 수익률이 1%p 달라지면 결과가 얼마나 바뀔까?</li>
+              <li>월 저축액을 50만 원 단위로 조정하면 결과가 얼마나 달라질까?</li>
+              <li>은퇴 후 월 지출을 50만 원 단위로 조정하면 결과가 얼마나 달라질까?</li>
+              <li>일회성 지출을 선택한 단위로 반영하면 결과가 얼마나 달라질까?</li>
+              <li>연평균 투자 수익률을 1%p 단위로 조정하면 결과가 얼마나 달라질까?</li>
             </ul>
-            <p>실험값은 실제 입력값에 저장되지 않고, 비교 계산에만 사용됩니다.</p>
+            <p>비교 가정은 실제 입력값에 저장되지 않고, 비교 계산에만 사용됩니다.</p>
           </HelpSection>
 
           <HelpSection id="help-limitations" title="7. 계산기의 한계">
@@ -738,11 +739,11 @@ function AboutCalculatorTab() {
             다른 일을 선택할 수 있습니다.
           </p>
         </AboutCard>
-        <AboutCard title="명목 기준과 현재가치 기준">
+        <AboutCard title="명목 기준과 현재 가치 기준">
           <p>
             미래의 10억 원은 오늘의 10억 원과 구매력이 다릅니다. 물가가 오르면 같은
             금액으로 살 수 있는 것이 줄어들기 때문입니다. 그래서 계산 결과를 볼 때는
-            미래의 명목 금액과 오늘 돈 기준의 현재가치를 구분해서 이해해야 합니다.
+            미래의 명목 금액과 오늘 돈 기준의 현재 가치를 구분해서 이해해야 합니다.
           </p>
         </AboutCard>
         <AboutCard title="4% 룰은 법칙이 아니다">
@@ -764,7 +765,7 @@ function AboutCalculatorTab() {
         <AboutCard title="소비가 자립 시점에 미치는 영향">
           <p>
             소비는 경제적 자립 시점에 매우 큰 영향을 줍니다. 생활비가 늘어나면 필요한
-            은퇴 자산이 커지고, 동시에 저축 가능한 금액은 줄어듭니다. 따라서 월소비를
+            은퇴 자산이 커지고, 동시에 저축 가능한 금액은 줄어듭니다. 따라서 월 소비액을
             조금만 바꿔도 경제적 자립 시점이 크게 달라질 수 있습니다.
           </p>
         </AboutCard>
@@ -986,8 +987,8 @@ function ResultHero({
       <strong>{formatMonthsToFire(scenario)}</strong>
       <span>
         {scenario.status === "achieved"
-          ? "현재 입력값 기준으로 목표 자산에 도달하는 시점입니다."
-          : "100년 안에 경제적 자립 목표 자산에 도달하지 못합니다."}
+          ? "현재 입력값 기준으로 목표 자산을 충족하는 시점입니다."
+          : "현재 입력값으로는 100년 안에 경제적 자립 목표 자산을 충족하기 어렵습니다."}
       </span>
     </aside>
   );
@@ -1028,19 +1029,19 @@ function SummaryGrid({
     [
       basisLabel("은퇴 시 필요 목표 자산", valueBasis),
       scenario.retirementFireTargetAssets === null
-        ? "도달 어려움"
+        ? "기준 충족 어려움"
         : formatScenarioMoney(scenario.retirementFireTargetAssets, retirementMonth),
     ],
     [
       basisLabel("은퇴 시 예상 투자 가능 자산", valueBasis),
       scenario.retirementInvestableAssets === null
-        ? "도달 어려움"
+        ? "기준 충족 어려움"
         : formatScenarioMoney(scenario.retirementInvestableAssets, retirementMonth),
     ],
     [
-      basisLabel("은퇴 후 첫 달 예상 생활비", valueBasis),
+      basisLabel("은퇴 후 첫 달 예상 지출", valueBasis),
       scenario.retirementMonthlyExpenses === null
-        ? "도달 어려움"
+        ? "기준 충족 어려움"
         : `${formatScenarioMoney(
             scenario.retirementFirstMonthExpenses ?? scenario.retirementMonthlyExpenses,
             retirementFirstExpenseMonth,
@@ -1049,7 +1050,7 @@ function SummaryGrid({
     [
       basisLabel("은퇴 후 안전 인출 가능 금액", valueBasis),
       scenario.retirementSafeWithdrawalAmount === null
-        ? "도달 어려움"
+        ? "기준 충족 어려움"
         : `${formatScenarioMoney(scenario.retirementSafeWithdrawalAmount, retirementMonth)} / 년`,
     ],
   ];
@@ -1098,11 +1099,11 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
     <section className="chart-card impact-section" aria-labelledby="impact-section-title">
       <div className="impact-heading">
         <div>
-          <p className="eyebrow">EXPERIMENTS</p>
-          <h3 id="impact-section-title">가정 바꿔보기</h3>
+          <p className="eyebrow">ASSUMPTIONS</p>
+          <h3 id="impact-section-title">가정 비교</h3>
           <p>
-            현재 입력값은 저장하지 않고, 여러 가정을 함께 바꿨을 때 {timingLabel}이 얼마나
-            달라지는지 비교합니다.
+            현재 입력값은 저장하지 않고, 여러 가정을 함께 조정했을 때 {timingLabel}이
+            얼마나 달라지는지 비교합니다.
           </p>
         </div>
         <button
@@ -1116,21 +1117,21 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
       </div>
 
       <div className="impact-layout">
-        <div className="impact-controls" aria-label="실험 변수 조정">
+        <div className="impact-controls" aria-label="가정 조정">
           <ImpactStepper
-            description="최종 월 저축이 이 금액만큼 변하도록 월 수입을 보정합니다."
-            decrementLabel="월 저축 50만원 줄이기"
-            incrementLabel="월 저축 50만원 늘리기"
-            label="월 저축"
+            description="월 저축액을 50만 원 단위로 조정해 비교합니다."
+            decrementLabel="월 저축액 50만 원 줄이기"
+            incrementLabel="월 저축액 50만 원 늘리기"
+            label="월 저축액"
             value={adjustments.monthlySavingsDelta}
             valueLabel={formatSignedMoney(adjustments.monthlySavingsDelta)}
             onDecrement={() => updateAdjustment("monthlySavingsDelta", -monthlyExperimentStep)}
             onIncrement={() => updateAdjustment("monthlySavingsDelta", monthlyExperimentStep)}
           />
           <ImpactStepper
-            description="은퇴 후 월 지출만 50만원 단위로 바꿉니다."
-            decrementLabel="은퇴 후 월 지출 50만원 줄이기"
-            incrementLabel="은퇴 후 월 지출 50만원 늘리기"
+            description="은퇴 후 월 지출을 50만 원 단위로 조정해 비교합니다."
+            decrementLabel="은퇴 후 월 지출 50만 원 줄이기"
+            incrementLabel="은퇴 후 월 지출 50만 원 늘리기"
             label="은퇴 후 월 지출"
             value={adjustments.retirementMonthlyExpensesDelta}
             valueLabel={formatSignedMoney(adjustments.retirementMonthlyExpensesDelta)}
@@ -1149,7 +1150,7 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
             onIncrement={() => updateAdjustment("oneTimeSpendingDelta", oneTimeSpendingStep)}
           />
           <ImpactStepper
-            description="연평균 투자 수익률 가정만 1%p 단위로 바꿉니다."
+            description="연평균 투자 수익률을 1%p 단위로 조정해 비교합니다."
             decrementLabel="연평균 투자 수익률 1%p 낮추기"
             incrementLabel="연평균 투자 수익률 1%p 높이기"
             label="연평균 투자 수익률"
@@ -1179,7 +1180,7 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
           </div>
           <dl className="impact-delta-list">
             <div>
-              <dt>월 저축</dt>
+              <dt>월 저축액</dt>
               <dd>
                 {formatMoney(baseMonthlySavings)} → {formatMoney(changedMonthlySavings)}
               </dd>
@@ -1207,7 +1208,7 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
             </div>
           </dl>
           <p className="impact-note">
-            적용 중인 변화: {formatExperimentAdjustmentSummary(adjustments)}
+            적용 중인 비교 가정: {formatExperimentAdjustmentSummary(adjustments)}
           </p>
         </div>
       </div>
@@ -1281,10 +1282,10 @@ function OneTimeSpendingControl({
   return (
     <article className="impact-control-card">
       <div>
-        <h4>오늘 일회성 소비</h4>
-        <p>선택한 단위만큼 오늘 소비를 바꿔 현재 보유 자산에 반영합니다.</p>
+        <h4>일회성 지출</h4>
+        <p>일회성 지출을 선택한 단위로 반영해 비교합니다.</p>
       </div>
-      <div className="impact-unit-tabs" aria-label="오늘 일회성 소비 조정 단위">
+      <div className="impact-unit-tabs" aria-label="일회성 지출 조정 단위">
         {oneTimeSpendingSteps.map(([label, step]) => (
           <button
             aria-pressed={selectedStep === step}
@@ -1297,20 +1298,20 @@ function OneTimeSpendingControl({
           </button>
         ))}
       </div>
-      <div className="impact-stepper" aria-label="오늘 일회성 소비 조정">
+      <div className="impact-stepper" aria-label="일회성 지출 조정">
         <button
-          aria-label={`오늘 일회성 소비 ${formatMoney(selectedStep)} 줄이기`}
+          aria-label={`일회성 지출 ${formatMoney(selectedStep)} 줄이기`}
           className="impact-stepper-button"
           type="button"
           onClick={onDecrement}
         >
           −
         </button>
-        <output aria-label="오늘 일회성 소비 변화값" className={value === 0 ? "is-zero" : undefined}>
+        <output aria-label="일회성 지출 변화값" className={value === 0 ? "is-zero" : undefined}>
           {formatSignedMoney(value)}
         </output>
         <button
-          aria-label={`오늘 일회성 소비 ${formatMoney(selectedStep)} 늘리기`}
+          aria-label={`일회성 지출 ${formatMoney(selectedStep)} 늘리기`}
           className="impact-stepper-button"
           type="button"
           onClick={onIncrement}
@@ -1346,7 +1347,7 @@ function DepletionSummary({
       result.nationalPensionStartAge === null ? "계산 불가" : `${result.nationalPensionStartAge}세`,
     ],
     [
-      basisLabel("은퇴 후 첫 달 예상 생활비", valueBasis),
+      basisLabel("은퇴 후 첫 달 예상 지출", valueBasis),
       result.retirementFirstMonthExpenses === null
         ? "계산 불가"
         : `${formatDepletionMoney(result.retirementFirstMonthExpenses, retirementFirstExpenseMonth)} / 월`,
@@ -1481,7 +1482,7 @@ function DepletionChart({
             <h3>기대수명 자산 추이 그래프</h3>
           </div>
         </div>
-        <p className="empty-chart-message">기대 수명이 현재 나이보다 커야 그래프를 표시할 수 있습니다.</p>
+        <p className="empty-chart-message">기대수명이 현재 나이보다 커야 그래프를 표시할 수 있습니다.</p>
       </article>
     );
   }
@@ -2110,7 +2111,7 @@ function DepletionProjectionTable({
                 <th>상태</th>
                 <th>{basisLabel("월 현금흐름", valueBasis)}</th>
                 <th>{basisLabel("국민연금", valueBasis)}</th>
-                <th>{basisLabel("월 생활비", valueBasis)}</th>
+                <th>{basisLabel("월 지출", valueBasis)}</th>
                 <th>{basisLabel("자산", valueBasis)}</th>
               </tr>
             </thead>
@@ -2580,13 +2581,13 @@ function formatExperimentAdjustmentSummary(adjustments: ExperimentAdjustments): 
   const summaries = [
     adjustments.monthlySavingsDelta === 0
       ? null
-      : `월 저축 ${formatSignedMoney(adjustments.monthlySavingsDelta)}`,
+      : `월 저축액 ${formatSignedMoney(adjustments.monthlySavingsDelta)}`,
     adjustments.retirementMonthlyExpensesDelta === 0
       ? null
       : `은퇴 후 월 지출 ${formatSignedMoney(adjustments.retirementMonthlyExpensesDelta)}`,
     adjustments.oneTimeSpendingDelta === 0
       ? null
-      : `오늘 일회성 소비 ${formatSignedMoney(adjustments.oneTimeSpendingDelta)}`,
+      : `일회성 지출 ${formatSignedMoney(adjustments.oneTimeSpendingDelta)}`,
     adjustments.annualReturnRateDelta === 0
       ? null
       : `연평균 투자 수익률 ${formatSignedPercentPoint(adjustments.annualReturnRateDelta)}`,
@@ -2649,11 +2650,11 @@ function formatSignedPercentPoint(value: number): string {
 
 function formatMonthsToFire(scenario: FireScenarioResult): string {
   if (scenario.monthsToFire === null) {
-    return "도달 어려움";
+    return "기준 충족 어려움";
   }
 
   if (scenario.monthsToFire === 0) {
-    return "이미 도달";
+    return "현재 기준 충족";
   }
 
   return `${formatWorkDuration(scenario.monthsToFire)} 뒤`;
@@ -2661,11 +2662,11 @@ function formatMonthsToFire(scenario: FireScenarioResult): string {
 
 function formatExperimentTiming(months: number | null): string {
   if (months === null) {
-    return "도달 어려움";
+    return "기준 충족 어려움";
   }
 
   if (months === 0) {
-    return "이미 도달";
+    return "현재 기준 충족";
   }
 
   return `${formatWorkDuration(months)} 뒤`;
@@ -2680,7 +2681,7 @@ function formatImpactChange(diffMonths: number | null): string {
     return "거의 변화 없음";
   }
 
-  const direction = diffMonths > 0 ? "늦어짐" : "빨라짐";
+  const direction = diffMonths > 0 ? "더 필요" : "단축";
 
   return `${formatOneDecimal(Math.abs(diffMonths) / 12)}년 ${direction}`;
 }
@@ -2691,11 +2692,11 @@ function formatDepletionTiming(result: DepletionResult): string {
   }
 
   if (result.status === "not-achievable" || result.monthsToWork === null) {
-    return "도달 어려움";
+    return "기준 충족 어려움";
   }
 
   if (result.monthsToWork === 0) {
-    return "이미 도달";
+    return "현재 기준 충족";
   }
 
   return `${formatWorkDuration(result.monthsToWork)} 뒤`;
@@ -2703,15 +2704,15 @@ function formatDepletionTiming(result: DepletionResult): string {
 
 function formatDepletionStatus(result: DepletionResult): string {
   if (result.status === "already-sufficient") {
-    return "현재 입력값 기준으로 기대수명까지 버틸 수 있는 시점입니다.";
+    return "현재 입력값 기준으로 기대수명까지 자산이 유지되는 시점입니다.";
   }
 
   if (result.status === "achievable") {
-    return "현재 입력값 기준으로 기대수명까지 버틸 수 있는 시점입니다.";
+    return "현재 입력값 기준으로 기대수명까지 자산이 유지되는 시점입니다.";
   }
 
   if (result.status === "invalid-time-horizon") {
-    return "기대 수명이 현재 나이보다 커야 합니다.";
+    return "기대수명이 현재 나이보다 커야 합니다.";
   }
 
   return "입력한 기대수명 범위에서는 자립 기준을 충족하기 어렵습니다.";
