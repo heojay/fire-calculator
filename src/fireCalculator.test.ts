@@ -158,7 +158,7 @@ describe("calculateFireScenario", () => {
     expect(result.monthsToFire).toBeNull();
   });
 
-  it("명목 수익률이 물가 상승률보다 낮아도 명목 기준으로 안정적으로 도달 실패를 반환한다", () => {
+  it("수익률이 물가 상승률보다 낮아도 명목 기준으로 안정적으로 도달 실패를 반환한다", () => {
     const result = calculateFireScenario({
       ...baseInputs,
       investableAssets: 0,
@@ -273,7 +273,7 @@ describe("calculateFireScenario", () => {
 });
 
 describe("calculateFireScenarios", () => {
-  it("보수적 시나리오의 명목 수익률은 입력값보다 2%p 낮다", () => {
+  it("보수적 시나리오의 수익률은 입력값보다 2%p 낮다", () => {
     const [conservativeScenario] = calculateFireScenarios({
       ...baseInputs,
       annualNominalReturnRate: 0.07,
@@ -282,7 +282,7 @@ describe("calculateFireScenarios", () => {
     expect(conservativeScenario.inputs.annualNominalReturnRate).toBeCloseTo(0.05);
   });
 
-  it("낙관적 시나리오의 명목 수익률은 입력값보다 2%p 높다", () => {
+  it("낙관적 시나리오의 수익률은 입력값보다 2%p 높다", () => {
     const optimisticScenario = calculateFireScenarios({
       ...baseInputs,
       annualNominalReturnRate: 0.07,
@@ -579,7 +579,7 @@ describe("FIRE_PRESETS", () => {
     expect(koreaAveragePreset?.values.nationalPensionMonthlyAmount).toBe(724_000);
   });
 
-  it("기본 예시값은 과거 연 단위 기본값을 월 단위로 환산하고 5% 명목 수익률을 사용한다", () => {
+  it("기본 예시값은 과거 연 단위 기본값을 월 단위로 환산하고 5% 수익률을 사용한다", () => {
     const examplePreset = FIRE_PRESETS.find((preset) => preset.id === "fire-example");
 
     expect(examplePreset?.values.investableAssets).toBe(350_000_000);

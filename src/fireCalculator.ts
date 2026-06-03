@@ -115,7 +115,7 @@ export const FIRE_PRESETS: FirePreset[] = [
 export const SCENARIO_DEFINITIONS = [
   {
     name: "보수적",
-    description: "명목 수익률 -2%p",
+    description: "수익률 -2%p",
     returnRateDelta: -0.02,
   },
   {
@@ -125,7 +125,7 @@ export const SCENARIO_DEFINITIONS = [
   },
   {
     name: "낙관적",
-    description: "명목 수익률 +2%p",
+    description: "수익률 +2%p",
     returnRateDelta: 0.02,
   },
 ] as const;
