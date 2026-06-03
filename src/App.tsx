@@ -3073,10 +3073,10 @@ function formatMoneyInputHint(value: number): string {
   }
 
   if (absValue >= 100_000_000) {
-    return `약 ${sign}${formatCompact(absValue / 100_000_000)}억원`;
+    return `약 ${sign}${formatCompact(absValue / 100_000_000)}억`;
   }
 
-  return `약 ${sign}${formatCompact(absValue / 10_000)}만원`;
+  return `약 ${sign}${formatCompact(absValue / 10_000)}만`;
 }
 
 function formatAxisMoney(value: number): string {
