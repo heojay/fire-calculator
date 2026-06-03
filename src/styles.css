@@ -792,13 +792,14 @@ h1 {
 .input-panel,
 .results-panel {
   display: grid;
-  gap: 24px;
+  gap: 20px;
   min-width: 0;
 }
 
 .input-panel {
   position: sticky;
   top: 24px;
+  gap: 16px;
 }
 
 .section-heading h2 {
@@ -937,24 +938,89 @@ fieldset {
   margin: 0;
   border: 1px solid var(--hairline);
   border-radius: 8px;
-  padding: 24px;
+  padding: 18px;
 }
 
 legend {
   padding: 0 8px;
   color: var(--ink);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
 }
 
 .field-grid {
   display: grid;
-  gap: 14px;
+  gap: 10px;
+}
+
+.advanced-fieldset {
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--canvas);
+}
+
+.advanced-fieldset summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 12px 18px;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+  list-style: none;
+}
+
+.advanced-fieldset summary::before {
+  width: 7px;
+  height: 7px;
+  border: solid var(--body-mid);
+  border-width: 0 1.5px 1.5px 0;
+  color: var(--body-mid);
+  content: "";
+  transform: rotate(-45deg);
+  transition: transform 160ms ease;
+}
+
+.advanced-fieldset summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-fieldset[open] summary::before {
+  transform: rotate(45deg);
+}
+
+.advanced-fieldset summary:hover {
+  background: #fafafa;
+}
+
+.advanced-fieldset summary:focus-visible {
+  outline: 2px solid var(--blue-info);
+  outline-offset: 2px;
+}
+
+.advanced-fieldset summary small {
+  min-width: 0;
+  color: var(--body-mid);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.advanced-field-grid {
+  border-top: 1px solid var(--hairline);
+  padding: 14px 18px 18px;
 }
 
 .number-field {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   color: var(--body);
   font-size: 14px;
   line-height: 1.4;
@@ -1030,7 +1096,7 @@ legend {
 
 .number-field-control {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 56px;
+  grid-template-columns: minmax(0, 1fr) auto 40px;
   align-items: center;
   border: 1px solid var(--hairline);
   border-radius: 4px;
@@ -1039,9 +1105,10 @@ legend {
 
 .number-field input {
   width: 100%;
-  min-height: 44px;
+  min-width: 0;
+  min-height: 40px;
   border: 0;
-  padding: 12px 16px;
+  padding: 9px 12px;
   color: var(--ink);
   background: transparent;
   font-size: 16px;
@@ -1060,19 +1127,21 @@ legend {
 }
 
 .number-field em {
-  padding-right: 12px;
+  padding-right: 10px;
   color: var(--mute);
   font-size: 13px;
   font-style: normal;
   text-align: right;
 }
 
-.number-field small {
-  min-height: 18px;
+.number-field-hint {
+  min-width: max-content;
+  padding-left: 8px;
   color: var(--body-mid);
   font-size: 12px;
   font-weight: 500;
   line-height: 1.5;
+  white-space: nowrap;
 }
 
 .pension-start-note {

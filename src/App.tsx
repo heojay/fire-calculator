@@ -73,11 +73,14 @@ type ChartPoint = {
   y: number;
 };
 
-const commonFields = [
+const coreFields = [
   ["investableAssets", "현재 보유 자산", "원"],
   ["monthlyIncome", "현재 월 수입", "원"],
   ["monthlyExpenses", "월 평균 소비액", "원"],
   ["retirementMonthlyExpenses", "은퇴 후 월 지출", "원"],
+] as const;
+
+const advancedAssumptionFields = [
   ["annualNominalReturnRate", "연평균 투자 수익률", "%"],
   ["annualInflationRate", "연평균 물가 상승률", "%"],
   ["annualIncomeGrowthRate", "연평균 수입 증가율", "%"],
@@ -269,8 +272,8 @@ function CalculatorApp() {
               </button>
             </div>
 
-            <Fieldset title="공통 입력">
-              {commonFields.map(([field, label, suffix]) => (
+            <Fieldset title="핵심 입력">
+              {coreFields.map(([field, label, suffix]) => (
                 <NumberField
                   field={field}
                   key={field}
@@ -283,8 +286,28 @@ function CalculatorApp() {
               ))}
             </Fieldset>
 
+            <AdvancedFieldset
+              title="고급 옵션"
+              summary={formatAssumptionSummary(inputs)}
+            >
+              {advancedAssumptionFields.map(([field, label, suffix]) => (
+                <NumberField
+                  field={field}
+                  key={field}
+                  label={label}
+                  suffix={suffix}
+                  value={formValues[field]}
+                  helpText={fieldHelpText[field]}
+                  onChange={(value) => handleFieldChange(field, value)}
+                />
+              ))}
+            </AdvancedFieldset>
+
             {calculationMode === "trinity" && (
-              <Fieldset title="목표 인출률 입력">
+              <AdvancedFieldset
+                title="목표 인출률 옵션"
+                summary={`목표 인출률 ${formatPercentRate(inputs.targetWithdrawalRate)}`}
+              >
                 <NumberField
                   field="targetWithdrawalRate"
                   label="목표 인출률"
@@ -293,39 +316,38 @@ function CalculatorApp() {
                   helpText={fieldHelpText.targetWithdrawalRate}
                   onChange={(value) => handleFieldChange("targetWithdrawalRate", value)}
                 />
-              </Fieldset>
+              </AdvancedFieldset>
             )}
 
             {calculationMode === "depletion" && (
-              <>
-                <Fieldset title="기대수명 입력">
-                  {depletionFields.map(([field, label, suffix]) => (
-                    <NumberField
-                      field={field}
-                      key={field}
-                      label={label}
-                      suffix={suffix}
-                      value={formValues[field]}
-                      helpText={fieldHelpText[field]}
-                      onChange={(value) => handleFieldChange(field, value)}
-                    />
-                  ))}
-                </Fieldset>
-                <Fieldset title="국민연금 입력">
-                  {pensionFields.map(([field, label, suffix]) => (
-                    <NumberField
-                      field={field}
-                      key={field}
-                      label={label}
-                      suffix={suffix}
-                      value={formValues[field]}
-                      helpText={fieldHelpText[field]}
-                      onChange={(value) => handleFieldChange(field, value)}
-                    />
-                  ))}
-                  <PensionStartAgeNote birthYear={normalizeFormNumber(formValues.birthYear)} />
-                </Fieldset>
-              </>
+              <AdvancedFieldset
+                title="기대수명 소진 옵션"
+                summary={formatDepletionOptionSummary(inputs)}
+              >
+                {depletionFields.map(([field, label, suffix]) => (
+                  <NumberField
+                    field={field}
+                    key={field}
+                    label={label}
+                    suffix={suffix}
+                    value={formValues[field]}
+                    helpText={fieldHelpText[field]}
+                    onChange={(value) => handleFieldChange(field, value)}
+                  />
+                ))}
+                {pensionFields.map(([field, label, suffix]) => (
+                  <NumberField
+                    field={field}
+                    key={field}
+                    label={label}
+                    suffix={suffix}
+                    value={formValues[field]}
+                    helpText={fieldHelpText[field]}
+                    onChange={(value) => handleFieldChange(field, value)}
+                  />
+                ))}
+                <PensionStartAgeNote birthYear={normalizeFormNumber(formValues.birthYear)} />
+              </AdvancedFieldset>
             )}
           </section>
 
@@ -2409,6 +2431,26 @@ function Fieldset({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+function AdvancedFieldset({
+  title,
+  summary,
+  children,
+}: {
+  title: string;
+  summary: string;
+  children: ReactNode;
+}) {
+  return (
+    <details className="advanced-fieldset">
+      <summary>
+        <span>{title}</span>
+        <small>{summary}</small>
+      </summary>
+      <div className="field-grid advanced-field-grid">{children}</div>
+    </details>
+  );
+}
+
 function NumberField({
   field,
   label,
@@ -2468,9 +2510,13 @@ function NumberField({
           value={inputValue}
           onChange={(event) => onChange(event.target.value)}
         />
+        {moneyHint && (
+          <small className="number-field-hint" id={hintId}>
+            {moneyHint}
+          </small>
+        )}
         <em>{suffix}</em>
       </div>
-      {moneyHint && <small id={hintId}>{moneyHint}</small>}
     </div>
   );
 }
@@ -2864,6 +2910,22 @@ function formatSignedMoney(value: number): string {
 
 function formatPercentRate(value: number): string {
   return `${formatOneDecimal(value * 100)}%`;
+}
+
+function formatAssumptionSummary(inputs: FireInputs): string {
+  return [
+    `수익률 ${formatPercentRate(inputs.annualNominalReturnRate)}`,
+    `물가 ${formatPercentRate(inputs.annualInflationRate)}`,
+    `수입 증가 ${formatPercentRate(inputs.annualIncomeGrowthRate)}`,
+  ].join(" · ");
+}
+
+function formatDepletionOptionSummary(inputs: FireInputs): string {
+  return [
+    `${inputs.birthYear}년생`,
+    `기대수명 ${inputs.lifeExpectancy}세`,
+    `국민연금 ${formatMoney(inputs.nationalPensionMonthlyAmount)}`,
+  ].join(" · ");
 }
 
 function formatSignedPercentPoint(value: number): string {
