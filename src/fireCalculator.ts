@@ -16,6 +16,8 @@ export type FireProjection = {
   month: number;
   year: number;
   age: number;
+  phase: "working" | "retired";
+  cashFlow: number;
   monthlyIncome: number;
   monthlySavings: number;
   monthlyExpenses: number;
@@ -71,6 +73,7 @@ export type FirePreset = {
 };
 
 export const MAX_SIMULATION_MONTHS = 100 * 12;
+export const MAX_FIRE_SCENARIO_MONTHS = 50 * 12;
 export const MIN_WITHDRAWAL_RATE = 0.0001;
 export const MIN_ANNUAL_NOMINAL_RETURN_RATE = -0.99;
 export const DEFAULT_NATIONAL_PENSION_START_AGE = 65;
@@ -190,13 +193,17 @@ export function calculateFireScenario(
   const projections: FireProjection[] = [];
   let achievedProjection: FireProjection | undefined;
 
-  for (let month = 0; month <= MAX_SIMULATION_MONTHS; month += 1) {
-    const projection = calculateProjectionForMonth(inputs, month, projections[month - 1]);
+  for (let month = 0; month <= MAX_FIRE_SCENARIO_MONTHS; month += 1) {
+    const projection = calculateProjectionForMonth(
+      inputs,
+      month,
+      achievedProjection?.month ?? null,
+      projections[month - 1],
+    );
     projections.push(projection);
 
     if (!achievedProjection && projection.investableAssets >= projection.fireTargetAssets) {
       achievedProjection = projection;
-      break;
     }
   }
 
@@ -335,6 +342,7 @@ function normalizeInputs(inputs: FireInputs): FireInputs {
 function calculateProjectionForMonth(
   inputs: FireInputs,
   month: number,
+  achievedMonth: number | null,
   previousProjection?: FireProjection,
 ): FireProjection {
   if (month > 0 && !previousProjection) {
@@ -342,20 +350,29 @@ function calculateProjectionForMonth(
   }
 
   const monthlyReturnRate = annualRateToMonthlyRate(inputs.annualNominalReturnRate);
-  const monthlyIncome = calculateMonthlyIncome(inputs, month);
   const monthlyExpenses = calculateMonthlyExpenses(inputs, month);
   const retirementMonthlyExpenses = calculateMonthlyRetirementExpenses(inputs, month);
+  const fireTargetAssets = (retirementMonthlyExpenses * 12) / inputs.targetWithdrawalRate;
+  const phase =
+    achievedMonth !== null && month > achievedMonth
+      ? "retired"
+      : month === 0 && inputs.investableAssets >= fireTargetAssets
+        ? "retired"
+        : "working";
+  const monthlyIncome = phase === "working" ? calculateMonthlyIncome(inputs, month) : 0;
   const monthlySavings = monthlyIncome - monthlyExpenses;
+  const cashFlow = phase === "working" ? monthlySavings : -retirementMonthlyExpenses;
   const investableAssets =
     month === 0
       ? inputs.investableAssets
-      : previousProjection!.investableAssets * (1 + monthlyReturnRate) + monthlySavings;
-  const fireTargetAssets = (retirementMonthlyExpenses * 12) / inputs.targetWithdrawalRate;
+      : previousProjection!.investableAssets * (1 + monthlyReturnRate) + cashFlow;
 
   return {
     month,
     year: month / 12,
     age: calculateCurrentAgeFromBirthYear(inputs.birthYear) + month / 12,
+    phase,
+    cashFlow,
     monthlyIncome,
     monthlySavings,
     monthlyExpenses,

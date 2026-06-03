@@ -786,6 +786,11 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
               이 방식은 단순하고 직관적이지만, 국민연금이나 은퇴 후 현금흐름을 세밀하게
               반영하기는 어렵습니다.
             </p>
+            <p>
+              목표 인출률 모드의 그래프는 최대 50년까지 표시합니다. 목표 자산을 달성한
+              뒤에는 근로소득과 국민연금 없이 투자 수익률과 은퇴 후 월 지출만 반영한 자산
+              추이를 이어서 보여줍니다.
+            </p>
           </HelpSection>
 
           <HelpSection id="help-depletion" title="4. 기대수명 소진 방식">
@@ -1223,7 +1228,7 @@ function ResultHero({
       <span>
         {scenario.status === "achieved"
           ? "현재 조건 기준으로 목표 자산을 충족하는 시점입니다."
-          : "현재 조건으로는 100년 안에 경제적 자립 목표 자산을 충족하기 어렵습니다."}
+          : "현재 조건으로는 50년 안에 경제적 자립 목표 자산을 충족하기 어렵습니다."}
       </span>
     </aside>
   );
@@ -1238,7 +1243,8 @@ function WithdrawalRateNote({ withdrawalRate }: { withdrawalRate: number }) {
       <p>
         입력한 목표 인출률로 은퇴 후 월 지출을 감당할 경제적 자립 목표 자산을 계산합니다.
         흔히 언급되는 4% 법칙은 트리니티 연구에서 알려진 30년 은퇴 기간 기준 참고값입니다.
-        은퇴 기간이 길수록 3~3.5%처럼 더 보수적으로 잡는 경우가 많습니다.
+        그래프는 최대 50년까지 표시하며, 목표 달성 뒤에는 국민연금 없이 은퇴 후 월 지출을
+        차감한 자산 추이를 이어서 보여줍니다.
       </p>
       <strong>현재 적용 인출률 {rateToPercentInput(withdrawalRate)}%</strong>
     </article>
@@ -2042,6 +2048,9 @@ function AssetChart({
         <div className="legend">
           <span className="legend-base">투자 가능 자산</span>
           <span className="legend-target">점선: 경제적 자립 목표</span>
+          {scenario.monthsToFire !== null && (
+            <span className="legend-retirement">세로 점선: 기준 충족</span>
+          )}
         </div>
       </div>
       <div className="interactive-chart">
@@ -2138,6 +2147,15 @@ function AssetChart({
             x2={padding.left}
             y2={height - padding.bottom}
           />
+          {scenario.monthsToFire !== null && (
+            <line
+              className="retirement-line"
+              x1={toX(scenario.monthsToFire)}
+              y1={padding.top}
+              x2={toX(scenario.monthsToFire)}
+              y2={baseY}
+            />
+          )}
           <polygon
             className="chart-area"
             fill={`url(#${areaGradientId})`}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   FIRE_PRESETS,
+  MAX_FIRE_SCENARIO_MONTHS,
   MIN_ANNUAL_NOMINAL_RETURN_RATE,
   MIN_WITHDRAWAL_RATE,
   calculateCurrentAgeFromBirthYear,
@@ -42,6 +43,14 @@ describe("calculateFireScenario", () => {
 
     expect(result.status).toBe("achieved");
     expect(result.monthsToFire).toBe(0);
+    expect(result.projections).toHaveLength(MAX_FIRE_SCENARIO_MONTHS + 1);
+    expect(result.projections[0]).toMatchObject({
+      phase: "retired",
+      cashFlow: -3_000_000,
+    });
+    expect(result.projections[1]).toMatchObject({
+      phase: "retired",
+    });
   });
 
   it("현재 FIRE 목표 자산은 은퇴 후 월 지출의 12개월치를 목표 인출률로 나누어 계산한다", () => {
@@ -142,7 +151,7 @@ describe("calculateFireScenario", () => {
     expect(result.projections[0].targetWithdrawalRate).toBe(0.035);
   });
 
-  it("100년 안에 도달하지 못하면 도달 어려움 상태를 반환한다", () => {
+  it("50년 안에 도달하지 못하면 도달 어려움 상태를 반환한다", () => {
     const result = calculateFireScenario({
       ...baseInputs,
       investableAssets: 0,
@@ -172,11 +181,42 @@ describe("calculateFireScenario", () => {
 
     expect(result.status).toBe("not-achieved");
     expect(result.monthsToFire).toBeNull();
-    expect(result.projections).toHaveLength(1_201);
+    expect(result.projections).toHaveLength(MAX_FIRE_SCENARIO_MONTHS + 1);
     expect(result.projections.at(-1)?.fireTargetAssets).toBeGreaterThan(
       result.currentFireTargetAssets,
     );
     expect(Number.isFinite(result.projections.at(-1)?.investableAssets)).toBe(true);
+  });
+
+  it("목표 달성 후에는 근로소득과 국민연금 없이 은퇴 후 월 지출을 차감한다", () => {
+    const result = calculateFireScenario({
+      ...baseInputs,
+      investableAssets: 0,
+      monthlyIncome: 200,
+      monthlyExpenses: 100,
+      retirementMonthlyExpenses: 100,
+      annualNominalReturnRate: 0,
+      annualInflationRate: 0,
+      annualIncomeGrowthRate: 0,
+      targetWithdrawalRate: 0.025,
+      nationalPensionMonthlyAmount: 10_000,
+    });
+
+    expect(result.status).toBe("achieved");
+    expect(result.monthsToFire).toBe(480);
+    expect(result.projections).toHaveLength(MAX_FIRE_SCENARIO_MONTHS + 1);
+    expect(result.projections[480]).toMatchObject({
+      phase: "working",
+      cashFlow: 100,
+      investableAssets: 48_000,
+    });
+    expect(result.projections[481]).toMatchObject({
+      phase: "retired",
+      monthlyIncome: 0,
+      cashFlow: -100,
+      investableAssets: 47_900,
+    });
+    expect(result.projections.at(-1)?.month).toBe(MAX_FIRE_SCENARIO_MONTHS);
   });
 
   it("월 소비액이 월 수입보다 크면 음수 저축액으로 자산 감소를 반영한다", () => {
