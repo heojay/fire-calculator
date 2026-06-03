@@ -1089,6 +1089,7 @@ legend {
 }
 
 .number-field input {
+  grid-column: 1;
   width: 100%;
   min-width: 0;
   min-height: 40px;
@@ -1112,6 +1113,7 @@ legend {
 }
 
 .number-field em {
+  grid-column: 3;
   padding-right: 10px;
   color: var(--mute);
   font-size: 13px;
@@ -1120,6 +1122,7 @@ legend {
 }
 
 .number-field-hint {
+  grid-column: 2;
   min-width: max-content;
   padding-left: 8px;
   color: var(--body-mid);
