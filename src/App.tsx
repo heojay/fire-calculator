@@ -256,10 +256,6 @@ function CalculatorApp() {
           role="tabpanel"
         >
           <section className="input-panel">
-            <div className="section-heading">
-              <h2>입력값</h2>
-            </div>
-
             <div className="input-actions">
               <button
                 className="button-secondary"
@@ -827,7 +823,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
             <p>미래 수령 시점의 명목 금액은 물가상승률을 반영해 자동으로 계산됩니다.</p>
             <dl className="help-definition-list">
               <div>
-                <dt>입력값</dt>
+                <dt>입력 기준</dt>
                 <dd>오늘 돈 가치 기준 국민연금</dd>
               </div>
               <div>
@@ -840,7 +836,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
 
           <HelpSection id="help-experiments" title="6. 가정 비교">
             <p>
-              가정 비교는 현재 입력값을 저장하지 않고, 여러 조건을 동시에 조정했을 때
+              가정 비교는 현재 조건을 저장하지 않고, 여러 조건을 동시에 조정했을 때
               결과가 얼마나 달라지는지 비교하는 기능입니다.
             </p>
             <p>예를 들어 다음과 같은 질문을 확인할 수 있습니다.</p>
@@ -850,7 +846,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
               <li>일회성 지출을 선택한 단위로 반영하면 결과가 얼마나 달라질까?</li>
               <li>연평균 투자 수익률을 1%p 단위로 조정하면 결과가 얼마나 달라질까?</li>
             </ul>
-            <p>비교 가정은 실제 입력값에 저장되지 않고, 비교 계산에만 사용됩니다.</p>
+            <p>비교 가정은 실제 조건에 저장되지 않고, 비교 계산에만 사용됩니다.</p>
           </HelpSection>
 
           <HelpSection id="help-limitations" title="7. 계산기의 한계">
@@ -1226,8 +1222,8 @@ function ResultHero({
       <strong>{formatMonthsToFire(scenario)}</strong>
       <span>
         {scenario.status === "achieved"
-          ? "현재 입력값 기준으로 목표 자산을 충족하는 시점입니다."
-          : "현재 입력값으로는 100년 안에 경제적 자립 목표 자산을 충족하기 어렵습니다."}
+          ? "현재 조건 기준으로 목표 자산을 충족하는 시점입니다."
+          : "현재 조건으로는 100년 안에 경제적 자립 목표 자산을 충족하기 어렵습니다."}
       </span>
     </aside>
   );
@@ -1339,7 +1335,7 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
         <div>
           <h3 id="impact-section-title">가정 비교</h3>
           <p>
-            현재 입력값은 저장하지 않고, 여러 가정을 함께 조정했을 때 {timingLabel}이
+            현재 조건은 저장하지 않고, 여러 가정을 함께 조정했을 때 {timingLabel}이
             얼마나 달라지는지 비교합니다.
           </p>
         </div>
@@ -2976,11 +2972,11 @@ function formatDepletionTiming(result: DepletionResult): string {
 
 function formatDepletionStatus(result: DepletionResult): string {
   if (result.status === "already-sufficient") {
-    return "현재 입력값 기준으로 기대수명까지 자산이 유지되는 시점입니다.";
+    return "현재 조건 기준으로 기대수명까지 자산이 유지되는 시점입니다.";
   }
 
   if (result.status === "achievable") {
-    return "현재 입력값 기준으로 기대수명까지 자산이 유지되는 시점입니다.";
+    return "현재 조건 기준으로 기대수명까지 자산이 유지되는 시점입니다.";
   }
 
   if (result.status === "invalid-time-horizon") {
