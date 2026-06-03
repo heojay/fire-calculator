@@ -49,6 +49,10 @@ input {
   font: inherit;
 }
 
+a {
+  color: inherit;
+}
+
 button {
   cursor: pointer;
 }
@@ -66,8 +70,48 @@ a:focus-visible,
   outline-offset: 2px;
 }
 
+.skip-link {
+  position: fixed;
+  z-index: 100;
+  top: 12px;
+  left: 12px;
+  padding: 10px 14px;
+  border-radius: 4px;
+  color: var(--on-primary);
+  background: var(--primary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-decoration: none;
+  transform: translateY(calc(-100% - 24px));
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
+
 main {
   min-height: 100vh;
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 100;
+  top: 12px;
+  left: 12px;
+  padding: 10px 14px;
+  border-radius: 4px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-decoration: none;
+  transform: translateY(calc(-100% - 24px));
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
 }
 
 .hero-band,
@@ -90,8 +134,20 @@ main {
   line-height: 1.4;
 }
 
+.brand-link {
+  text-decoration: none;
+}
+
+.brand-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
 .button-primary,
 .button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 44px;
   border-radius: 4px;
   padding: 12px 20px;
@@ -509,6 +565,220 @@ h1 {
   color: var(--body);
   font-size: 15px;
   line-height: 1.75;
+  word-break: keep-all;
+}
+
+.guide-page {
+  background: var(--canvas);
+}
+
+.guide-hero {
+  border-bottom: 1px solid var(--hairline);
+  padding: 32px;
+}
+
+.guide-hero-grid {
+  display: grid;
+  max-width: 960px;
+}
+
+.guide-hero-copy {
+  min-width: 0;
+}
+
+.guide-hero-copy h1 {
+  text-wrap: balance;
+}
+
+.guide-nav-link {
+  flex: 0 0 auto;
+  text-decoration: none;
+}
+
+.guide-summary,
+.guide-layout,
+.guide-link-section {
+  padding: 32px;
+}
+
+.guide-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.guide-summary-item {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.guide-summary-item span {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.guide-summary-item p {
+  margin: 0;
+  color: var(--body);
+  font-size: 15px;
+  line-height: 1.65;
+  word-break: keep-all;
+}
+
+.guide-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 760px) minmax(260px, 340px);
+  gap: 32px;
+  align-items: start;
+}
+
+.guide-article {
+  display: grid;
+  gap: 36px;
+  min-width: 0;
+}
+
+.guide-section {
+  display: grid;
+  gap: 14px;
+  scroll-margin-top: 24px;
+}
+
+.guide-section h2,
+.guide-aside h2,
+.guide-link-heading h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1.28;
+  text-wrap: balance;
+}
+
+.guide-section p,
+.guide-section li,
+.guide-aside p {
+  margin: 0;
+  color: var(--body);
+  font-size: 17px;
+  line-height: 1.78;
+  word-break: keep-all;
+}
+
+.guide-section ul {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 0;
+  padding-left: 22px;
+}
+
+.guide-faq details {
+  border-top: 1px solid var(--hairline);
+  padding: 16px 0;
+}
+
+.guide-faq details:last-child {
+  border-bottom: 1px solid var(--hairline);
+}
+
+.guide-faq summary {
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.5;
+  word-break: keep-all;
+}
+
+.guide-faq summary:focus-visible {
+  outline: 2px solid var(--blue-info);
+  outline-offset: 4px;
+}
+
+.guide-faq details p {
+  margin-top: 12px;
+}
+
+.guide-aside {
+  position: sticky;
+  top: 24px;
+  display: grid;
+  gap: 18px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 24px;
+  background: #f8f8f8;
+}
+
+.guide-aside .button-primary {
+  text-decoration: none;
+}
+
+.guide-link-section {
+  display: grid;
+  gap: 18px;
+  border-top: 1px solid var(--hairline);
+}
+
+.guide-link-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.guide-link-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  min-height: 210px;
+  align-content: start;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 22px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.guide-link-card:hover,
+.guide-link-card:focus-visible {
+  border-color: var(--primary);
+  box-shadow: 0 12px 28px rgb(8 8 8 / 8%);
+}
+
+.guide-link-card span {
+  color: var(--body-mid);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.guide-link-card strong {
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-wrap: balance;
+}
+
+.guide-link-card p {
+  margin: 0;
+  color: var(--body);
+  font-size: 14px;
+  line-height: 1.65;
   word-break: keep-all;
 }
 
@@ -1519,10 +1789,18 @@ td {
 
 @media (max-width: 991px) {
   .about-card-grid,
+  .guide-hero-grid,
+  .guide-layout,
+  .guide-link-grid,
+  .guide-summary,
   .hero-grid,
   .content-grid,
   .table-grid {
     grid-template-columns: 1fr;
+  }
+
+  .guide-aside {
+    position: static;
   }
 
   .input-panel {
@@ -1534,6 +1812,10 @@ td {
   .hero-band,
   .about-panel,
   .content-grid,
+  .guide-hero,
+  .guide-layout,
+  .guide-link-section,
+  .guide-summary,
   .site-footer {
     padding: 24px 16px;
   }
@@ -1626,6 +1908,29 @@ td {
   .about-card p {
     font-size: 14px;
     line-height: 1.7;
+  }
+
+  .guide-summary-item {
+    padding: 16px;
+  }
+
+  .guide-section h2,
+  .guide-aside h2,
+  .guide-link-heading h2 {
+    font-size: 26px;
+  }
+
+  .guide-section p,
+  .guide-section li,
+  .guide-aside p,
+  .guide-faq summary {
+    font-size: 16px;
+    line-height: 1.7;
+  }
+
+  .guide-link-card {
+    min-height: 0;
+    padding: 20px;
   }
 
   .scenario-grid {
@@ -1771,6 +2076,10 @@ td {
   .hero-band,
   .about-panel,
   .content-grid,
+  .guide-hero,
+  .guide-layout,
+  .guide-link-section,
+  .guide-summary,
   .site-footer {
     padding-right: 12px;
     padding-left: 12px;

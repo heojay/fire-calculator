@@ -4,6 +4,7 @@ import type {
   PointerEvent,
   ReactNode,
 } from "react";
+import seoPages from "./seoPages.json";
 import {
   FIRE_PRESETS,
   MIN_WITHDRAWAL_RATE,
@@ -26,6 +27,7 @@ type CalculationMode = "trinity" | "depletion";
 type ValueBasis = "nominal" | "present";
 type MainTab = "calculator" | "about";
 type ResultTab = "summary" | "monthly" | "experiments";
+type SeoGuidePage = (typeof seoPages)[number];
 
 type FormValues = {
   investableAssets: NumericFormValue;
@@ -157,6 +159,8 @@ const initialExperimentAdjustments: ExperimentAdjustments = {
 };
 const monthlyExperimentStep = 500_000;
 const annualReturnRateExperimentStep = 0.01;
+const siteOrigin = "https://fire.heojay.dev";
+const siteName = "FIRE 계산기";
 const oneTimeSpendingSteps = [
   ["100만원", 1_000_000],
   ["1000만원", 10_000_000],
@@ -164,6 +168,16 @@ const oneTimeSpendingSteps = [
 ] as const;
 
 function App() {
+  const guidePage = getGuidePageFromPath();
+
+  if (guidePage) {
+    return <GuidePage page={guidePage} />;
+  }
+
+  return <CalculatorApp />;
+}
+
+function CalculatorApp() {
   const [initialState] = useState(loadInitialAppState);
   const [calculationMode, setCalculationMode] = useState<CalculationMode>(
     initialState.calculationMode,
@@ -201,7 +215,11 @@ function App() {
   };
 
   return (
-    <main>
+    <>
+      <a className="skip-link" href="#calculator-content">
+        본문으로 건너뛰기
+      </a>
+      <main id="calculator-content">
       <header className="hero-band">
         <nav className="top-nav" aria-label="상단">
           <div className="brand">FIRE 계산기</div>
@@ -403,6 +421,8 @@ function App() {
         <AboutCalculatorTab />
       )}
 
+      <SeoGuideLinks />
+
       <footer className="site-footer">
         만든 사람{" "}
         <a href="https://heojay.dev" target="_blank" rel="noreferrer">
@@ -418,8 +438,214 @@ function App() {
           }}
         />
       )}
-    </main>
+      </main>
+    </>
   );
+}
+
+function GuidePage({ page }: { page: SeoGuidePage }) {
+  useEffect(() => {
+    applyPageMetadata(page);
+  }, [page]);
+
+  return (
+    <>
+      <a className="skip-link" href="#guide-content">
+        본문으로 건너뛰기
+      </a>
+      <main className="guide-page" id="guide-content">
+        <header className="guide-hero">
+          <nav className="top-nav" aria-label="상단">
+            <span aria-hidden="true" />
+            <a className="button-secondary guide-nav-link" href="/">
+              계산기 열기
+            </a>
+          </nav>
+
+          <div className="guide-hero-grid">
+            <div className="guide-hero-copy">
+              <p className="eyebrow">{page.eyebrow}</p>
+              <h1>{page.h1}</h1>
+              <p className="lead">{page.lead}</p>
+            </div>
+          </div>
+        </header>
+
+        <section className="guide-summary" aria-label="핵심 요약">
+          {page.summary.map((item, index) => (
+            <article className="guide-summary-item" key={item}>
+              <span aria-hidden="true">{index + 1}</span>
+              <p>{item}</p>
+            </article>
+          ))}
+        </section>
+
+        <div className="guide-layout">
+          <article className="guide-article">
+            {page.sections.map((section) => (
+              <section className="guide-section" key={section.heading}>
+                <h2>{section.heading}</h2>
+                {section.paragraphs.map((paragraph) => (
+                  <p key={paragraph}>{paragraph}</p>
+                ))}
+                <ul>
+                  {section.bullets.map((bullet) => (
+                    <li key={bullet}>{bullet}</li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+
+            <section className="guide-section guide-faq">
+              <h2>자주 묻는 질문</h2>
+              {page.faq.map((item) => (
+                <details key={item.question}>
+                  <summary>{item.question}</summary>
+                  <p>{item.answer}</p>
+                </details>
+              ))}
+            </section>
+          </article>
+
+          <aside className="guide-aside" aria-label="관련 도구">
+            <div>
+              <p className="eyebrow">CALCULATOR</p>
+              <h2>내 조건으로 다시 계산하기</h2>
+              <p>
+                현재 보유 자산, 월 수입, 은퇴 후 지출, 국민연금 예상액을 입력해
+                경제적 자립까지의 거리를 확인하세요.
+              </p>
+            </div>
+            <a className="button-primary" href="/">
+              FIRE 계산기 사용하기
+            </a>
+          </aside>
+        </div>
+
+        <SeoGuideLinks currentPath={page.path} />
+
+        <footer className="site-footer">
+          만든 사람{" "}
+          <a href="https://heojay.dev" target="_blank" rel="noreferrer">
+            heojay.dev
+          </a>
+        </footer>
+      </main>
+    </>
+  );
+}
+
+function SeoGuideLinks({ currentPath }: { currentPath?: string }) {
+  const linkedPages = seoPages.filter((page) => page.path !== currentPath);
+
+  return (
+    <section className="guide-link-section" aria-labelledby="guide-link-title">
+      <div className="guide-link-heading">
+        <p className="eyebrow">GUIDES</p>
+        <h2 id="guide-link-title">경제적 자립 계산 가이드</h2>
+      </div>
+      <div className="guide-link-grid">
+        {linkedPages.map((page) => (
+          <a className="guide-link-card" href={page.path} key={page.slug}>
+            <span>{page.eyebrow}</span>
+            <strong>{page.h1}</strong>
+            <p>{page.description}</p>
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function getGuidePageFromPath(): SeoGuidePage | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const pathname = normalizePathname(window.location.pathname);
+
+  return seoPages.find((page) => normalizePathname(page.path) === pathname) ?? null;
+}
+
+function normalizePathname(pathname: string): string {
+  return pathname.endsWith("/") ? pathname : `${pathname}/`;
+}
+
+function applyPageMetadata(page: SeoGuidePage) {
+  const canonicalUrl = `${siteOrigin}${page.path}`;
+
+  document.title = page.title;
+  setMeta("name", "description", page.description);
+  setCanonical(canonicalUrl);
+  setMeta("property", "og:type", "article");
+  setMeta("property", "og:url", canonicalUrl);
+  setMeta("property", "og:title", page.title);
+  setMeta("property", "og:description", page.description);
+  setMeta("property", "og:image", `${siteOrigin}/og-image.png`);
+  setMeta("property", "og:image:alt", page.h1);
+  setMeta("name", "twitter:card", "summary_large_image");
+  setMeta("name", "twitter:title", page.title);
+  setMeta("name", "twitter:description", page.description);
+  setMeta("name", "twitter:image", `${siteOrigin}/twitter-image.png`);
+  setMeta("name", "twitter:image:alt", page.h1);
+  setJsonLd(createGuideJsonLd(page));
+}
+
+function setMeta(attribute: "name" | "property", key: string, content: string) {
+  let meta = document.head.querySelector<HTMLMetaElement>(`meta[${attribute}="${key}"]`);
+
+  if (!meta) {
+    meta = document.createElement("meta");
+    meta.setAttribute(attribute, key);
+    document.head.append(meta);
+  }
+
+  meta.content = content;
+}
+
+function setCanonical(href: string) {
+  let canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+
+  if (!canonical) {
+    canonical = document.createElement("link");
+    canonical.rel = "canonical";
+    document.head.append(canonical);
+  }
+
+  canonical.href = href;
+}
+
+function setJsonLd(data: unknown) {
+  const scriptId = "page-json-ld";
+  let script = document.head.querySelector<HTMLScriptElement>(`#${scriptId}`);
+
+  if (!script) {
+    script = document.createElement("script");
+    script.id = scriptId;
+    script.type = "application/ld+json";
+    document.head.append(script);
+  }
+
+  script.textContent = JSON.stringify(data);
+}
+
+function createGuideJsonLd(page: SeoGuidePage) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "@id": `${siteOrigin}${page.path}#faq`,
+    name: page.title,
+    description: page.description,
+    url: `${siteOrigin}${page.path}`,
+    mainEntity: page.faq.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer,
+      },
+    })),
+  };
 }
 
 function HelpDialog({ onClose }: { onClose: () => void }) {

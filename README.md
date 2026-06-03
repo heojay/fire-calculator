@@ -14,6 +14,7 @@
 - 월별 자산 추이 표/그래프 표시
 - 월 저축액, 은퇴 후 월 지출, 일회성 지출, 수익률 조건을 동시에 조정하는 가정 비교
 - 경제적 자립 개념과 계산 결과 해석을 정리한 `계산기에 대해서` 탭
+- 4% 룰, 경제적 자립, 은퇴자금 계산 방법을 설명하는 정적 SEO 가이드 페이지
 
 ## 입력값
 
@@ -208,7 +209,15 @@ npm test
 npm run build
 ```
 
-빌드 결과는 `dist/`에 생성됩니다. Vercel에서는 Vite 프로젝트로 자동 감지되며, 별도 설정 없이 다음 값으로 배포할 수 있습니다.
+빌드 결과는 `dist/`에 생성됩니다. `npm run build`는 Vite 빌드 뒤에 SEO 가이드용 정적 HTML과 sitemap을 함께 생성합니다.
+
+생성되는 가이드 URL은 아래와 같습니다.
+
+- `/guides/4-percent-rule/`
+- `/guides/financial-independence/`
+- `/guides/retirement-fund/`
+
+가이드 본문과 메타데이터는 `src/seoPages.json`에서 관리합니다. Vercel에서는 Vite 프로젝트로 자동 감지되며, 별도 설정 없이 다음 값으로 배포할 수 있습니다.
 
 - Build Command: `npm run build`
 - Output Directory: `dist`
