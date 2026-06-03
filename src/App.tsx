@@ -55,8 +55,8 @@ type InitialAppState = CachedAppState & {
 type ImpactMode = "trinity" | "depletion";
 type ExperimentAdjustmentKey = keyof ExperimentAdjustments;
 type ExperimentAdjustments = {
-  monthlySpendingDelta: number;
   monthlySavingsDelta: number;
+  monthlyIncomeDelta: number;
   oneTimeSpendingDelta: number;
   annualReturnRateDelta: number;
 };
@@ -150,8 +150,8 @@ const numericFormFields: NumericFormField[] = [
   "nationalPensionMonthlyAmount",
 ];
 const initialExperimentAdjustments: ExperimentAdjustments = {
-  monthlySpendingDelta: 0,
   monthlySavingsDelta: 0,
+  monthlyIncomeDelta: 0,
   oneTimeSpendingDelta: 0,
   annualReturnRateDelta: 0,
 };
@@ -605,7 +605,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
             </p>
             <p>예를 들어 다음과 같은 질문을 확인할 수 있습니다.</p>
             <ul>
-              <li>월 소비와 월 저축을 각각 50만 원 단위로 바꾸면 어떻게 달라질까?</li>
+              <li>월 저축과 월 수입을 각각 50만 원 단위로 바꾸면 어떻게 달라질까?</li>
               <li>오늘 100만 원, 1000만 원, 1억 원을 덜 쓰거나 더 쓰면 어떻게 달라질까?</li>
               <li>연평균 투자 수익률이 1%p 달라지면 결과가 얼마나 바뀔까?</li>
             </ul>
@@ -1118,16 +1118,6 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
       <div className="impact-layout">
         <div className="impact-controls" aria-label="실험 변수 조정">
           <ImpactStepper
-            description="현재 월 소비와 은퇴 후 월 지출을 같은 금액만큼 바꿉니다."
-            decrementLabel="월 소비 50만원 줄이기"
-            incrementLabel="월 소비 50만원 늘리기"
-            label="월 소비"
-            value={adjustments.monthlySpendingDelta}
-            valueLabel={formatSignedMoney(adjustments.monthlySpendingDelta)}
-            onDecrement={() => updateAdjustment("monthlySpendingDelta", -monthlyExperimentStep)}
-            onIncrement={() => updateAdjustment("monthlySpendingDelta", monthlyExperimentStep)}
-          />
-          <ImpactStepper
             description="최종 월 저축이 이 금액만큼 변하도록 월 수입을 보정합니다."
             decrementLabel="월 저축 50만원 줄이기"
             incrementLabel="월 저축 50만원 늘리기"
@@ -1136,6 +1126,16 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
             valueLabel={formatSignedMoney(adjustments.monthlySavingsDelta)}
             onDecrement={() => updateAdjustment("monthlySavingsDelta", -monthlyExperimentStep)}
             onIncrement={() => updateAdjustment("monthlySavingsDelta", monthlyExperimentStep)}
+          />
+          <ImpactStepper
+            description="현재 월 수입만 50만원 단위로 바꿉니다."
+            decrementLabel="월 수입 50만원 줄이기"
+            incrementLabel="월 수입 50만원 늘리기"
+            label="월 수입 변경"
+            value={adjustments.monthlyIncomeDelta}
+            valueLabel={formatSignedMoney(adjustments.monthlyIncomeDelta)}
+            onDecrement={() => updateAdjustment("monthlyIncomeDelta", -monthlyExperimentStep)}
+            onIncrement={() => updateAdjustment("monthlyIncomeDelta", monthlyExperimentStep)}
           />
           <OneTimeSpendingControl
             selectedStep={oneTimeSpendingStep}
@@ -1181,16 +1181,9 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
               </dd>
             </div>
             <div>
-              <dt>현재 월 소비</dt>
+              <dt>현재 월 수입</dt>
               <dd>
-                {formatMoney(inputs.monthlyExpenses)} → {formatMoney(changedInputs.monthlyExpenses)}
-              </dd>
-            </div>
-            <div>
-              <dt>은퇴 후 월 지출</dt>
-              <dd>
-                {formatMoney(inputs.retirementMonthlyExpenses)} →{" "}
-                {formatMoney(changedInputs.retirementMonthlyExpenses)}
+                {formatMoney(inputs.monthlyIncome)} → {formatMoney(changedInputs.monthlyIncome)}
               </dd>
             </div>
             <div>
@@ -2562,12 +2555,7 @@ function applyExperimentAdjustments(
     ...inputs,
     investableAssets: Math.max(inputs.investableAssets - adjustments.oneTimeSpendingDelta, 0),
     monthlyIncome: Math.max(
-      inputs.monthlyIncome + adjustments.monthlySpendingDelta + adjustments.monthlySavingsDelta,
-      0,
-    ),
-    monthlyExpenses: Math.max(inputs.monthlyExpenses + adjustments.monthlySpendingDelta, 0),
-    retirementMonthlyExpenses: Math.max(
-      inputs.retirementMonthlyExpenses + adjustments.monthlySpendingDelta,
+      inputs.monthlyIncome + adjustments.monthlySavingsDelta + adjustments.monthlyIncomeDelta,
       0,
     ),
     annualNominalReturnRate: inputs.annualNominalReturnRate + adjustments.annualReturnRateDelta,
@@ -2584,12 +2572,12 @@ function formatExperimentAdjustmentSummary(adjustments: ExperimentAdjustments): 
   }
 
   const summaries = [
-    adjustments.monthlySpendingDelta === 0
-      ? null
-      : `월 소비 ${formatSignedMoney(adjustments.monthlySpendingDelta)}`,
     adjustments.monthlySavingsDelta === 0
       ? null
       : `월 저축 ${formatSignedMoney(adjustments.monthlySavingsDelta)}`,
+    adjustments.monthlyIncomeDelta === 0
+      ? null
+      : `월 수입 ${formatSignedMoney(adjustments.monthlyIncomeDelta)}`,
     adjustments.oneTimeSpendingDelta === 0
       ? null
       : `오늘 일회성 소비 ${formatSignedMoney(adjustments.oneTimeSpendingDelta)}`,
