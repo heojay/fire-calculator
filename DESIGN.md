@@ -56,18 +56,6 @@ typography:
     fontSize: 20px
     fontWeight: 500
     lineHeight: 28px
-  eyebrow-uppercase:
-    fontFamily: WF Visual Sans Variable, Inter, system-ui, sans-serif
-    fontSize: 15px
-    fontWeight: 500
-    lineHeight: 19.5px
-    letterSpacing: 1.5px
-  eyebrow-uppercase-sm:
-    fontFamily: WF Visual Sans Variable, Inter, system-ui, sans-serif
-    fontSize: 12px
-    fontWeight: 500
-    lineHeight: 12px
-    letterSpacing: 0.6px
   body-lg:
     fontFamily: WF Visual Sans Variable, Inter, system-ui, sans-serif
     fontSize: 28.8px
@@ -284,7 +272,7 @@ components:
     rounded: "{rounded.sm}"
     padding: "{spacing.md} {spacing.lg}"
   ex-data-table-cell:
-    description: "Default data-table th + td chrome. Header uses mono-caps eyebrow typography; body uses body-sm."
+    description: "Default data-table th + td chrome. Header uses caption typography; body uses body-sm."
     headerBackground: "{colors.canvas}"
     headerTypography: "{typography.caption}"
     bodyTypography: "{typography.body-sm}"
@@ -320,7 +308,7 @@ components:
 
 Webflow positions itself as the visual web development platform — the marketing surface reads as a confident professional product, not a tech startup. The default page is a generous white canvas (`{colors.canvas}`) with a deep near-black `{colors.primary}` (`#080808`) for the brand's primary CTA, typography, and ink. Around this restrained primary, the brand layers a five-stop chromatic accent system — `{colors.accent-purple}` `#7a3dff`, `{colors.accent-pink}` `#ed52cb`, `{colors.accent-blue}` `#3b89ff`, `{colors.accent-orange}` `#ff6b00`, `{colors.accent-green}` `#00d722` — each mapped to one of the platform's product categories (design, CMS, hosting, ecommerce, etc.). These accents appear as full-card fills inside the product-category grid, not as button colours; the brand's primary CTA stays near-black.
 
-Type carries the second decisive voice. The proprietary `WF Visual Sans Variable` family carries every display, body, and label role at weight 500 / 600 — the brand never goes heavier than semibold, never lighter than regular. Hero display sits at 80 px / weight 600 / `-0.8 px` tracking — confident but not shouting. Uppercase eyebrows in 15 px weight 500 with `1.5 px` positive tracking mark every section header.
+Type carries the second decisive voice. The proprietary `WF Visual Sans Variable` family carries every display, body, and label role at weight 500 / 600 — the brand never goes heavier than semibold, never lighter than regular. Hero display sits at 80 px / weight 600 / `-0.8 px` tracking — confident but not shouting. Visible section structure is carried by localized Korean headings; avoid duplicate secondary English labels above headings.
 
 The shape system is restrained. Buttons take a tight `{rounded.sm}` 4 px radius — neither pill nor square; the brand reads as engineered. Cards step up to `{rounded.md}` 8 px. Pill (`{rounded.full}` 9999 px) is reserved for circular icon containers. Layered drop-shadows on featured cards add modest elevation but never feel material-heavy.
 
@@ -379,8 +367,6 @@ A single proprietary family carries every typographic role: **WF Visual Sans Var
 | `{typography.display-md}` | 32px | 500 | 41.6px | 0 | Card-cluster headlines. |
 | `{typography.display-sm}` | 24px | 500 | 31.2px | 0 | Sub-section displays. |
 | `{typography.display-xs}` | 20px | 500 | 28px | 0 | Inline display micro-headings. |
-| `{typography.eyebrow-uppercase}` | 15px | 500 | 19.5px | 1.5px | UPPERCASE eyebrow tags above sections. |
-| `{typography.eyebrow-uppercase-sm}` | 12px | 500 | 12px | 0.6px | Small uppercase metadata. |
 | `{typography.body-lg}` | 28.8px | 400 | 46.08px | -0.288px | Lead paragraphs. |
 | `{typography.body-md}` | 16px | 400 | 25.6px | -0.16px | Default body. |
 | `{typography.body-md-strong}` | 16px | 500 | 25.6px | -0.16px | Bolded inline body. |
@@ -393,7 +379,7 @@ A single proprietary family carries every typographic role: **WF Visual Sans Var
 ### Principles
 - **Weight ceiling at 600.** The brand never uses 700+. Confident, not loud.
 - **Negative tracking at display sizes.** `-0.8 px` at 80 px, scaling through. Tight kerning is part of the voice.
-- **Uppercase eyebrows mark every section.** 15 px / weight 500 / `1.5 px` positive tracking is the brand's signature label style.
+- **Localized headings carry section structure.** Do not add duplicate secondary English labels above Korean headings; use accessible labels only when a visible heading is not appropriate.
 - **Single family across the system.** No separate display vs body face. The variable axes do the work.
 
 ### Note on Font Substitutes
@@ -555,7 +541,7 @@ Buttons render at ~44 px (12 px vertical padding + 25.6 px line-height). WCAG AA
 **`ex-app-shell-row`** — Sidebar nav row inside the App Shell example. Active state uses brand primary as the indicator.
 - Properties: `backgroundColor`, `activeIndicator`, `rounded`, `padding`
 
-**`ex-data-table-cell`** — Default data-table th + td chrome. Header uses mono-caps eyebrow typography; body uses body-sm.
+**`ex-data-table-cell`** — Default data-table th + td chrome. Header uses caption typography; body uses body-sm.
 - Properties: `headerBackground`, `headerTypography`, `bodyTypography`, `cellPadding`, `rowBorder`
 
 **`ex-auth-form-card`** — Sign-in / sign-up card. Re-uses feature-card chrome with text-input primitives inside.

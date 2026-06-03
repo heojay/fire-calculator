@@ -424,14 +424,6 @@ main {
   color: var(--on-primary);
 }
 
-.eyebrow {
-  margin: 0 0 12px;
-  color: var(--body-mid);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0;
-}
-
 h1,
 h2,
 h3,
@@ -764,13 +756,6 @@ h1 {
 .guide-link-card:focus-visible {
   border-color: var(--primary);
   box-shadow: 0 12px 28px rgb(8 8 8 / 8%);
-}
-
-.guide-link-card span {
-  color: var(--body-mid);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.4;
 }
 
 .guide-link-card strong {

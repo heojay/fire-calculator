@@ -237,7 +237,6 @@ function CalculatorApp() {
         </nav>
 
         <section className="hero-grid">
-          <p className="eyebrow">FIRE CALCULATOR</p>
           <h1 className="hero-title">경제적 자립까지의 거리를 계산합니다</h1>
           <p className="lead">
             현재 자산, 월 수입, 소비, 수익률 가정을 바탕으로 경제적 자립까지의
@@ -258,7 +257,6 @@ function CalculatorApp() {
         >
           <section className="input-panel">
             <div className="section-heading">
-              <p className="eyebrow">INPUTS</p>
               <h2>입력값</h2>
             </div>
 
@@ -354,7 +352,6 @@ function CalculatorApp() {
           <section className="results-panel">
             <div className="section-heading results-heading">
               <div>
-                <p className="eyebrow">RESULTS</p>
                 <h2>계산 결과</h2>
               </div>
               <div className="results-controls">
@@ -486,7 +483,6 @@ function GuidePage({ page }: { page: SeoGuidePage }) {
 
           <div className="guide-hero-grid">
             <div className="guide-hero-copy">
-              <p className="eyebrow">{page.eyebrow}</p>
               <h1>{page.h1}</h1>
               <p className="lead">{page.lead}</p>
             </div>
@@ -531,7 +527,6 @@ function GuidePage({ page }: { page: SeoGuidePage }) {
 
           <aside className="guide-aside" aria-label="관련 도구">
             <div>
-              <p className="eyebrow">CALCULATOR</p>
               <h2>내 조건으로 다시 계산하기</h2>
               <p>
                 현재 보유 자산, 월 수입, 은퇴 후 지출, 국민연금 예상액을 입력해
@@ -563,13 +558,11 @@ function SeoGuideLinks({ currentPath }: { currentPath?: string }) {
   return (
     <section className="guide-link-section" aria-labelledby="guide-link-title">
       <div className="guide-link-heading">
-        <p className="eyebrow">GUIDES</p>
         <h2 id="guide-link-title">경제적 자립 계산 가이드</h2>
       </div>
       <div className="guide-link-grid">
         {linkedPages.map((page) => (
           <a className="guide-link-card" href={page.path} key={page.slug}>
-            <span>{page.eyebrow}</span>
             <strong>{page.h1}</strong>
             <p>{page.description}</p>
           </a>
@@ -704,7 +697,6 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
       >
         <div className="help-dialog-header">
           <div>
-            <p className="eyebrow">HELP</p>
             <h2 id={titleId}>계산 기준 도움말</h2>
           </div>
           <button
@@ -961,7 +953,6 @@ function AboutCalculatorTab() {
       tabIndex={0}
     >
       <div className="about-intro">
-        <p className="eyebrow">ABOUT</p>
         <h2>계산기에 대해서</h2>
         <p>
           이 계산기는 확정적인 은퇴일을 알려주는 도구가 아니라, 현재의 자산·소비·수익률
@@ -1246,7 +1237,6 @@ function WithdrawalRateNote({ withdrawalRate }: { withdrawalRate: number }) {
   return (
     <article className="chart-card model-note">
       <div>
-        <p className="eyebrow">MODEL</p>
         <h3>목표 인출률 모델</h3>
       </div>
       <p>
@@ -1347,7 +1337,6 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
     <section className="chart-card impact-section" aria-labelledby="impact-section-title">
       <div className="impact-heading">
         <div>
-          <p className="eyebrow">ASSUMPTIONS</p>
           <h3 id="impact-section-title">가정 비교</h3>
           <p>
             현재 입력값은 저장하지 않고, 여러 가정을 함께 조정했을 때 {timingLabel}이
@@ -1415,7 +1404,6 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
 
         <div className="impact-result-panel" aria-live="polite">
           <div>
-            <p className="eyebrow">SUMMARY</p>
             <h4>종합 결과</h4>
           </div>
           <div className="impact-result-main">
@@ -1618,7 +1606,6 @@ function DepletionSummary({
     <>
       <article className="chart-card model-note">
         <div>
-          <p className="eyebrow">MODEL</p>
           <h3>기대수명 소진 모델</h3>
         </div>
         <p>
@@ -1726,7 +1713,6 @@ function DepletionChart({
       <article className="chart-card">
         <div className="chart-heading">
           <div>
-            <p className="eyebrow">CHART</p>
             <h3>기대수명 자산 추이 그래프</h3>
           </div>
         </div>
@@ -1784,7 +1770,6 @@ function DepletionChart({
     <article className="chart-card">
       <div className="chart-heading">
         <div>
-          <p className="eyebrow">CHART</p>
           <h3>기대수명 자산 추이 그래프</h3>
         </div>
         <div className="legend">
@@ -2056,7 +2041,6 @@ function AssetChart({
     <article className="chart-card">
       <div className="chart-heading">
         <div>
-          <p className="eyebrow">CHART</p>
           <h3>월별 자산 추이 그래프</h3>
         </div>
         <div className="legend">
