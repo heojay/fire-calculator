@@ -53,7 +53,7 @@ type InitialAppState = CachedAppState & {
 };
 
 type ImpactMode = "trinity" | "depletion";
-type ImpactKind = "expenses" | "savings" | "return-rate";
+type ImpactKind = "expenses" | "savings" | "spending" | "return-rate";
 type ImpactOption = {
   label: string;
   summaryLabel: string;
@@ -169,6 +169,11 @@ const savingsImpactOptions: ImpactOption[] = [
   { label: "월 저축 -50만원", summaryLabel: "월 저축 -50만원이면", delta: -500_000 },
   { label: "월 저축 +50만원", summaryLabel: "월 저축 +50만원이면", delta: 500_000 },
   { label: "월 저축 +100만원", summaryLabel: "월 저축 +100만원이면", delta: 1_000_000 },
+];
+const spendingImpactOptions: ImpactOption[] = [
+  { label: "오늘 소비 100만원", summaryLabel: "오늘 100만원을 소비하면", delta: 1_000_000 },
+  { label: "오늘 소비 1000만원", summaryLabel: "오늘 1000만원을 소비하면", delta: 10_000_000 },
+  { label: "오늘 소비 1억원", summaryLabel: "오늘 1억원을 소비하면", delta: 100_000_000 },
 ];
 const returnImpactOptions: ImpactOption[] = [
   { label: "수익률 -1%p", summaryLabel: "수익률 -1%p이면", delta: -0.01 },
@@ -621,6 +626,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
               <li>은퇴 후 월 소비를 100만 원 줄이면 은퇴가 얼마나 빨라질까?</li>
               <li>은퇴 후 월 소비가 50만 원 늘면 은퇴가 얼마나 늦어질까?</li>
               <li>월 저축을 100만 원 늘리면 은퇴가 얼마나 빨라질까?</li>
+              <li>오늘 100만 원, 1000만 원, 1억 원을 소비하면 결과가 얼마나 달라질까?</li>
               <li>수익률이 1%p 달라지면 결과가 얼마나 바뀔까?</li>
             </ul>
             <p>이 값은 실제 입력값에 저장되지 않고, 비교 계산에만 사용됩니다.</p>
@@ -1109,6 +1115,14 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
           options={savingsImpactOptions}
           title="월 저축 영향"
           description="월 저축은 현재 월 수입에서 월 소비액을 뺀 금액으로 계산합니다."
+        />
+        <ImpactCard
+          inputs={inputs}
+          kind="spending"
+          mode={mode}
+          options={spendingImpactOptions}
+          title="오늘 소비 영향"
+          description="오늘 큰 금액을 소비해 투자 가능 자산이 줄어드는 경우를 비교합니다."
         />
         <ImpactCard
           inputs={inputs}
@@ -2431,6 +2445,13 @@ function changeImpactInputs(inputs: FireInputs, kind: ImpactKind, delta: number)
     return {
       ...inputs,
       monthlyIncome: Math.max(inputs.monthlyIncome + delta, 0),
+    };
+  }
+
+  if (kind === "spending") {
+    return {
+      ...inputs,
+      investableAssets: Math.max(inputs.investableAssets - delta, 0),
     };
   }
 
