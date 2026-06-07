@@ -298,7 +298,6 @@ function CalculatorApp() {
       <header className="hero-band">
         <TopNav
           actions={[
-            { type: "link", label: "계산기", href: "#calculator-content" },
             { type: "link", label: "가이드", href: guideListPath },
             {
               type: "button",
@@ -532,7 +531,7 @@ function GuideListPage() {
 
           <div className="guide-hero-grid">
             <div className="guide-hero-copy">
-              <h1>경제적 자립 계산 가이드</h1>
+              <h1 className="hero-title">경제적 자립 계산 가이드</h1>
               <p className="lead">
                 4% 룰, FIRE 유형, 은퇴 생활비, 목표 자산 계산법처럼 계산 결과를
                 해석할 때 필요한 글을 한곳에 모았습니다.
@@ -589,7 +588,7 @@ function GuidePage({ page }: { page: SeoGuidePage }) {
 
           <div className="guide-hero-grid">
             <div className="guide-hero-copy">
-              <h1>{page.h1}</h1>
+              <h1 className="hero-title">{page.h1}</h1>
               <p className="lead">{page.lead}</p>
             </div>
           </div>

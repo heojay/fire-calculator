@@ -676,6 +676,8 @@ h1 {
 }
 
 .guide-hero {
+  display: grid;
+  gap: 18px;
   border-bottom: 1px solid var(--hairline);
   padding: 32px;
 }
