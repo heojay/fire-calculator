@@ -7,6 +7,10 @@ const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const distDir = join(rootDir, "dist");
 const sourceHtmlPath = join(distDir, "index.html");
 const seoPagesPath = join(rootDir, "src", "seoPages.json");
+const guideListPath = "/guides/";
+const guideListTitle = "경제적 자립 계산 가이드 | FIRE 계산기";
+const guideListDescription =
+  "4% 룰, 경제적 자립, 은퇴자금 계산 방법 등 FIRE 계산기를 이해하는 데 필요한 가이드를 모아 봅니다.";
 
 const [sourceHtml, seoPagesJson] = await Promise.all([
   readFile(sourceHtmlPath, "utf8"),
@@ -14,8 +18,81 @@ const [sourceHtml, seoPagesJson] = await Promise.all([
 ]);
 const seoPages = JSON.parse(seoPagesJson);
 
-await Promise.all(seoPages.map((page) => writeGuidePage(page, sourceHtml)));
+await Promise.all([
+  writeGuideListPage(sourceHtml, seoPages),
+  ...seoPages.map((page) => writeGuidePage(page, sourceHtml)),
+]);
 await writeSitemap(seoPages);
+
+async function writeGuideListPage(html, seoPages) {
+  const canonicalUrl = `${siteOrigin}${guideListPath}`;
+  const guideListJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "@id": `${canonicalUrl}#guides`,
+    name: guideListTitle,
+    description: guideListDescription,
+    url: canonicalUrl,
+    mainEntity: {
+      "@type": "ItemList",
+      itemListElement: seoPages.map((page, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        url: `${siteOrigin}${page.path}`,
+        name: page.h1,
+      })),
+    },
+  };
+
+  const guideListHtml = html
+    .replace(/<title>.*?<\/title>/s, `<title>${escapeHtml(guideListTitle)}</title>`)
+    .replace(
+      /<meta\s+name="description"\s+content="[^"]*"\s*\/>/s,
+      `<meta name="description" content="${escapeHtml(guideListDescription)}" />`,
+    )
+    .replace(
+      /<link\s+rel="canonical"\s+href="[^"]*"\s*\/>/s,
+      `<link rel="canonical" href="${canonicalUrl}" />`,
+    )
+    .replace(
+      /<meta\s+property="og:url"\s+content="[^"]*"\s*\/>/s,
+      `<meta property="og:url" content="${canonicalUrl}" />`,
+    )
+    .replace(
+      /<meta\s+property="og:title"\s+content="[^"]*"\s*\/>/s,
+      `<meta property="og:title" content="${escapeHtml(guideListTitle)}" />`,
+    )
+    .replace(
+      /<meta\s+property="og:description"\s+content="[^"]*"\s*\/>/s,
+      `<meta property="og:description" content="${escapeHtml(guideListDescription)}" />`,
+    )
+    .replace(
+      /<meta\s+property="og:image:alt"\s+content="[^"]*"\s*\/>/s,
+      '<meta property="og:image:alt" content="경제적 자립 계산 가이드" />',
+    )
+    .replace(
+      /<meta\s+name="twitter:title"\s+content="[^"]*"\s*\/>/s,
+      `<meta name="twitter:title" content="${escapeHtml(guideListTitle)}" />`,
+    )
+    .replace(
+      /<meta\s+name="twitter:description"\s+content="[^"]*"\s*\/>/s,
+      `<meta name="twitter:description" content="${escapeHtml(guideListDescription)}" />`,
+    )
+    .replace(
+      /<meta\s+name="twitter:image:alt"\s+content="[^"]*"\s*\/>/s,
+      '<meta name="twitter:image:alt" content="경제적 자립 계산 가이드" />',
+    )
+    .replace(
+      /<script id="page-json-ld" type="application\/ld\+json">.*?<\/script>/s,
+      `<script id="page-json-ld" type="application/ld+json">${JSON.stringify(
+        guideListJsonLd,
+      )}</script>`,
+    );
+
+  const outputPath = join(distDir, guideListPath, "index.html");
+  await mkdir(dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, guideListHtml);
+}
 
 async function writeGuidePage(page, html) {
   const canonicalUrl = `${siteOrigin}${page.path}`;
@@ -94,6 +171,7 @@ async function writeSitemap(seoPages) {
   const lastmod = new Date().toISOString().slice(0, 10);
   const urls = [
     { loc: `${siteOrigin}/`, priority: "1.0" },
+    { loc: `${siteOrigin}${guideListPath}`, priority: "0.9" },
     ...seoPages.map((page) => ({
       loc: `${siteOrigin}${page.path}`,
       priority: "0.8",

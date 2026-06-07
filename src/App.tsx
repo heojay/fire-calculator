@@ -177,6 +177,10 @@ const monthlyExperimentStep = 500_000;
 const annualReturnRateExperimentStep = 0.01;
 const siteOrigin = "https://fire.heojay.dev";
 const siteName = "FIRE 계산기";
+const guideListPath = "/guides/";
+const guideListTitle = "경제적 자립 계산 가이드 | FIRE 계산기";
+const guideListDescription =
+  "4% 룰, 경제적 자립, 은퇴자금 계산 방법 등 FIRE 계산기를 이해하는 데 필요한 가이드를 모아 봅니다.";
 const oneTimeSpendingSteps = [
   ["100만원", 1_000_000],
   ["1000만원", 10_000_000],
@@ -184,6 +188,10 @@ const oneTimeSpendingSteps = [
 ] as const;
 
 function App() {
+  if (isGuideListPath()) {
+    return <GuideListPage />;
+  }
+
   const guidePage = getGuidePageFromPath();
 
   if (guidePage) {
@@ -239,14 +247,19 @@ function CalculatorApp() {
       <header className="hero-band">
         <nav className="top-nav" aria-label="상단">
           <div className="brand">FIRE 계산기</div>
-          <button
-            className="help-button"
-            ref={helpButtonRef}
-            type="button"
-            onClick={() => setIsHelpOpen(true)}
-          >
-            계산 기준
-          </button>
+          <div className="top-nav-actions">
+            <a className="button-secondary top-nav-link" href={guideListPath}>
+              가이드
+            </a>
+            <button
+              className="help-button"
+              ref={helpButtonRef}
+              type="button"
+              onClick={() => setIsHelpOpen(true)}
+            >
+              계산 기준
+            </button>
+          </div>
         </nav>
 
         <section className="hero-grid">
@@ -474,6 +487,66 @@ function CalculatorApp() {
   );
 }
 
+function GuideListPage() {
+  useEffect(() => {
+    applyGuideListMetadata();
+  }, []);
+
+  return (
+    <>
+      <a className="skip-link" href="#guide-list-content">
+        본문으로 건너뛰기
+      </a>
+      <main className="guide-page" id="guide-list-content">
+        <header className="guide-hero">
+          <nav className="top-nav" aria-label="상단">
+            <a className="brand brand-link" href="/">
+              FIRE 계산기
+            </a>
+            <div className="top-nav-actions">
+              <a className="button-secondary guide-nav-link" href="/">
+                계산기 열기
+              </a>
+            </div>
+          </nav>
+
+          <div className="guide-hero-grid">
+            <div className="guide-hero-copy">
+              <h1>경제적 자립 계산 가이드</h1>
+              <p className="lead">
+                4% 룰, 은퇴자금, 경제적 자립 기준처럼 계산 결과를 해석할 때 필요한
+                글을 한곳에 모았습니다.
+              </p>
+            </div>
+          </div>
+        </header>
+
+        <section className="guide-list-section" aria-labelledby="guide-list-title">
+          <div className="guide-link-heading">
+            <h2 id="guide-list-title">전체 가이드</h2>
+          </div>
+          <div className="guide-link-grid guide-list-grid">
+            {seoPages.map((page) => (
+              <a className="guide-link-card guide-list-card" href={page.path} key={page.slug}>
+                <span className="guide-card-kicker">가이드</span>
+                <strong>{page.h1}</strong>
+                <p>{page.description}</p>
+              </a>
+            ))}
+          </div>
+        </section>
+
+        <footer className="site-footer">
+          만든 사람{" "}
+          <a href="https://heojay.dev" target="_blank" rel="noreferrer">
+            heojay.dev
+          </a>
+        </footer>
+      </main>
+    </>
+  );
+}
+
 function GuidePage({ page }: { page: SeoGuidePage }) {
   useEffect(() => {
     applyPageMetadata(page);
@@ -487,10 +560,17 @@ function GuidePage({ page }: { page: SeoGuidePage }) {
       <main className="guide-page" id="guide-content">
         <header className="guide-hero">
           <nav className="top-nav" aria-label="상단">
-            <span aria-hidden="true" />
-            <a className="button-secondary guide-nav-link" href="/">
-              계산기 열기
+            <a className="brand brand-link" href="/">
+              FIRE 계산기
             </a>
+            <div className="top-nav-actions">
+              <a className="button-secondary top-nav-link" href={guideListPath}>
+                가이드
+              </a>
+              <a className="button-secondary guide-nav-link" href="/">
+                계산기 열기
+              </a>
+            </div>
           </nav>
 
           <div className="guide-hero-grid">
@@ -565,23 +645,47 @@ function GuidePage({ page }: { page: SeoGuidePage }) {
 }
 
 function SeoGuideLinks({ currentPath }: { currentPath?: string }) {
-  const linkedPages = seoPages.filter((page) => page.path !== currentPath);
+  const [linkedPage] = useState(() => getRandomGuidePage(currentPath));
 
   return (
     <section className="guide-link-section" aria-labelledby="guide-link-title">
       <div className="guide-link-heading">
         <h2 id="guide-link-title">경제적 자립 계산 가이드</h2>
       </div>
-      <div className="guide-link-grid">
-        {linkedPages.map((page) => (
-          <a className="guide-link-card" href={page.path} key={page.slug}>
-            <strong>{page.h1}</strong>
-            <p>{page.description}</p>
+      <div className="guide-link-feature">
+        {linkedPage && (
+          <a className="guide-link-card" href={linkedPage.path}>
+            <span className="guide-card-kicker">추천 가이드</span>
+            <strong>{linkedPage.h1}</strong>
+            <p>{linkedPage.description}</p>
           </a>
-        ))}
+        )}
+        <a className="button-secondary guide-more-link" href={guideListPath}>
+          더보기
+        </a>
       </div>
     </section>
   );
+}
+
+function getRandomGuidePage(currentPath?: string): SeoGuidePage | null {
+  const linkedPages = seoPages.filter(
+    (page) => normalizePathname(page.path) !== normalizePathname(currentPath ?? ""),
+  );
+
+  if (linkedPages.length === 0) {
+    return null;
+  }
+
+  return linkedPages[Math.floor(Math.random() * linkedPages.length)];
+}
+
+function isGuideListPath(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return normalizePathname(window.location.pathname) === guideListPath;
 }
 
 function getGuidePageFromPath(): SeoGuidePage | null {
@@ -616,6 +720,26 @@ function applyPageMetadata(page: SeoGuidePage) {
   setMeta("name", "twitter:image", `${siteOrigin}/twitter-image.png`);
   setMeta("name", "twitter:image:alt", page.h1);
   setJsonLd(createGuideJsonLd(page));
+}
+
+function applyGuideListMetadata() {
+  const canonicalUrl = `${siteOrigin}${guideListPath}`;
+
+  document.title = guideListTitle;
+  setMeta("name", "description", guideListDescription);
+  setCanonical(canonicalUrl);
+  setMeta("property", "og:type", "website");
+  setMeta("property", "og:url", canonicalUrl);
+  setMeta("property", "og:title", guideListTitle);
+  setMeta("property", "og:description", guideListDescription);
+  setMeta("property", "og:image", `${siteOrigin}/og-image.png`);
+  setMeta("property", "og:image:alt", "경제적 자립 계산 가이드");
+  setMeta("name", "twitter:card", "summary_large_image");
+  setMeta("name", "twitter:title", guideListTitle);
+  setMeta("name", "twitter:description", guideListDescription);
+  setMeta("name", "twitter:image", `${siteOrigin}/twitter-image.png`);
+  setMeta("name", "twitter:image:alt", "경제적 자립 계산 가이드");
+  setJsonLd(createGuideListJsonLd());
 }
 
 function setMeta(attribute: "name" | "property", key: string, content: string) {
@@ -672,6 +796,26 @@ function createGuideJsonLd(page: SeoGuidePage) {
         text: item.answer,
       },
     })),
+  };
+}
+
+function createGuideListJsonLd() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "@id": `${siteOrigin}${guideListPath}#guides`,
+    name: guideListTitle,
+    description: guideListDescription,
+    url: `${siteOrigin}${guideListPath}`,
+    mainEntity: {
+      "@type": "ItemList",
+      itemListElement: seoPages.map((page, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        url: `${siteOrigin}${page.path}`,
+        name: page.h1,
+      })),
+    },
   };
 }
 

@@ -15,7 +15,7 @@
 - 기대수명 소진 모드에서 자녀 독립 이후 월 소비 감소를 반영하는 생활 변화 옵션
 - 월 저축액, 은퇴 후 월 지출, 일회성 지출, 수익률 조건을 동시에 조정하는 가정 비교
 - 경제적 자립 개념과 계산 결과 해석을 정리한 `계산기에 대해서` 탭
-- 4% 룰, 경제적 자립, 은퇴자금 계산 방법을 설명하는 정적 SEO 가이드 페이지
+- 4% 룰, 경제적 자립, 은퇴자금 계산 방법을 설명하는 정적 SEO 가이드 목록과 상세 페이지
 
 ## 계산 항목
 
@@ -231,11 +231,12 @@ npm run build
 
 생성되는 가이드 URL은 아래와 같습니다.
 
+- `/guides/`
 - `/guides/4-percent-rule/`
 - `/guides/financial-independence/`
 - `/guides/retirement-fund/`
 
-가이드 본문과 메타데이터는 `src/seoPages.json`에서 관리합니다. Vercel에서는 Vite 프로젝트로 자동 감지되며, 별도 설정 없이 다음 값으로 배포할 수 있습니다.
+가이드 목록과 상세 페이지의 본문, 링크, 메타데이터는 `src/seoPages.json`에서 관리합니다. Vercel에서는 Vite 프로젝트로 자동 감지되며, 별도 설정 없이 다음 값으로 배포할 수 있습니다.
 
 - Build Command: `npm run build`
 - Output Directory: `dist`
