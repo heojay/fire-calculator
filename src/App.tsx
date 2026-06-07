@@ -81,14 +81,14 @@ type ChartPoint = {
 };
 
 const coreFields = [
-  ["investableAssets", "현재 보유 자산", "원"],
-  ["monthlyIncome", "현재 월 수입", "원"],
-  ["monthlyExpenses", "월 평균 소비액", "원"],
+  ["investableAssets", "현재 투자자산", "원"],
+  ["monthlyIncome", "월 수입", "원"],
+  ["monthlyExpenses", "월 소비", "원"],
+  ["annualNominalReturnRate", "기대수익률", "%"],
   ["retirementMonthlyExpenses", "은퇴 후 월 지출", "원"],
 ] as const;
 
 const advancedAssumptionFields = [
-  ["annualNominalReturnRate", "연평균 투자 수익률", "%"],
   ["annualInflationRate", "연평균 물가 상승률", "%"],
   ["annualIncomeGrowthRate", "연평균 수입 증가율", "%"],
 ] as const;
@@ -267,12 +267,12 @@ function CalculatorApp() {
           </div>
         </nav>
 
-        <section className="hero-grid">
-          <h1 className="hero-title">경제적 자립까지의 거리를 계산합니다</h1>
+        <section className="hero-grid" aria-labelledby="calculator-title">
+          <h1 className="hero-title" id="calculator-title">
+            경제적 자립까지 몇 년 남았을까?
+          </h1>
           <p className="lead">
-            현재 자산, 월 수입, 소비, 수익률 가정을 바탕으로 경제적 자립까지의
-            거리를 가늠합니다. 흔히 경제적 자유라고 부르는 상태를 조금 더 현실적인
-            의미의 경제적 자립으로 다룹니다.
+            수입, 소비, 자산을 입력하면 FIRE 가능 시점을 시뮬레이션합니다.
           </p>
         </section>
 
@@ -390,8 +390,9 @@ function CalculatorApp() {
               </div>
             </div>
 
-            <ResultHero
+            <ResultSnapshot
               mode={calculationMode}
+              inputs={inputs}
               scenario={baseScenario}
               depletionResult={depletionResult}
             />
@@ -1426,34 +1427,52 @@ function handleRovingTabKey<T extends string>(
   event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[nextIndex]?.focus();
 }
 
-function ResultHero({
+function ResultSnapshot({
   mode,
+  inputs,
   scenario,
   depletionResult,
 }: {
   mode: CalculationMode;
+  inputs: FireInputs;
   scenario: FireScenarioResult;
   depletionResult: DepletionResult;
 }) {
-  if (mode === "depletion") {
-    return (
-      <aside className="hero-card">
-        <p className="card-label">기대수명 기준 은퇴 시점</p>
-        <strong>{formatDepletionTiming(depletionResult)}</strong>
-        <span>{formatDepletionStatus(depletionResult)}</span>
-      </aside>
-    );
-  }
+  const monthlySavings = inputs.monthlyIncome - inputs.monthlyExpenses;
+  const targetAssets =
+    mode === "depletion"
+      ? (depletionResult.peakAssets ?? depletionResult.finalAssets ?? scenario.currentFireTargetAssets)
+      : scenario.currentFireTargetAssets;
+  const targetProgress = targetAssets <= 0 ? 100 : (inputs.investableAssets / targetAssets) * 100;
+  const timing = mode === "depletion" ? formatDepletionTiming(depletionResult) : formatMonthsToFire(scenario);
+  const statusText =
+    mode === "depletion"
+      ? formatDepletionStatus(depletionResult)
+      : scenario.status === "achieved"
+        ? "현재 조건 기준으로 목표 자산을 충족하는 시점입니다."
+        : "현재 조건으로는 50년 안에 경제적 자립 목표 자산을 충족하기 어렵습니다.";
+  const metrics = [
+    ["예상 FIRE 시점", timing],
+    ["필요 자산", formatMoney(targetAssets)],
+    ["월 저축액", `${formatMoney(monthlySavings)} / 월`],
+    ["목표 달성률", formatProgressPercent(targetProgress)],
+  ];
 
   return (
-    <aside className="hero-card">
-      <p className="card-label">경제적 자립 시점</p>
-      <strong>{formatMonthsToFire(scenario)}</strong>
-      <span>
-        {scenario.status === "achieved"
-          ? "현재 조건 기준으로 목표 자산을 충족하는 시점입니다."
-          : "현재 조건으로는 50년 안에 경제적 자립 목표 자산을 충족하기 어렵습니다."}
-      </span>
+    <aside className="result-snapshot" aria-label="핵심 계산 결과">
+      <div className="result-snapshot-main">
+        <p className="card-label">계산 결과</p>
+        <strong>{timing}</strong>
+        <span>{statusText}</span>
+      </div>
+      <div className="result-snapshot-grid">
+        {metrics.map(([label, value]) => (
+          <article className="snapshot-metric" key={label}>
+            <span>{label}</span>
+            <strong>{value}</strong>
+          </article>
+        ))}
+      </div>
     </aside>
   );
 }
@@ -3137,6 +3156,10 @@ function formatSignedMoney(value: number): string {
 
 function formatPercentRate(value: number): string {
   return `${formatOneDecimal(value * 100)}%`;
+}
+
+function formatProgressPercent(value: number): string {
+  return `${formatOneDecimal(Math.min(Math.max(value, 0), 100))}%`;
 }
 
 function formatSignedPercentPoint(value: number): string {
