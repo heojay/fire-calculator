@@ -235,6 +235,9 @@ npm run build
 - `/guides/4-percent-rule/`
 - `/guides/financial-independence/`
 - `/guides/retirement-fund/`
+- `/guides/fire-types/`
+- `/guides/withdrawal-vs-depletion/`
+- `/guides/retirement-expenses/`
 
 가이드 목록과 상세 페이지의 본문, 링크, 메타데이터는 `src/seoPages.json`에서 관리합니다. Vercel에서는 Vite 프로젝트로 자동 감지되며, 별도 설정 없이 다음 값으로 배포할 수 있습니다.
 

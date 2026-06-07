@@ -703,6 +703,35 @@ h1 {
   padding-left: 22px;
 }
 
+.guide-table-scroll {
+  width: 100%;
+  margin: 4px 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.guide-table {
+  min-width: 640px;
+  border-top: 1px solid var(--hairline);
+}
+
+.guide-table caption {
+  margin-bottom: 10px;
+  color: var(--body-mid);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: left;
+  word-break: keep-all;
+}
+
+.guide-table th,
+.guide-table td {
+  white-space: normal;
+  vertical-align: top;
+  word-break: keep-all;
+}
+
 .guide-faq details {
   border-top: 1px solid var(--hairline);
   padding: 16px 0;

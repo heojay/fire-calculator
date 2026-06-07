@@ -10,7 +10,7 @@ const seoPagesPath = join(rootDir, "src", "seoPages.json");
 const guideListPath = "/guides/";
 const guideListTitle = "경제적 자립 계산 가이드 | FIRE 계산기";
 const guideListDescription =
-  "4% 룰, 경제적 자립, 은퇴자금 계산 방법 등 FIRE 계산기를 이해하는 데 필요한 가이드를 모아 봅니다.";
+  "4% 룰, FIRE 유형, 은퇴 생활비, 목표 자산 계산법 등 FIRE 계산기를 이해하는 데 필요한 가이드를 모아 봅니다.";
 
 const [sourceHtml, seoPagesJson] = await Promise.all([
   readFile(sourceHtmlPath, "utf8"),

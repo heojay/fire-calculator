@@ -28,6 +28,11 @@ type ValueBasis = "nominal" | "present";
 type MainTab = "calculator" | "about";
 type ResultTab = "summary" | "monthly" | "experiments";
 type SeoGuidePage = (typeof seoPages)[number];
+type GuideTableData = {
+  caption: string;
+  headers: string[];
+  rows: string[][];
+};
 
 type FormValues = {
   investableAssets: NumericFormValue;
@@ -180,7 +185,7 @@ const siteName = "FIRE 계산기";
 const guideListPath = "/guides/";
 const guideListTitle = "경제적 자립 계산 가이드 | FIRE 계산기";
 const guideListDescription =
-  "4% 룰, 경제적 자립, 은퇴자금 계산 방법 등 FIRE 계산기를 이해하는 데 필요한 가이드를 모아 봅니다.";
+  "4% 룰, FIRE 유형, 은퇴 생활비, 목표 자산 계산법 등 FIRE 계산기를 이해하는 데 필요한 가이드를 모아 봅니다.";
 const oneTimeSpendingSteps = [
   ["100만원", 1_000_000],
   ["1000만원", 10_000_000],
@@ -514,8 +519,8 @@ function GuideListPage() {
             <div className="guide-hero-copy">
               <h1>경제적 자립 계산 가이드</h1>
               <p className="lead">
-                4% 룰, 은퇴자금, 경제적 자립 기준처럼 계산 결과를 해석할 때 필요한
-                글을 한곳에 모았습니다.
+                4% 룰, FIRE 유형, 은퇴 생활비, 목표 자산 계산법처럼 계산 결과를
+                해석할 때 필요한 글을 한곳에 모았습니다.
               </p>
             </div>
           </div>
@@ -598,6 +603,7 @@ function GuidePage({ page }: { page: SeoGuidePage }) {
                 {section.paragraphs.map((paragraph) => (
                   <p key={paragraph}>{paragraph}</p>
                 ))}
+                {hasGuideTable(section) && <GuideTable table={section.table} />}
                 <ul>
                   {section.bullets.map((bullet) => (
                     <li key={bullet}>{bullet}</li>
@@ -665,6 +671,40 @@ function SeoGuideLinks({ currentPath }: { currentPath?: string }) {
         </a>
       </div>
     </section>
+  );
+}
+
+function hasGuideTable(
+  section: SeoGuidePage["sections"][number],
+): section is SeoGuidePage["sections"][number] & { table: GuideTableData } {
+  return "table" in section && Boolean(section.table);
+}
+
+function GuideTable({ table }: { table: GuideTableData }) {
+  return (
+    <div className="guide-table-scroll">
+      <table className="guide-table">
+        <caption>{table.caption}</caption>
+        <thead>
+          <tr>
+            {table.headers.map((header) => (
+              <th key={header} scope="col">
+                {header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {table.rows.map((row) => (
+            <tr key={row.join("|")}>
+              {row.map((cell, index) => (
+                <td key={`${table.headers[index] ?? index}-${cell}`}>{cell}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
