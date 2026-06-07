@@ -120,13 +120,13 @@ const fieldHelpText: Partial<Record<NumericFormField, string>> = {
   targetWithdrawalRate:
     "은퇴 후 자산에서 매년 꺼내 쓸 비율입니다. 낮을수록 필요한 자산이 더 커집니다.",
   currentAge:
-    "정해진 나이까지 쓰는 방식, 자녀 독립 시점, 국민연금 수령 시작 나이, 월별 추이의 나이를 계산할 때 쓰는 기준입니다.",
+    "기대수명 방식, 자녀 독립 시점, 국민연금 수령 시작 나이, 월별 추이의 나이를 계산할 때 쓰는 기준입니다.",
   childIndependenceAge:
     "자녀가 독립할 때의 내 나이입니다. 0을 입력하면 자녀 독립에 따른 소비 감소를 반영하지 않습니다.",
   childMonthlyExpenseReduction:
     "자녀가 독립한 뒤 줄어드는 월 소비 금액입니다. 근로 중 소비와 은퇴 후 월 지출에서 함께 차감합니다.",
   lifeExpectancy:
-    "정해진 나이까지 쓰는 방식에서는 이 나이까지 생활비를 감당하는 데 필요한 근로 기간을 계산합니다.",
+    "기대수명 방식에서는 이 나이까지 생활비를 감당하는 데 필요한 근로 기간을 계산합니다.",
   nationalPensionMonthlyAmount:
     "오늘 돈 가치 기준 월 예상 수령액입니다. 계산에서는 물가상승률을 반영해 미래 금액으로 환산합니다.",
 };
@@ -143,8 +143,8 @@ const resultTabOptions = [
   ["experiments", "가정 비교"],
 ] as const;
 const calculationModeOptions = [
-  ["trinity", "자산을 유지하는 방식"],
-  ["depletion", "정해진 나이까지 쓰는 방식"],
+  ["trinity", "목표인출율"],
+  ["depletion", "기대수명 방식"],
 ] as const;
 const valueBasisOptions = [
   ["nominal", "미래 금액 기준"],
@@ -308,10 +308,10 @@ function CalculatorApp() {
             </AdvancedFieldset>
 
             {calculationMode === "trinity" && (
-              <AdvancedFieldset title="자산을 유지하는 방식 옵션">
+              <AdvancedFieldset title="목표인출율 옵션">
                 <NumberField
                   field="targetWithdrawalRate"
-                  label="연간 꺼내 쓸 비율"
+                  label="목표인출율"
                   suffix="%"
                   value={formValues.targetWithdrawalRate}
                   helpText={fieldHelpText.targetWithdrawalRate}
@@ -321,7 +321,7 @@ function CalculatorApp() {
             )}
 
             {calculationMode === "depletion" && (
-              <AdvancedFieldset title="정해진 나이까지 쓰는 방식 옵션">
+              <AdvancedFieldset title="기대수명 방식 옵션">
                 {depletionFields.map(([field, label, suffix]) => (
                   <NumberField
                     field={field}
@@ -883,8 +883,8 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
         <nav className="help-toc" aria-label="계산 기준 도움말 목차">
           <a href="#help-formulas">1. 주요 계산식</a>
           <a href="#help-value-basis">2. 미래 금액과 오늘 돈 가치</a>
-          <a href="#help-withdrawal-rate">3. 자산을 유지하는 방식</a>
-          <a href="#help-depletion">4. 정해진 나이까지 쓰는 방식</a>
+          <a href="#help-withdrawal-rate">3. 목표인출율</a>
+          <a href="#help-depletion">4. 기대수명 방식</a>
           <a href="#help-pension">5. 국민연금 입력 기준</a>
           <a href="#help-experiments">6. 가정 비교</a>
           <a href="#help-limitations">7. 계산기의 한계</a>
@@ -906,19 +906,19 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
             <FormulaBlock label="은퇴 후 자산">
               은퇴 후 자산 = 현재 자산 × (1 + 월 수익률) - 은퇴 후 월 지출 + 국민연금
             </FormulaBlock>
-            <p>목표 인출률 방식의 필요 자산은 은퇴 후 연간 지출을 목표 인출률로 나눕니다.</p>
+            <p>목표인출율 방식의 필요 자산은 은퇴 후 연간 지출을 목표인출율로 나눕니다.</p>
             <FormulaBlock label="목표 자산">
-              필요 자산 = 은퇴 후 월 지출 × 12 ÷ 목표 인출률
+              필요 자산 = 은퇴 후 월 지출 × 12 ÷ 목표인출율
             </FormulaBlock>
             <p>
-              예를 들어 은퇴 후 월 지출이 400만 원이고 목표 인출률이 3.5%라면 4,800만 원 ÷
+              예를 들어 은퇴 후 월 지출이 400만 원이고 목표인출율이 3.5%라면 4,800만 원 ÷
               0.035 = 약 13.7억 원입니다.
             </p>
             <FormulaBlock label="은퇴 후 월 지출 증가에 따른 추가 필요 자산">
-              추가 필요 자산 = 추가 은퇴 후 월 지출 × 12 ÷ 목표 인출률
+              추가 필요 자산 = 추가 은퇴 후 월 지출 × 12 ÷ 목표인출율
             </FormulaBlock>
             <p>
-              예를 들어 은퇴 후 월 지출이 50만 원 늘고 목표 인출률이 3.5%라면 600만 원 ÷
+              예를 들어 은퇴 후 월 지출이 50만 원 늘고 목표인출율이 3.5%라면 600만 원 ÷
               0.035 = 약 1.7억 원입니다.
             </p>
           </HelpSection>
@@ -942,15 +942,15 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
             </p>
           </HelpSection>
 
-          <HelpSection id="help-withdrawal-rate" title="3. 자산을 유지하는 방식">
+          <HelpSection id="help-withdrawal-rate" title="3. 목표인출율">
             <p>
-              자산을 유지하는 방식은 은퇴 후 매년 자산의 일정 비율을 꺼내 쓴다고 가정해 은퇴 후
+              목표인출율은 은퇴 후 매년 자산의 일정 비율을 꺼내 쓴다고 가정해 은퇴 후
               월 지출을 감당하는 데 필요한 자산을 계산합니다.
             </p>
-            <FormulaBlock label="자산을 유지하는 방식">
-              필요 자산 = 은퇴 후 월 지출 × 12 ÷ 목표 인출률
+            <FormulaBlock label="목표인출율">
+              필요 자산 = 은퇴 후 월 지출 × 12 ÷ 목표인출율
             </FormulaBlock>
-            <p>인출률이 낮을수록 더 보수적인 계산입니다.</p>
+            <p>목표인출율이 낮을수록 더 보수적인 계산입니다.</p>
             <ul>
               <li>4.0%: 연간 지출의 25배 필요</li>
               <li>3.5%: 연간 지출의 약 28.6배 필요</li>
@@ -967,9 +967,9 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
             </p>
           </HelpSection>
 
-          <HelpSection id="help-depletion" title="4. 정해진 나이까지 쓰는 방식">
+          <HelpSection id="help-depletion" title="4. 기대수명 방식">
             <p>
-              정해진 나이까지 쓰는 방식은 은퇴 후 자산을 영원히 유지한다고 보지 않고, 기대수명까지
+              기대수명 방식은 은퇴 후 자산을 영원히 유지한다고 보지 않고, 기대수명까지
               자산이 유지되는지를 계산합니다.
             </p>
             <p>
@@ -1008,7 +1008,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
               독립 나이를 0으로 두면 이 가정은 반영하지 않습니다.
             </p>
             <p>
-              자산을 유지하는 방식보다 현실적인 시뮬레이션에 가깝지만, 기대수명보다 오래 살거나
+              목표인출율 방식보다 현실적인 시뮬레이션에 가깝지만, 기대수명보다 오래 살거나
               수익률이 낮아지면 결과가 달라질 수 있습니다.
             </p>
           </HelpSection>
@@ -1390,7 +1390,7 @@ function formatResultInterpretation({
     }
 
     if (depletionResult.status === "not-achievable") {
-      return "저축액을 늘리거나 은퇴 후 지출을 낮추면 정해진 나이까지 쓰는 방식의 결과가 개선됩니다.";
+      return "저축액을 늘리거나 은퇴 후 지출을 낮추면 기대수명 방식의 결과가 개선됩니다.";
     }
 
     return `은퇴 전에는 매달 ${formatMoney(
@@ -1422,7 +1422,7 @@ function SummaryGrid({
     formatMoney(toDisplayMoney(value, scenario.inputs.annualInflationRate, month, valueBasis));
   const items = [
     ["현재 필요한 자산", formatScenarioMoney(scenario.currentFireTargetAssets, 0)],
-    ["연간 꺼내 쓸 비율", `${rateToPercentInput(scenario.inputs.targetWithdrawalRate)}%`],
+    ["목표인출율", `${rateToPercentInput(scenario.inputs.targetWithdrawalRate)}%`],
     [
       basisLabel("은퇴 시 필요한 자산", valueBasis),
       scenario.retirementFireTargetAssets === null
@@ -2437,7 +2437,7 @@ function ProjectionTable({
             <tr>
               <th>시점</th>
               <th>{basisLabel(moneyHeader, valueBasis)}</th>
-              <th>목표 인출률</th>
+              <th>목표인출율</th>
               <th>{basisLabel("현재 월 소비액", valueBasis)}</th>
               <th>{basisLabel("은퇴 후 월 지출", valueBasis)}</th>
             </tr>
