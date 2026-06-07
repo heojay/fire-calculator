@@ -1528,7 +1528,6 @@ svg text {
 
 .x-axis-label {
   dominant-baseline: hanging;
-  text-anchor: middle;
 }
 
 svg polyline {

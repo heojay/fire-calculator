@@ -80,6 +80,7 @@ const coreFields = [
   ["monthlyIncome", "현재 월 수입", "원"],
   ["monthlyExpenses", "월 평균 소비액", "원"],
   ["retirementMonthlyExpenses", "은퇴 후 월 지출", "원"],
+  ["currentAge", "현재 나이", "세"],
 ] as const;
 
 const advancedAssumptionFields = [
@@ -89,7 +90,6 @@ const advancedAssumptionFields = [
 ] as const;
 
 const lifestyleFields = [
-  ["currentAge", "현재 나이", "세"],
   ["childIndependenceAge", "자녀 독립 나이", "세"],
   ["childMonthlyExpenseReduction", "독립 후 줄어드는 월 소비", "원"],
 ] as const;
@@ -116,7 +116,7 @@ const fieldHelpText: Partial<Record<NumericFormField, string>> = {
   targetWithdrawalRate:
     "은퇴 후 월 지출을 경제적 자립 목표 자산으로 환산하는 비율입니다. 낮을수록 더 보수적인 목표 자산이 나옵니다.",
   currentAge:
-    "자녀 독립 시점과 기대수명 소진 기간을 계산할 때 쓰는 공통 나이입니다. 국민연금 시작 나이는 이 나이로 출생연도를 유추해 계산합니다.",
+    "은퇴 예상 나이, 자녀 독립 시점, 기대수명 소진 기간, 월별 추이의 나이를 계산할 때 쓰는 공통 기준입니다.",
   childIndependenceAge:
     "자녀가 독립할 때의 내 나이입니다. 0을 입력하면 자녀 독립에 따른 소비 감소를 반영하지 않습니다.",
   childMonthlyExpenseReduction:
@@ -861,8 +861,8 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
               국민연금이 있다면 특정 나이 이후의 현금흐름으로 반영합니다.
             </p>
             <p>
-              계산 기간과 그래프의 나이는 생활 변화 옵션의 현재 나이를 공통 기준으로 씁니다.
-              국민연금 수령 시작 나이는 현재 나이로 출생연도를 유추해 적용합니다.
+              계산 기간과 그래프의 나이는 핵심 입력의 현재 나이를 공통 기준으로 씁니다. 국민연금
+              수령 시작 나이는 현재 나이로 출생연도를 유추해 적용합니다.
             </p>
             <dl className="help-definition-list">
               <div>
@@ -1330,6 +1330,7 @@ function SummaryGrid({
   const items = [
     ["현재 경제적 자립 목표 자산", formatScenarioMoney(scenario.currentFireTargetAssets, 0)],
     ["앞으로 더 일해야 하는 기간", formatMonthsToFire(scenario)],
+    ["은퇴 예상 나이", formatRetirementAge(getScenarioRetirementAge(scenario))],
     ["적용된 목표 인출률", `${rateToPercentInput(scenario.inputs.targetWithdrawalRate)}%`],
     [
       basisLabel("은퇴 시 필요 목표 자산", valueBasis),
@@ -1907,10 +1908,11 @@ function DepletionChart({
             <text
               className="x-axis-label"
               key={`depletion-x-${tick}`}
+              textAnchor={getXAxisTextAnchor(tick, maxMonth)}
               x={toX(tick)}
               y={height - 12}
             >
-              {tick === 0 ? "현재" : formatProjectionMonth(tick)}
+              {formatProjectionMonthWithAge(tick, result.projections[0].age + tick / 12)}
             </text>
           ))}
           <line
@@ -1995,7 +1997,7 @@ function DepletionChart({
               top: `${(activePoint.y / height) * 100}%`,
             }}
           >
-            <p>{formatProjectionMonth(activeRow.month)}</p>
+            <p>{formatProjectionMonthWithAge(activeRow.month, activeRow.age)}</p>
             <dl>
               <div>
                 <dt>자산</dt>
@@ -2192,10 +2194,11 @@ function AssetChart({
             <text
               className="x-axis-label"
               key={`x-${tick}`}
+              textAnchor={getXAxisTextAnchor(tick, maxMonth)}
               x={toX(tick)}
               y={height - 12}
             >
-              {tick === 0 ? "현재" : formatProjectionMonth(tick)}
+              {formatProjectionMonthWithAge(tick, scenario.inputs.currentAge + tick / 12)}
             </text>
           ))}
           <line
@@ -2291,7 +2294,7 @@ function AssetChart({
               top: `${(activeAssetPoint.y / height) * 100}%`,
             }}
           >
-            <p>{formatProjectionMonth(activeRow.month)}</p>
+            <p>{formatProjectionMonthWithAge(activeRow.month, activeRow.age)}</p>
             <dl>
               <div>
                 <dt>투자 가능 자산</dt>
@@ -2355,6 +2358,7 @@ function ProjectionTable({
           <thead>
             <tr>
               <th>시점</th>
+              <th>나이</th>
               <th>{basisLabel(moneyHeader, valueBasis)}</th>
               <th>목표 인출률</th>
               <th>{basisLabel("현재 월 소비액", valueBasis)}</th>
@@ -2365,6 +2369,7 @@ function ProjectionTable({
             {rows.map((row) => (
               <tr key={`${valueKey}-${row.month}`}>
                 <td>{formatProjectionMonth(row.month)}</td>
+                <td>{formatRetirementAge(row.age)}</td>
                 <td>
                   {formatMoney(
                     toDisplayMoney(row[valueKey], annualInflationRate, row.month, valueBasis),
@@ -3119,6 +3124,12 @@ function formatRetirementAge(age: number | null): string {
   return `${years}세 ${months}개월`;
 }
 
+function getScenarioRetirementAge(scenario: FireScenarioResult): number | null {
+  return scenario.monthsToFire === null
+    ? null
+    : scenario.inputs.currentAge + scenario.monthsToFire / 12;
+}
+
 function formatDepletionPhase(phase: DepletionProjection["phase"]): string {
   return phase === "working" ? "근로" : "은퇴";
 }
@@ -3129,6 +3140,22 @@ function formatProjectionMonth(month: number): string {
   }
 
   return `${formatWorkDuration(month)} 뒤`;
+}
+
+function formatProjectionMonthWithAge(month: number, age: number): string {
+  return `${formatProjectionMonth(month)} (${formatRetirementAge(age)})`;
+}
+
+function getXAxisTextAnchor(month: number, maxMonth: number): "start" | "middle" | "end" {
+  if (month === 0) {
+    return "start";
+  }
+
+  if (month === maxMonth) {
+    return "end";
+  }
+
+  return "middle";
 }
 
 function getScenarioLineClassName(name: string): string {
