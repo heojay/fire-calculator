@@ -25,7 +25,6 @@ import {
 type NumericFormValue = number | "";
 type CalculationMode = "trinity" | "depletion";
 type ValueBasis = "nominal" | "present";
-type MainTab = "calculator" | "about";
 type ResultTab = "summary" | "monthly" | "experiments";
 type SeoGuidePage = (typeof seoPages)[number];
 type GuideTableData = {
@@ -112,24 +111,24 @@ const fieldHelpText: Partial<Record<NumericFormField, string>> = {
   monthlyExpenses:
     "근로 중 월 저축액을 계산할 때 쓰는 현재 월 소비액입니다. 은퇴 후 월 지출은 별도로 입력합니다.",
   retirementMonthlyExpenses:
-    "현재 가치 기준 은퇴 후 월 지출입니다. 목표 자산과 은퇴 후 현금흐름 계산에 사용합니다.",
+    "오늘 돈 가치 기준 은퇴 후 월 지출입니다. 목표 자산과 은퇴 후 현금흐름 계산에 사용합니다.",
   annualNominalReturnRate:
     "개인 투자자의 비용, 세금, 위험 감수 차이를 감안해 장기 기본값은 5%로 둡니다.",
   annualInflationRate: "장기 계산에서는 한국은행 물가안정목표에 가까운 2%를 기본값으로 둡니다.",
   annualIncomeGrowthRate:
     "장기 임금과 소득 증가 가정은 과도하게 높이지 않고 3%를 기본값으로 둡니다.",
   targetWithdrawalRate:
-    "은퇴 후 월 지출을 경제적 자립 목표 자산으로 환산하는 비율입니다. 낮을수록 더 보수적인 목표 자산이 나옵니다.",
+    "은퇴 후 자산에서 매년 꺼내 쓸 비율입니다. 낮을수록 필요한 자산이 더 커집니다.",
   currentAge:
-    "기대수명 소진 기간, 자녀 독립 시점, 국민연금 수령 시작 나이, 월별 추이의 나이를 계산할 때 쓰는 기준입니다.",
+    "정해진 나이까지 쓰는 방식, 자녀 독립 시점, 국민연금 수령 시작 나이, 월별 추이의 나이를 계산할 때 쓰는 기준입니다.",
   childIndependenceAge:
     "자녀가 독립할 때의 내 나이입니다. 0을 입력하면 자녀 독립에 따른 소비 감소를 반영하지 않습니다.",
   childMonthlyExpenseReduction:
     "자녀가 독립한 뒤 줄어드는 월 소비 금액입니다. 근로 중 소비와 은퇴 후 월 지출에서 함께 차감합니다.",
   lifeExpectancy:
-    "기대수명 소진 모드에서는 이 나이까지 현재 소비 수준을 유지하는 데 필요한 근로 기간을 계산합니다.",
+    "정해진 나이까지 쓰는 방식에서는 이 나이까지 생활비를 감당하는 데 필요한 근로 기간을 계산합니다.",
   nationalPensionMonthlyAmount:
-    "현재 가치 기준 월 예상 수령액입니다. 계산에서는 물가상승률을 반영해 명목 금액으로 환산합니다.",
+    "오늘 돈 가치 기준 월 예상 수령액입니다. 계산에서는 물가상승률을 반영해 미래 금액으로 환산합니다.",
 };
 
 const koreaAveragePreset = FIRE_PRESETS.find((preset) => preset.id === "korea-average")!;
@@ -138,24 +137,19 @@ const cacheVersion = 5;
 const cacheKey = "firecalc:lastState:v5";
 const validCalculationModes: CalculationMode[] = ["trinity", "depletion"];
 const validValueBases: ValueBasis[] = ["nominal", "present"];
-const validMainTabs: MainTab[] = ["calculator", "about"];
 const validResultTabs: ResultTab[] = ["summary", "monthly", "experiments"];
-const mainTabOptions = [
-  ["calculator", "계산기"],
-  ["about", "계산기에 대해서"],
-] as const;
 const resultTabOptions = [
-  ["summary", "요약"],
-  ["monthly", "월별추이"],
+  ["summary", "상세 지표"],
+  ["monthly", "월별 추이"],
   ["experiments", "가정 비교"],
 ] as const;
 const calculationModeOptions = [
-  ["trinity", "목표 인출률"],
-  ["depletion", "기대수명 소진"],
+  ["trinity", "자산을 유지하는 방식"],
+  ["depletion", "정해진 나이까지 쓰는 방식"],
 ] as const;
 const valueBasisOptions = [
-  ["nominal", "명목 기준"],
-  ["present", "현재 가치"],
+  ["nominal", "미래 금액 기준"],
+  ["present", "오늘 돈 가치 기준"],
 ] as const;
 const numericFormFields: NumericFormField[] = [
   "investableAssets",
@@ -212,10 +206,10 @@ function CalculatorApp() {
     initialState.calculationMode,
   );
   const [valueBasis, setValueBasis] = useState<ValueBasis>(initialState.valueBasis);
-  const [activeMainTab, setActiveMainTab] = useState<MainTab>("calculator");
   const [activeResultTab, setActiveResultTab] = useState<ResultTab>(initialState.activeResultTab);
   const [formValues, setFormValues] = useState<FormValues>(initialState.formValues);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [presetMessage, setPresetMessage] = useState("");
   const helpButtonRef = useRef<HTMLButtonElement>(null);
 
   const inputs = useMemo(() => formValuesToInputs(formValues), [formValues]);
@@ -237,10 +231,16 @@ function CalculatorApp() {
   }, [activeResultTab, calculationMode, valueBasis]);
 
   const handleFieldChange = (field: NumericFormField, value: string) => {
+    setPresetMessage("");
     setFormValues((current) => ({
       ...current,
       [field]: value === "" ? "" : Number(value),
     }));
+  };
+
+  const handleLoadAveragePreset = () => {
+    setFormValues(presetToFormValues(koreaAveragePreset.values));
+    setPresetMessage("평균 예시값을 입력했습니다.");
   };
 
   return (
@@ -253,6 +253,9 @@ function CalculatorApp() {
         <nav className="top-nav" aria-label="상단">
           <div className="brand">FIRE 계산기</div>
           <div className="top-nav-actions">
+            <a className="button-secondary top-nav-link" href="#calculator-content">
+              계산기
+            </a>
             <a className="button-secondary top-nav-link" href={guideListPath}>
               가이드
             </a>
@@ -269,32 +272,30 @@ function CalculatorApp() {
 
         <section className="hero-grid" aria-labelledby="calculator-title">
           <h1 className="hero-title" id="calculator-title">
-            경제적 자립까지 몇 년 남았을까?
+            몇 년 더 일하면 경제적 자립이 가능할까?
           </h1>
           <p className="lead">
-            수입, 소비, 자산을 입력하면 FIRE 가능 시점을 시뮬레이션합니다.
+            월 소득, 생활비, 투자자산을 입력하면 예상 FIRE 시점을 계산합니다.
           </p>
         </section>
-
-        <MainTabs selectedTab={activeMainTab} onChange={setActiveMainTab} />
       </header>
 
-      {activeMainTab === "calculator" ? (
         <section
-          aria-labelledby={getMainTabId("calculator")}
+          aria-labelledby="calculator-title"
           className="content-grid"
-          id={getMainPanelId("calculator")}
-          role="tabpanel"
         >
           <section className="input-panel">
             <div className="input-actions">
               <button
                 className="button-secondary"
                 type="button"
-                onClick={() => setFormValues(presetToFormValues(koreaAveragePreset.values))}
+                onClick={handleLoadAveragePreset}
               >
-                대한민국 평균 가구 값 입력해보기
+                평균값 불러오기
               </button>
+              <p className="preset-note" aria-live="polite">
+                {presetMessage || "입력한 값이 평균 예시값으로 바뀝니다."}
+              </p>
             </div>
 
             <ModeTabs selectedMode={calculationMode} onChange={setCalculationMode} />
@@ -312,72 +313,6 @@ function CalculatorApp() {
                 />
               ))}
             </Fieldset>
-
-            <AdvancedFieldset title="고급 옵션">
-              {advancedAssumptionFields.map(([field, label, suffix]) => (
-                <NumberField
-                  field={field}
-                  key={field}
-                  label={label}
-                  suffix={suffix}
-                  value={formValues[field]}
-                  helpText={fieldHelpText[field]}
-                  onChange={(value) => handleFieldChange(field, value)}
-                />
-              ))}
-            </AdvancedFieldset>
-
-            {calculationMode === "trinity" && (
-              <AdvancedFieldset title="목표 인출률 옵션">
-                <NumberField
-                  field="targetWithdrawalRate"
-                  label="목표 인출률"
-                  suffix="%"
-                  value={formValues.targetWithdrawalRate}
-                  helpText={fieldHelpText.targetWithdrawalRate}
-                  onChange={(value) => handleFieldChange("targetWithdrawalRate", value)}
-                />
-              </AdvancedFieldset>
-            )}
-
-            {calculationMode === "depletion" && (
-              <AdvancedFieldset title="기대수명 소진 옵션">
-                {depletionFields.map(([field, label, suffix]) => (
-                  <NumberField
-                    field={field}
-                    key={field}
-                    label={label}
-                    suffix={suffix}
-                    value={formValues[field]}
-                    helpText={fieldHelpText[field]}
-                    onChange={(value) => handleFieldChange(field, value)}
-                  />
-                ))}
-                {lifestyleFields.map(([field, label, suffix]) => (
-                  <NumberField
-                    field={field}
-                    key={field}
-                    label={label}
-                    suffix={suffix}
-                    value={formValues[field]}
-                    helpText={fieldHelpText[field]}
-                    onChange={(value) => handleFieldChange(field, value)}
-                  />
-                ))}
-                {pensionFields.map(([field, label, suffix]) => (
-                  <NumberField
-                    field={field}
-                    key={field}
-                    label={label}
-                    suffix={suffix}
-                    value={formValues[field]}
-                    helpText={fieldHelpText[field]}
-                    onChange={(value) => handleFieldChange(field, value)}
-                  />
-                ))}
-                <PensionStartAgeNote currentAge={normalizeFormNumber(formValues.currentAge)} />
-              </AdvancedFieldset>
-            )}
           </section>
 
           <section className="results-panel">
@@ -395,6 +330,7 @@ function CalculatorApp() {
               inputs={inputs}
               scenario={baseScenario}
               depletionResult={depletionResult}
+              valueBasis={valueBasis}
             />
 
             <ResultTabs selectedTab={activeResultTab} onChange={setActiveResultTab} />
@@ -402,10 +338,7 @@ function CalculatorApp() {
             {activeResultTab === "summary" && (
               <ResultTabPanel tab="summary">
                 {calculationMode === "trinity" ? (
-                  <>
-                    <WithdrawalRateNote withdrawalRate={inputs.targetWithdrawalRate} />
-                    <SummaryGrid scenario={baseScenario} valueBasis={valueBasis} />
-                  </>
+                  <SummaryGrid scenario={baseScenario} valueBasis={valueBasis} />
                 ) : (
                   <DepletionSummary
                     annualInflationRate={inputs.annualInflationRate}
@@ -466,12 +399,75 @@ function CalculatorApp() {
 
             <ResultCaution />
           </section>
-        </section>
-      ) : (
-        <AboutCalculatorTab />
-      )}
 
-      <SeoGuideLinks />
+          <section className="input-options-panel" aria-label="추가 입력 옵션">
+            <AdvancedFieldset title="고급 옵션">
+              {advancedAssumptionFields.map(([field, label, suffix]) => (
+                <NumberField
+                  field={field}
+                  key={field}
+                  label={label}
+                  suffix={suffix}
+                  value={formValues[field]}
+                  helpText={fieldHelpText[field]}
+                  onChange={(value) => handleFieldChange(field, value)}
+                />
+              ))}
+            </AdvancedFieldset>
+
+            {calculationMode === "trinity" && (
+              <AdvancedFieldset title="자산을 유지하는 방식 옵션">
+                <NumberField
+                  field="targetWithdrawalRate"
+                  label="연간 꺼내 쓸 비율"
+                  suffix="%"
+                  value={formValues.targetWithdrawalRate}
+                  helpText={fieldHelpText.targetWithdrawalRate}
+                  onChange={(value) => handleFieldChange("targetWithdrawalRate", value)}
+                />
+              </AdvancedFieldset>
+            )}
+
+            {calculationMode === "depletion" && (
+              <AdvancedFieldset title="정해진 나이까지 쓰는 방식 옵션">
+                {depletionFields.map(([field, label, suffix]) => (
+                  <NumberField
+                    field={field}
+                    key={field}
+                    label={label}
+                    suffix={suffix}
+                    value={formValues[field]}
+                    helpText={fieldHelpText[field]}
+                    onChange={(value) => handleFieldChange(field, value)}
+                  />
+                ))}
+                {lifestyleFields.map(([field, label, suffix]) => (
+                  <NumberField
+                    field={field}
+                    key={field}
+                    label={label}
+                    suffix={suffix}
+                    value={formValues[field]}
+                    helpText={fieldHelpText[field]}
+                    onChange={(value) => handleFieldChange(field, value)}
+                  />
+                ))}
+                {pensionFields.map(([field, label, suffix]) => (
+                  <NumberField
+                    field={field}
+                    key={field}
+                    label={label}
+                    suffix={suffix}
+                    value={formValues[field]}
+                    helpText={fieldHelpText[field]}
+                    onChange={(value) => handleFieldChange(field, value)}
+                  />
+                ))}
+                <PensionStartAgeNote currentAge={normalizeFormNumber(formValues.currentAge)} />
+              </AdvancedFieldset>
+            )}
+          </section>
+        </section>
 
       <footer className="site-footer">
         만든 사람{" "}
@@ -909,9 +905,9 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
 
         <nav className="help-toc" aria-label="계산 기준 도움말 목차">
           <a href="#help-formulas">1. 주요 계산식</a>
-          <a href="#help-value-basis">2. 명목 기준과 현재 가치</a>
-          <a href="#help-withdrawal-rate">3. 목표 인출률 방식</a>
-          <a href="#help-depletion">4. 기대수명 소진 방식</a>
+          <a href="#help-value-basis">2. 미래 금액과 오늘 돈 가치</a>
+          <a href="#help-withdrawal-rate">3. 자산을 유지하는 방식</a>
+          <a href="#help-depletion">4. 정해진 나이까지 쓰는 방식</a>
           <a href="#help-pension">5. 국민연금 입력 기준</a>
           <a href="#help-experiments">6. 가정 비교</a>
           <a href="#help-limitations">7. 계산기의 한계</a>
@@ -950,16 +946,16 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
             </p>
           </HelpSection>
 
-          <HelpSection id="help-value-basis" title="2. 명목 기준과 현재 가치">
-            <p>명목 기준은 미래 시점에 실제로 필요한 금액입니다.</p>
-            <p>현재 가치는 미래 금액을 오늘 돈의 가치로 환산한 금액입니다.</p>
+          <HelpSection id="help-value-basis" title="2. 미래 금액과 오늘 돈 가치">
+            <p>미래 금액 기준은 미래 시점에 실제로 필요한 금액입니다.</p>
+            <p>오늘 돈 가치 기준은 미래 금액을 오늘 돈의 가치로 환산한 금액입니다.</p>
             <dl className="help-definition-list">
               <div>
-                <dt>명목 기준</dt>
+                <dt>미래 금액</dt>
                 <dd>미래에 실제 필요한 금액</dd>
               </div>
               <div>
-                <dt>현재 가치</dt>
+                <dt>오늘 돈 가치</dt>
                 <dd>오늘 돈 기준으로 환산한 금액</dd>
               </div>
             </dl>
@@ -969,12 +965,12 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
             </p>
           </HelpSection>
 
-          <HelpSection id="help-withdrawal-rate" title="3. 목표 인출률 방식">
+          <HelpSection id="help-withdrawal-rate" title="3. 자산을 유지하는 방식">
             <p>
-              목표 인출률 방식은 은퇴 후 매년 자산의 일정 비율을 꺼내 쓴다고 가정해 은퇴 후
+              자산을 유지하는 방식은 은퇴 후 매년 자산의 일정 비율을 꺼내 쓴다고 가정해 은퇴 후
               월 지출을 감당하는 데 필요한 자산을 계산합니다.
             </p>
-            <FormulaBlock label="목표 인출률 방식">
+            <FormulaBlock label="자산을 유지하는 방식">
               필요 자산 = 은퇴 후 월 지출 × 12 ÷ 목표 인출률
             </FormulaBlock>
             <p>인출률이 낮을수록 더 보수적인 계산입니다.</p>
@@ -988,15 +984,15 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
               반영하기는 어렵습니다.
             </p>
             <p>
-              목표 인출률 모드의 그래프는 최대 50년까지 표시합니다. 목표 자산을 달성한
+              이 방식의 그래프는 최대 50년까지 표시합니다. 목표 자산을 달성한
               뒤에는 근로소득과 국민연금 없이 투자 수익률과 은퇴 후 월 지출만 반영한 자산
               추이를 이어서 보여줍니다.
             </p>
           </HelpSection>
 
-          <HelpSection id="help-depletion" title="4. 기대수명 소진 방식">
+          <HelpSection id="help-depletion" title="4. 정해진 나이까지 쓰는 방식">
             <p>
-              기대수명 소진 방식은 은퇴 후 자산을 영원히 유지한다고 보지 않고, 기대수명까지
+              정해진 나이까지 쓰는 방식은 은퇴 후 자산을 영원히 유지한다고 보지 않고, 기대수명까지
               자산이 유지되는지를 계산합니다.
             </p>
             <p>
@@ -1005,7 +1001,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
               국민연금이 있다면 특정 나이 이후의 현금흐름으로 반영합니다.
             </p>
             <p>
-              계산 기간과 그래프의 나이는 기대수명 소진 옵션의 현재 나이를 공통 기준으로 씁니다. 국민연금
+              계산 기간과 그래프의 나이는 현재 나이를 공통 기준으로 씁니다. 국민연금
               수령 시작 나이는 현재 나이로 출생연도를 유추해 적용합니다.
             </p>
             <p>
@@ -1027,7 +1023,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
               </div>
               <div>
                 <dt>줄어드는 월 소비</dt>
-                <dd>현재 가치 기준 월 지출 감소액</dd>
+                <dd>오늘 돈 가치 기준 월 지출 감소액</dd>
               </div>
             </dl>
             <p>
@@ -1035,13 +1031,13 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
               독립 나이를 0으로 두면 이 가정은 반영하지 않습니다.
             </p>
             <p>
-              목표 인출률 방식보다 현실적인 시뮬레이션에 가깝지만, 기대수명보다 오래 살거나
+              자산을 유지하는 방식보다 현실적인 시뮬레이션에 가깝지만, 기대수명보다 오래 살거나
               수익률이 낮아지면 결과가 달라질 수 있습니다.
             </p>
           </HelpSection>
 
           <HelpSection id="help-pension" title="5. 국민연금 입력 기준">
-            <p>국민연금 월 예상액은 현재 가치 기준으로 입력하세요.</p>
+            <p>국민연금 월 예상액은 오늘 돈 가치 기준으로 입력하세요.</p>
             <p>
               국민연금 수령 시작 나이는 현재 나이로 출생연도를 유추한 뒤 출생연도별
               노령연금 지급개시연령 기준으로 계산합니다.
@@ -1058,7 +1054,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
               </div>
               <div>
                 <dt>계산값</dt>
-                <dd>미래 시점의 명목 국민연금</dd>
+                <dd>미래 시점의 국민연금</dd>
               </div>
             </dl>
             <p>미래에 받을 명목 금액을 그대로 입력하면 결과가 과대평가될 수 있습니다.</p>
@@ -1123,152 +1119,6 @@ function FormulaBlock({ children, label }: { children: ReactNode; label: string 
       <span>{label}</span>
       <code>{children}</code>
     </div>
-  );
-}
-
-function MainTabs({
-  selectedTab,
-  onChange,
-}: {
-  selectedTab: MainTab;
-  onChange: (tab: MainTab) => void;
-}) {
-  return (
-    <div
-      className="main-tabs"
-      role="tablist"
-      aria-label="주요 화면"
-      onKeyDown={(event) =>
-        handleRovingTabKey(event, validMainTabs, selectedTab, onChange)
-      }
-    >
-      {mainTabOptions.map(([tab, label]) => (
-        <button
-          aria-controls={getMainPanelId(tab)}
-          aria-selected={selectedTab === tab}
-          className={selectedTab === tab ? "main-tab main-tab-active" : "main-tab"}
-          id={getMainTabId(tab)}
-          key={tab}
-          role="tab"
-          tabIndex={selectedTab === tab ? 0 : -1}
-          type="button"
-          onClick={() => onChange(tab)}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function getMainTabId(tab: MainTab): string {
-  return `main-tab-${tab}`;
-}
-
-function getMainPanelId(tab: MainTab): string {
-  return `main-panel-${tab}`;
-}
-
-function AboutCalculatorTab() {
-  return (
-    <section
-      aria-labelledby={getMainTabId("about")}
-      className="about-panel"
-      id={getMainPanelId("about")}
-      role="tabpanel"
-      tabIndex={0}
-    >
-      <div className="about-intro">
-        <h2>계산기에 대해서</h2>
-        <p>
-          이 계산기는 확정적인 은퇴일을 알려주는 도구가 아니라, 현재의 자산·소비·수익률
-          가정에서 경제적 자립까지의 거리를 가늠해보는 도구입니다. 결과 자체보다 어떤
-          가정이 결과를 크게 바꾸는지 함께 보는 것이 중요합니다.
-        </p>
-      </div>
-
-      <div className="about-card-grid">
-        <AboutCard title="경제적 자립이란?">
-          <p>
-            경제적 자립은 노동소득에 전적으로 의존하지 않아도 생활을 유지할 수 있는
-            상태를 뜻합니다. 반드시 일을 그만둔다는 의미는 아니며, 원치 않는 일을 생계
-            때문에 계속해야 하는 압박이 줄어드는 상태에 가깝습니다. 따라서 이 계산기의
-            결과는 퇴사 가능일보다 선택권이 넓어지는 시점으로 해석하는 것이 좋습니다.
-          </p>
-        </AboutCard>
-        <AboutCard title="FIRE와 경제적 자립의 관계">
-          <p>
-            FIRE는 Financial Independence, Retire Early의 약자입니다. 흔히 조기은퇴가
-            강조되지만, 이 계산기에서는 Retire Early보다 Financial Independence, 즉 경제적
-            자립에 더 초점을 둡니다. 경제적 자립 이후에도 일을 계속하거나, 더 적게 일하거나,
-            다른 일을 선택할 수 있습니다.
-          </p>
-        </AboutCard>
-        <AboutCard title="명목 기준과 현재 가치 기준">
-          <p>
-            미래의 10억 원은 오늘의 10억 원과 구매력이 다릅니다. 물가가 오르면 같은
-            금액으로 살 수 있는 것이 줄어들기 때문입니다. 그래서 계산 결과를 볼 때는
-            미래의 명목 금액과 오늘 돈 기준의 현재 가치를 구분해서 이해해야 합니다.
-          </p>
-        </AboutCard>
-        <AboutCard title="4% 룰은 법칙이 아니다">
-          <p>
-            4% 룰은 은퇴 첫해에 자산의 4%를 인출하고, 이후 물가상승률만큼 인출액을
-            조정하는 방식으로 자주 설명됩니다. 하지만 모든 사람에게 보장되는 법칙이 아니라,
-            과거 시장 데이터를 바탕으로 한 경험칙에 가깝습니다. 투자 국가, 자산 배분,
-            은퇴 기간, 세금, 수수료, 시장 상황에 따라 실제 안전한 인출률은 달라질 수 있습니다.
-          </p>
-        </AboutCard>
-        <AboutCard title="평균 수익률의 함정">
-          <p>
-            장기 평균 수익률이 같더라도 실제 결과는 달라질 수 있습니다. 특히 은퇴 직후
-            큰 하락장이 오면, 자산을 인출하면서 손실을 견뎌야 하기 때문에 회복이 어려워질 수
-            있습니다. 이처럼 수익률이 발생하는 순서가 결과에 큰 영향을 주는 문제를 수익률
-            순서 리스크라고 합니다.
-          </p>
-        </AboutCard>
-        <AboutCard title="소비가 자립 시점에 미치는 영향">
-          <p>
-            소비는 경제적 자립 시점에 매우 큰 영향을 줍니다. 생활비가 늘어나면 필요한
-            은퇴 자산이 커지고, 동시에 저축 가능한 금액은 줄어듭니다. 따라서 월 소비액을
-            조금만 바꿔도 경제적 자립 시점이 크게 달라질 수 있습니다.
-          </p>
-        </AboutCard>
-        <AboutCard title="실거주 주택과 금융자산의 차이">
-          <p>
-            실거주 주택은 중요한 자산이지만, 매달 생활비를 만들어주는 자산은 아닙니다.
-            집을 팔거나 담보로 활용하지 않는 한 생활비 인출에 직접 쓰기는 어렵습니다.
-            따라서 경제적 자립을 계산할 때는 순자산과 인출 가능한 금융자산을 구분해서 보는
-            것이 좋습니다.
-          </p>
-        </AboutCard>
-        <AboutCard title="원금 보존형과 자산 소진형">
-          <p>
-            경제적 자립에는 여러 방식이 있습니다. 원금을 최대한 보존하면서 생활비를
-            충당하려면 더 많은 자산이 필요합니다. 반대로 일정 나이까지 자산을 소진해도
-            된다고 가정하면 필요한 자산은 줄어들지만, 장수, 의료비, 가족 상황 변화에 더
-            취약해질 수 있습니다.
-          </p>
-        </AboutCard>
-        <AboutCard title="이 계산기의 한계">
-          <p>
-            이 계산기는 미래를 예측하는 도구가 아니라, 입력한 가정에 따른 시뮬레이션
-            도구입니다. 실제 결과는 수익률, 물가상승률, 소득, 지출, 세금, 건강보험료, 가족
-            상황, 시장 하락 등에 따라 달라질 수 있습니다. 따라서 계산 결과는 확정된 답이
-            아니라 현재 조건에서의 기준선으로 이해해야 합니다.
-          </p>
-        </AboutCard>
-      </div>
-    </section>
-  );
-}
-
-function AboutCard({ children, title }: { children: ReactNode; title: string }) {
-  return (
-    <article className="about-card">
-      <h3>{title}</h3>
-      {children}
-    </article>
   );
 }
 
@@ -1432,66 +1282,154 @@ function ResultSnapshot({
   inputs,
   scenario,
   depletionResult,
+  valueBasis,
 }: {
   mode: CalculationMode;
   inputs: FireInputs;
   scenario: FireScenarioResult;
   depletionResult: DepletionResult;
+  valueBasis: ValueBasis;
 }) {
   const monthlySavings = inputs.monthlyIncome - inputs.monthlyExpenses;
+  const targetMonth =
+    mode === "depletion" ? (getDepletionPeakMonth(depletionResult) ?? 0) : 0;
   const targetAssets =
     mode === "depletion"
       ? (depletionResult.peakAssets ?? depletionResult.finalAssets ?? scenario.currentFireTargetAssets)
       : scenario.currentFireTargetAssets;
+  const displayTargetAssets = toDisplayMoney(
+    targetAssets,
+    inputs.annualInflationRate,
+    targetMonth,
+    valueBasis,
+  );
   const targetProgress = targetAssets <= 0 ? 100 : (inputs.investableAssets / targetAssets) * 100;
   const timing = mode === "depletion" ? formatDepletionTiming(depletionResult) : formatMonthsToFire(scenario);
-  const statusText =
+  const retirementAge =
     mode === "depletion"
-      ? formatDepletionStatus(depletionResult)
-      : scenario.status === "achieved"
-        ? "현재 조건 기준으로 목표 자산을 충족하는 시점입니다."
-        : "현재 조건으로는 50년 안에 경제적 자립 목표 자산을 충족하기 어렵습니다.";
+      ? depletionResult.retirementAge
+      : scenario.monthsToFire === null
+        ? null
+        : inputs.currentAge + scenario.monthsToFire / 12;
+  const statusText = formatResultStatus({
+    mode,
+    scenario,
+    depletionResult,
+    retirementAge,
+  });
+  const assumptionText = `연 ${formatPercentRate(
+    inputs.annualNominalReturnRate,
+  )} 수익률, 매달 ${formatMoney(monthlySavings)} 저축, 은퇴 후 월 ${formatMoney(
+    inputs.retirementMonthlyExpenses,
+  )} 지출 기준`;
+  const interpretationText = formatResultInterpretation({
+    mode,
+    inputs,
+    targetAssets,
+    targetProgress,
+    scenario,
+    depletionResult,
+  });
   const metrics = [
-    ["예상 FIRE 시점", timing],
-    ["필요 자산", formatMoney(targetAssets)],
-    ["월 저축액", `${formatMoney(monthlySavings)} / 월`],
-    ["목표 달성률", formatProgressPercent(targetProgress)],
+    ["필요 자산", formatMoney(displayTargetAssets)],
+    ["매달 남는 돈", `${formatMoney(monthlySavings)} / 월`],
+    ["목표까지 채운 비율", formatProgressPercent(targetProgress)],
+    ["은퇴 예상 나이", formatRetirementAge(retirementAge)],
   ];
 
   return (
-    <aside className="result-snapshot" aria-label="핵심 계산 결과">
+    <aside className="result-snapshot" aria-label="핵심 계산 결과" aria-live="polite">
       <div className="result-snapshot-main">
-        <p className="card-label">계산 결과</p>
+        <p className="card-label">예상 FIRE 시점</p>
         <strong>{timing}</strong>
         <span>{statusText}</span>
       </div>
-      <div className="result-snapshot-grid">
+      <p className="result-assumption">{assumptionText}</p>
+      <dl className="result-snapshot-grid">
         {metrics.map(([label, value]) => (
-          <article className="snapshot-metric" key={label}>
-            <span>{label}</span>
-            <strong>{value}</strong>
-          </article>
+          <div className="snapshot-metric" key={label}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
         ))}
-      </div>
+      </dl>
+      <p className="result-interpretation">{interpretationText}</p>
     </aside>
   );
 }
 
-function WithdrawalRateNote({ withdrawalRate }: { withdrawalRate: number }) {
-  return (
-    <article className="chart-card model-note">
-      <div>
-        <h3>목표 인출률 모델</h3>
-      </div>
-      <p>
-        입력한 목표 인출률로 은퇴 후 월 지출을 감당할 경제적 자립 목표 자산을 계산합니다.
-        흔히 언급되는 4% 법칙은 트리니티 연구에서 알려진 30년 은퇴 기간 기준 참고값입니다.
-        그래프는 최대 50년까지 표시하며, 목표 달성 뒤에는 국민연금 없이 은퇴 후 월 지출을
-        차감한 자산 추이를 이어서 보여줍니다.
-      </p>
-      <strong>현재 적용 인출률 {rateToPercentInput(withdrawalRate)}%</strong>
-    </article>
-  );
+function formatResultStatus({
+  depletionResult,
+  mode,
+  retirementAge,
+  scenario,
+}: {
+  depletionResult: DepletionResult;
+  mode: CalculationMode;
+  retirementAge: number | null;
+  scenario: FireScenarioResult;
+}): string {
+  if (mode === "depletion") {
+    if (depletionResult.status === "invalid-time-horizon") {
+      return "기대수명이 현재 나이보다 커야 계산할 수 있습니다.";
+    }
+
+    if (depletionResult.status === "not-achievable") {
+      return "입력한 조건에서는 정해진 나이까지 자산을 유지하기 어렵습니다.";
+    }
+
+    return `현재 조건을 유지하면 ${formatRetirementAge(retirementAge)}에 경제적 자립이 가능합니다.`;
+  }
+
+  if (scenario.status === "not-achieved") {
+    return "현재 조건으로는 50년 안에 목표 자산에 도달하기 어렵습니다.";
+  }
+
+  if (scenario.monthsToFire === 0) {
+    return "이미 현재 자산이 경제적 자립 목표를 충족합니다.";
+  }
+
+  return `현재 조건을 유지하면 ${formatRetirementAge(retirementAge)}에 경제적 자립이 가능합니다.`;
+}
+
+function formatResultInterpretation({
+  depletionResult,
+  inputs,
+  mode,
+  scenario,
+  targetAssets,
+  targetProgress,
+}: {
+  depletionResult: DepletionResult;
+  inputs: FireInputs;
+  mode: CalculationMode;
+  scenario: FireScenarioResult;
+  targetAssets: number;
+  targetProgress: number;
+}): string {
+  if (mode === "depletion") {
+    if (depletionResult.status === "invalid-time-horizon") {
+      return "현재 나이보다 높은 기대수명을 입력하면 자산이 유지되는 은퇴 시점을 다시 계산합니다.";
+    }
+
+    if (depletionResult.status === "not-achievable") {
+      return "저축액을 늘리거나 은퇴 후 지출을 낮추면 정해진 나이까지 쓰는 방식의 결과가 개선됩니다.";
+    }
+
+    return `은퇴 전에는 매달 ${formatMoney(
+      inputs.monthlyIncome - inputs.monthlyExpenses,
+    )}을 더하고, 은퇴 후에는 생활비와 국민연금을 반영해 기대수명까지 자산이 0 아래로 내려가지 않는 시점을 찾았습니다.`;
+  }
+
+  if (scenario.status === "not-achieved") {
+    return `현재 자산은 목표의 ${formatProgressPercent(
+      targetProgress,
+    )}입니다. 저축액, 수익률, 은퇴 후 지출 가정을 바꾸면 도달 가능성을 비교할 수 있습니다.`;
+  }
+
+  return `필요 자산은 ${formatMoney(targetAssets)}이고 현재 자산은 목표의 ${formatProgressPercent(
+    targetProgress,
+  )}입니다. 부족한 차이를 매달 저축액과 투자수익으로 메우는 시점을 계산했습니다.`;
 }
 
 function SummaryGrid({
@@ -1506,11 +1444,10 @@ function SummaryGrid({
   const formatScenarioMoney = (value: number, month: number) =>
     formatMoney(toDisplayMoney(value, scenario.inputs.annualInflationRate, month, valueBasis));
   const items = [
-    ["현재 경제적 자립 목표 자산", formatScenarioMoney(scenario.currentFireTargetAssets, 0)],
-    ["앞으로 더 일해야 하는 기간", formatMonthsToFire(scenario)],
-    ["적용된 목표 인출률", `${rateToPercentInput(scenario.inputs.targetWithdrawalRate)}%`],
+    ["현재 필요한 자산", formatScenarioMoney(scenario.currentFireTargetAssets, 0)],
+    ["연간 꺼내 쓸 비율", `${rateToPercentInput(scenario.inputs.targetWithdrawalRate)}%`],
     [
-      basisLabel("은퇴 시 필요 목표 자산", valueBasis),
+      basisLabel("은퇴 시 필요한 자산", valueBasis),
       scenario.retirementFireTargetAssets === null
         ? "기준 충족 어려움"
         : formatScenarioMoney(scenario.retirementFireTargetAssets, retirementMonth),
@@ -1816,12 +1753,9 @@ function DepletionSummary({
   const peakMonth = getDepletionPeakMonth(result);
   const retirementFirstExpenseMonth =
     result.monthsToWork === null ? 0 : result.monthsToWork + 1;
-  const timeHorizonLabel =
-    result.totalMonths <= 0 ? "계산 불가" : formatWorkDuration(result.totalMonths);
   const formatDepletionMoney = (value: number, month: number) =>
     formatMoney(toDisplayMoney(value, annualInflationRate, month, valueBasis));
   const items = [
-    ["기대수명 기준 은퇴 시점", formatDepletionTiming(result)],
     ["은퇴 예상 나이", formatRetirementAge(result.retirementAge)],
     [
       "국민연금 수령 시작",
@@ -1848,36 +1782,26 @@ function DepletionSummary({
   ];
 
   return (
-    <>
-      <article className="chart-card model-note">
-        <div>
-          <h3>기대수명 소진 모델</h3>
-        </div>
-        <p>
-          근로 기간에는 월 수입에서 현재 월 소비액을 뺀 금액을 더하고, 은퇴 후에는 은퇴 후
-          월 지출을 차감합니다. 국민연금은 현재 나이로 유추한 출생연도별 수령 시작 나이부터
-          더하고, 월 수입과 지출은 매년 입력한 증가율을 반영합니다.
-        </p>
-        <strong>현재 적용 기간 기대수명까지 {timeHorizonLabel}</strong>
-      </article>
-      <div className="summary-grid">
-        {items.map(([label, value]) => (
-          <article className="metric-card" key={label}>
-            <span>{label}</span>
-            <strong>{value}</strong>
-          </article>
-        ))}
-      </div>
-    </>
+    <div className="summary-grid">
+      {items.map(([label, value]) => (
+        <article className="metric-card" key={label}>
+          <span>{label}</span>
+          <strong>{value}</strong>
+        </article>
+      ))}
+    </div>
   );
 }
 
 function ResultCaution() {
   return (
-    <p className="result-caution">
-      이 결과는 입력한 가정에 따른 시뮬레이션입니다. 자세한 해석은 “계산기에 대해서”
-      탭을 참고하세요.
-    </p>
+    <aside className="result-caution" aria-label="계산 결과 참고">
+      <strong>이 계산은 단순화된 시뮬레이션입니다.</strong>
+      <p>
+        세금, 주거비 변화, 자녀 교육비, 국민연금, 투자 손실 가능성은 별도로 고려해야
+        합니다. 자세한 설명은 <a href={guideListPath}>가이드</a>에서 확인하세요.
+      </p>
+    </aside>
   );
 }
 
@@ -3128,7 +3052,7 @@ function toDisplayMoney(
 }
 
 function basisLabel(label: string, valueBasis: ValueBasis): string {
-  return `${label} (${valueBasis === "nominal" ? "명목" : "현재 가치"})`;
+  return `${label} (${valueBasis === "nominal" ? "미래 금액 기준" : "오늘 돈 가치 기준"})`;
 }
 
 function formatMoney(value: number): string {
