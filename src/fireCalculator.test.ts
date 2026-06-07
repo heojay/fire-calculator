@@ -27,6 +27,9 @@ const baseInputs: FireInputs = {
   annualInflationRate: 0.025,
   annualIncomeGrowthRate: 0.035,
   targetWithdrawalRate: 0.04,
+  currentAge: 40,
+  childIndependenceAge: 0,
+  childMonthlyExpenseReduction: 0,
   birthYear: birthYearForAge(40),
   lifeExpectancy: 90,
   nationalPensionMonthlyAmount: 0,
@@ -121,6 +124,104 @@ describe("calculateFireScenario", () => {
       monthlyIncome: 150,
       monthlyExpenses: 50,
       monthlySavings: 100,
+    });
+  });
+
+  it("자녀 독립 전에는 기존 소비를 유지하고 독립 시점부터 현재 소비와 은퇴 후 지출을 함께 줄인다", () => {
+    const result = calculateFireScenario({
+      ...baseInputs,
+      investableAssets: 0,
+      monthlyIncome: 200,
+      monthlyExpenses: 100,
+      retirementMonthlyExpenses: 200,
+      annualNominalReturnRate: 0,
+      annualInflationRate: 0,
+      annualIncomeGrowthRate: 0,
+      targetWithdrawalRate: 0.0001,
+      currentAge: 40,
+      childIndependenceAge: 41,
+      childMonthlyExpenseReduction: 20,
+    });
+
+    expect(result.projections[11]).toMatchObject({
+      monthlyExpenses: 100,
+      retirementMonthlyExpenses: 200,
+      monthlySavings: 100,
+    });
+    expect(result.projections[12]).toMatchObject({
+      monthlyExpenses: 80,
+      retirementMonthlyExpenses: 180,
+      monthlySavings: 120,
+    });
+  });
+
+  it("자녀 독립 소비 감소액도 물가 상승률을 반영한 명목 금액으로 차감한다", () => {
+    const result = calculateFireScenario({
+      ...baseInputs,
+      investableAssets: 0,
+      monthlyIncome: 200,
+      monthlyExpenses: 100,
+      retirementMonthlyExpenses: 200,
+      annualNominalReturnRate: 0,
+      annualInflationRate: 0.25,
+      annualIncomeGrowthRate: 0,
+      targetWithdrawalRate: 0.0001,
+      currentAge: 40,
+      childIndependenceAge: 41,
+      childMonthlyExpenseReduction: 20,
+    });
+
+    expect(result.projections[12]).toMatchObject({
+      monthlyExpenses: 100,
+      retirementMonthlyExpenses: 225,
+      monthlySavings: 100,
+    });
+  });
+
+  it("자녀 독립 나이가 0이면 소비 감소를 반영하지 않는다", () => {
+    const result = calculateFireScenario({
+      ...baseInputs,
+      investableAssets: 0,
+      monthlyIncome: 200,
+      monthlyExpenses: 100,
+      retirementMonthlyExpenses: 200,
+      annualNominalReturnRate: 0,
+      annualInflationRate: 0,
+      annualIncomeGrowthRate: 0,
+      targetWithdrawalRate: 0.0001,
+      currentAge: 40,
+      childIndependenceAge: 0,
+      childMonthlyExpenseReduction: 20,
+    });
+
+    expect(result.projections[12]).toMatchObject({
+      monthlyExpenses: 100,
+      retirementMonthlyExpenses: 200,
+      monthlySavings: 100,
+    });
+  });
+
+  it("자녀 독립 소비 감소액이 지출보다 커도 월 지출은 0 미만으로 내려가지 않는다", () => {
+    const result = calculateFireScenario({
+      ...baseInputs,
+      investableAssets: 0,
+      monthlyIncome: 200,
+      monthlyExpenses: 100,
+      retirementMonthlyExpenses: 50,
+      annualNominalReturnRate: 0,
+      annualInflationRate: 0,
+      annualIncomeGrowthRate: 0,
+      targetWithdrawalRate: 0.0001,
+      currentAge: 42,
+      childIndependenceAge: 40,
+      childMonthlyExpenseReduction: 200,
+    });
+
+    expect(result.projections[0]).toMatchObject({
+      monthlyExpenses: 0,
+      retirementMonthlyExpenses: 0,
+      monthlySavings: 0,
+      fireTargetAssets: 0,
     });
   });
 
@@ -245,6 +346,9 @@ describe("calculateFireScenario", () => {
       monthlyExpenses: -300,
       retirementMonthlyExpenses: -400,
       birthYear: -40,
+      currentAge: -1,
+      childIndependenceAge: -2,
+      childMonthlyExpenseReduction: -3,
       lifeExpectancy: -90,
       nationalPensionMonthlyAmount: -100,
     });
@@ -255,6 +359,9 @@ describe("calculateFireScenario", () => {
       monthlyExpenses: 0,
       retirementMonthlyExpenses: 0,
       birthYear: currentYear,
+      currentAge: 0,
+      childIndependenceAge: 0,
+      childMonthlyExpenseReduction: 0,
       lifeExpectancy: 0,
       nationalPensionMonthlyAmount: 0,
     });
@@ -276,6 +383,9 @@ describe("calculateFireScenario", () => {
       annualIncomeGrowthRate: -3,
       targetWithdrawalRate: 0,
       birthYear: Number.NaN,
+      currentAge: Number.NaN,
+      childIndependenceAge: Number.POSITIVE_INFINITY,
+      childMonthlyExpenseReduction: Number.NEGATIVE_INFINITY,
       lifeExpectancy: Number.POSITIVE_INFINITY,
       nationalPensionMonthlyAmount: Number.NEGATIVE_INFINITY,
     });
@@ -290,6 +400,9 @@ describe("calculateFireScenario", () => {
       annualIncomeGrowthRate: -0.99,
       targetWithdrawalRate: MIN_WITHDRAWAL_RATE,
       birthYear: currentYear,
+      currentAge: 0,
+      childIndependenceAge: 0,
+      childMonthlyExpenseReduction: 0,
       lifeExpectancy: 0,
       nationalPensionMonthlyAmount: 0,
     });
@@ -427,6 +540,40 @@ describe("calculateYearsToWork", () => {
       cashFlow: -100,
       monthlyExpenses: 100,
       assets: 650,
+    });
+  });
+
+  it("기대수명 소진 모드도 자녀 독립 이후 줄어든 소비를 반영해 근로 기간을 계산한다", () => {
+    const result = calculateYearsToWork({
+      ...baseInputs,
+      investableAssets: 0,
+      monthlyIncome: 200,
+      monthlyExpenses: 100,
+      retirementMonthlyExpenses: 100,
+      annualNominalReturnRate: 0,
+      annualInflationRate: 0,
+      annualIncomeGrowthRate: 0,
+      currentAge: 40,
+      childIndependenceAge: 40,
+      childMonthlyExpenseReduction: 50,
+      birthYear: birthYearForAge(40),
+      lifeExpectancy: 41,
+    });
+
+    expect(result.status).toBe("achievable");
+    expect(result.monthsToWork).toBe(3);
+    expect(result.retirementFirstMonthExpenses).toBe(50);
+    expect(result.projections[0]).toMatchObject({
+      phase: "working",
+      cashFlow: 150,
+      monthlyExpenses: 50,
+      assets: 0,
+    });
+    expect(result.projections[4]).toMatchObject({
+      phase: "retired",
+      cashFlow: -50,
+      monthlyExpenses: 50,
+      assets: 400,
     });
   });
 

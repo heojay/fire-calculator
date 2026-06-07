@@ -7,6 +7,9 @@ export type FireInputs = {
   annualInflationRate: number;
   annualIncomeGrowthRate: number;
   targetWithdrawalRate: number;
+  currentAge: number;
+  childIndependenceAge: number;
+  childMonthlyExpenseReduction: number;
   birthYear: number;
   lifeExpectancy: number;
   nationalPensionMonthlyAmount: number;
@@ -91,6 +94,9 @@ export const FIRE_PRESETS: FirePreset[] = [
       annualInflationRate: 0.02,
       annualIncomeGrowthRate: 0.03,
       targetWithdrawalRate: 0.035,
+      currentAge: 40,
+      childIndependenceAge: 0,
+      childMonthlyExpenseReduction: 0,
       birthYear: getCurrentYear() - 40,
       lifeExpectancy: 90,
       nationalPensionMonthlyAmount: 724_000,
@@ -108,6 +114,9 @@ export const FIRE_PRESETS: FirePreset[] = [
       annualInflationRate: 0.02,
       annualIncomeGrowthRate: 0.03,
       targetWithdrawalRate: 0.035,
+      currentAge: 40,
+      childIndependenceAge: 0,
+      childMonthlyExpenseReduction: 0,
       birthYear: getCurrentYear() - 40,
       lifeExpectancy: 90,
       nationalPensionMonthlyAmount: 0,
@@ -333,6 +342,15 @@ function normalizeInputs(inputs: FireInputs): FireInputs {
     annualInflationRate: Math.max(finiteOrZero(inputs.annualInflationRate), -0.99),
     annualIncomeGrowthRate: Math.max(finiteOrZero(inputs.annualIncomeGrowthRate), -0.99),
     targetWithdrawalRate: Math.max(finiteOrZero(inputs.targetWithdrawalRate), MIN_WITHDRAWAL_RATE),
+    currentAge: Math.max(
+      finiteOrFallback(inputs.currentAge, calculateCurrentAgeFromBirthYear(inputs.birthYear)),
+      0,
+    ),
+    childIndependenceAge: Math.max(finiteOrZero(inputs.childIndependenceAge), 0),
+    childMonthlyExpenseReduction: Math.max(
+      finiteOrZero(inputs.childMonthlyExpenseReduction),
+      0,
+    ),
     birthYear: normalizeBirthYear(inputs.birthYear, currentYear),
     lifeExpectancy: Math.max(finiteOrZero(inputs.lifeExpectancy), 0),
     nationalPensionMonthlyAmount: Math.max(finiteOrZero(inputs.nationalPensionMonthlyAmount), 0),
@@ -486,19 +504,52 @@ function calculateMonthlyIncome(inputs: FireInputs, month: number): number {
 }
 
 function calculateMonthlyExpenses(inputs: FireInputs, month: number): number {
-  return applyAnnualGrowth(
+  return applyChildExpenseReduction(
     inputs.monthlyExpenses,
-    inputs.annualInflationRate,
-    Math.floor(month / 12),
+    inputs,
+    month,
   );
 }
 
 function calculateMonthlyRetirementExpenses(inputs: FireInputs, month: number): number {
-  return applyAnnualGrowth(
+  return applyChildExpenseReduction(
     inputs.retirementMonthlyExpenses,
-    inputs.annualInflationRate,
-    Math.floor(month / 12),
+    inputs,
+    month,
   );
+}
+
+function applyChildExpenseReduction(
+  monthlyExpense: number,
+  inputs: FireInputs,
+  month: number,
+): number {
+  const elapsedYears = Math.floor(month / 12);
+  const inflatedExpense = applyAnnualGrowth(
+    monthlyExpense,
+    inputs.annualInflationRate,
+    elapsedYears,
+  );
+
+  if (!hasChildIndependenceEffect(inputs, month)) {
+    return inflatedExpense;
+  }
+
+  const inflatedReduction = applyAnnualGrowth(
+    inputs.childMonthlyExpenseReduction,
+    inputs.annualInflationRate,
+    elapsedYears,
+  );
+
+  return Math.max(inflatedExpense - inflatedReduction, 0);
+}
+
+function hasChildIndependenceEffect(inputs: FireInputs, month: number): boolean {
+  if (inputs.childIndependenceAge <= 0 || inputs.childMonthlyExpenseReduction <= 0) {
+    return false;
+  }
+
+  return inputs.currentAge + month / 12 >= inputs.childIndependenceAge;
 }
 
 function calculateMonthlyNationalPension(inputs: FireInputs, month: number): number {
@@ -529,6 +580,10 @@ function normalizeBirthYear(birthYear: number | undefined, currentYear = getCurr
 
 function finiteOrZero(value: number | undefined): number {
   return Number.isFinite(value) ? Number(value) : 0;
+}
+
+function finiteOrFallback(value: number | undefined, fallback: number): number {
+  return Number.isFinite(value) ? Number(value) : fallback;
 }
 
 function roundForPercentInput(value: number): number {
