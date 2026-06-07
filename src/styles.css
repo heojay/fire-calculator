@@ -688,6 +688,8 @@ h1 {
 }
 
 .guide-hero-copy {
+  display: grid;
+  gap: 12px;
   min-width: 0;
 }
 
