@@ -295,10 +295,7 @@ function CalculatorApp() {
               ))}
             </Fieldset>
 
-            <AdvancedFieldset
-              title="고급 옵션"
-              summary={formatAssumptionSummary(inputs)}
-            >
+            <AdvancedFieldset title="고급 옵션">
               {advancedAssumptionFields.map(([field, label, suffix]) => (
                 <NumberField
                   field={field}
@@ -313,10 +310,7 @@ function CalculatorApp() {
             </AdvancedFieldset>
 
             {calculationMode === "trinity" && (
-              <AdvancedFieldset
-                title="목표 인출률 옵션"
-                summary={`목표 인출률 ${formatPercentRate(inputs.targetWithdrawalRate)}`}
-              >
+              <AdvancedFieldset title="목표 인출률 옵션">
                 <NumberField
                   field="targetWithdrawalRate"
                   label="목표 인출률"
@@ -329,10 +323,7 @@ function CalculatorApp() {
             )}
 
             {calculationMode === "depletion" && (
-              <AdvancedFieldset
-                title="기대수명 소진 옵션"
-                summary={formatDepletionOptionSummary(inputs)}
-              >
+              <AdvancedFieldset title="기대수명 소진 옵션">
                 {depletionFields.map(([field, label, suffix]) => (
                   <NumberField
                     field={field}
@@ -2483,18 +2474,15 @@ function Fieldset({ title, children }: { title: string; children: ReactNode }) {
 
 function AdvancedFieldset({
   title,
-  summary,
   children,
 }: {
   title: string;
-  summary: string;
   children: ReactNode;
 }) {
   return (
     <details className="advanced-fieldset">
       <summary>
         <span>{title}</span>
-        <small>{summary}</small>
       </summary>
       <div className="field-grid advanced-field-grid">{children}</div>
     </details>
@@ -2965,33 +2953,6 @@ function formatSignedMoney(value: number): string {
 
 function formatPercentRate(value: number): string {
   return `${formatOneDecimal(value * 100)}%`;
-}
-
-function formatAssumptionSummary(inputs: FireInputs): string {
-  return [
-    `수익률 ${formatPercentRate(inputs.annualNominalReturnRate)}`,
-    `물가 ${formatPercentRate(inputs.annualInflationRate)}`,
-    `수입 증가 ${formatPercentRate(inputs.annualIncomeGrowthRate)}`,
-  ].join(" · ");
-}
-
-function formatDepletionOptionSummary(inputs: FireInputs): string {
-  return [
-    `현재 ${formatRetirementAge(inputs.currentAge)}`,
-    `기대수명 ${inputs.lifeExpectancy}세`,
-    formatLifestyleOptionSummary(inputs),
-    `국민연금 ${formatMoney(inputs.nationalPensionMonthlyAmount)}`,
-  ].join(" · ");
-}
-
-function formatLifestyleOptionSummary(inputs: FireInputs): string {
-  if (inputs.childIndependenceAge <= 0 || inputs.childMonthlyExpenseReduction <= 0) {
-    return "자녀 독립 소비 감소 미반영";
-  }
-
-  return `${formatRetirementAge(inputs.childIndependenceAge)}부터 ${formatMoney(
-    inputs.childMonthlyExpenseReduction,
-  )} / 월 감소`;
 }
 
 function formatSignedPercentPoint(value: number): string {

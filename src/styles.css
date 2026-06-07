@@ -950,7 +950,7 @@ legend {
 
 .advanced-fieldset summary {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   min-height: 48px;
@@ -988,18 +988,6 @@ legend {
 .advanced-fieldset summary:focus-visible {
   outline: 2px solid var(--blue-info);
   outline-offset: 2px;
-}
-
-.advanced-fieldset summary small {
-  min-width: 0;
-  color: var(--body-mid);
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.45;
-  overflow: hidden;
-  text-align: right;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .advanced-field-grid {
