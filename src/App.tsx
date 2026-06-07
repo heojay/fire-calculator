@@ -1345,7 +1345,9 @@ function ResultSnapshot({
     ["필요 자산", formatMoney(displayTargetAssets)],
     ["매달 남는 돈", `${formatMoney(monthlySavings)} / 월`],
     ["목표까지 채운 비율", formatProgressPercent(targetProgress)],
-    ["은퇴 예상 나이", formatRetirementAge(retirementAge)],
+    ...(mode === "depletion"
+      ? [["은퇴 예상 나이", formatRetirementAge(retirementAge)]]
+      : []),
   ];
 
   return (
@@ -1400,7 +1402,7 @@ function formatResultStatus({
     return "이미 현재 자산이 경제적 자립 목표를 충족합니다.";
   }
 
-  return `현재 조건을 유지하면 ${formatRetirementAge(retirementAge)}에 경제적 자립이 가능합니다.`;
+  return "현재 조건을 유지하면 경제적 자립 목표에 도달할 수 있습니다.";
 }
 
 function formatResultInterpretation({
