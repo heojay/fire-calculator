@@ -183,6 +183,13 @@ export function calculateNationalPensionStartAge(birthYear: number): number {
   return DEFAULT_NATIONAL_PENSION_START_AGE;
 }
 
+export function inferBirthYearFromCurrentAge(
+  currentAge: number,
+  currentYear = getCurrentYear(),
+): number {
+  return Math.floor(currentYear - Math.max(finiteOrZero(currentAge), 0));
+}
+
 export function calculatePresentValue(
   value: number,
   annualInflationRate: number,
@@ -255,9 +262,7 @@ export function calculateFireScenarios(inputs: FireInputs): FireScenarioResult[]
 
 export function calculateYearsToWork(rawInputs: FireInputs): DepletionResult {
   const inputs = normalizeInputs(rawInputs);
-  const totalMonths = Math.floor(
-    (inputs.lifeExpectancy - calculateCurrentAgeFromBirthYear(inputs.birthYear)) * 12,
-  );
+  const totalMonths = Math.floor((inputs.lifeExpectancy - inputs.currentAge) * 12);
 
   if (totalMonths <= 0) {
     return {
@@ -280,7 +285,7 @@ export function calculateYearsToWork(rawInputs: FireInputs): DepletionResult {
     return {
       status: "already-sufficient",
       monthsToWork: 0,
-      retirementAge: calculateCurrentAgeFromBirthYear(inputs.birthYear),
+      retirementAge: inputs.currentAge,
       retirementFirstMonthExpenses: nowRetirementSimulation.retirementFirstMonthExpenses,
       nationalPensionStartAge: calculateNationalPensionStartAge(inputs.birthYear),
       peakAssets: nowRetirementSimulation.peakAssets,
@@ -297,7 +302,7 @@ export function calculateYearsToWork(rawInputs: FireInputs): DepletionResult {
       return {
         status: "achievable",
         monthsToWork,
-        retirementAge: calculateCurrentAgeFromBirthYear(inputs.birthYear) + monthsToWork / 12,
+        retirementAge: inputs.currentAge + monthsToWork / 12,
         retirementFirstMonthExpenses: simulation.retirementFirstMonthExpenses,
         nationalPensionStartAge: calculateNationalPensionStartAge(inputs.birthYear),
         peakAssets: simulation.peakAssets,
@@ -325,6 +330,7 @@ export function calculateYearsToWork(rawInputs: FireInputs): DepletionResult {
 
 function normalizeInputs(inputs: FireInputs): FireInputs {
   const currentYear = getCurrentYear();
+  const currentAge = Math.max(finiteOrZero(inputs.currentAge), 0);
 
   return {
     ...inputs,
@@ -342,16 +348,13 @@ function normalizeInputs(inputs: FireInputs): FireInputs {
     annualInflationRate: Math.max(finiteOrZero(inputs.annualInflationRate), -0.99),
     annualIncomeGrowthRate: Math.max(finiteOrZero(inputs.annualIncomeGrowthRate), -0.99),
     targetWithdrawalRate: Math.max(finiteOrZero(inputs.targetWithdrawalRate), MIN_WITHDRAWAL_RATE),
-    currentAge: Math.max(
-      finiteOrFallback(inputs.currentAge, calculateCurrentAgeFromBirthYear(inputs.birthYear)),
-      0,
-    ),
+    currentAge,
     childIndependenceAge: Math.max(finiteOrZero(inputs.childIndependenceAge), 0),
     childMonthlyExpenseReduction: Math.max(
       finiteOrZero(inputs.childMonthlyExpenseReduction),
       0,
     ),
-    birthYear: normalizeBirthYear(inputs.birthYear, currentYear),
+    birthYear: inferBirthYearFromCurrentAge(currentAge, currentYear),
     lifeExpectancy: Math.max(finiteOrZero(inputs.lifeExpectancy), 0),
     nationalPensionMonthlyAmount: Math.max(finiteOrZero(inputs.nationalPensionMonthlyAmount), 0),
   };
@@ -388,7 +391,7 @@ function calculateProjectionForMonth(
   return {
     month,
     year: month / 12,
-    age: calculateCurrentAgeFromBirthYear(inputs.birthYear) + month / 12,
+    age: inputs.currentAge + month / 12,
     phase,
     cashFlow,
     monthlyIncome,
@@ -432,7 +435,7 @@ function simulateDepletion(
   const projections: DepletionProjection[] = [
     {
       month: 0,
-      age: calculateCurrentAgeFromBirthYear(inputs.birthYear),
+      age: inputs.currentAge,
       phase: initialPhase,
       cashFlow: initialCashFlow,
       monthlyIncome: initialMonthlyIncome,
@@ -464,7 +467,7 @@ function simulateDepletion(
 
     projections.push({
       month,
-      age: calculateCurrentAgeFromBirthYear(inputs.birthYear) + month / 12,
+      age: inputs.currentAge + month / 12,
       phase: isWorking ? "working" : "retired",
       cashFlow,
       monthlyIncome,
@@ -553,7 +556,7 @@ function hasChildIndependenceEffect(inputs: FireInputs, month: number): boolean 
 }
 
 function calculateMonthlyNationalPension(inputs: FireInputs, month: number): number {
-  const age = calculateCurrentAgeFromBirthYear(inputs.birthYear) + month / 12;
+  const age = inputs.currentAge + month / 12;
 
   if (age < calculateNationalPensionStartAge(inputs.birthYear)) {
     return 0;
@@ -580,10 +583,6 @@ function normalizeBirthYear(birthYear: number | undefined, currentYear = getCurr
 
 function finiteOrZero(value: number | undefined): number {
   return Number.isFinite(value) ? Number(value) : 0;
-}
-
-function finiteOrFallback(value: number | undefined, fallback: number): number {
-  return Number.isFinite(value) ? Number(value) : fallback;
 }
 
 function roundForPercentInput(value: number): number {

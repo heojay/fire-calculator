@@ -10,6 +10,7 @@ import {
   calculateNationalPensionStartAge,
   calculatePresentValue,
   calculateYearsToWork,
+  inferBirthYearFromCurrentAge,
   percentInputToRate,
   rateToPercentInput,
   type FireInputs,
@@ -338,7 +339,7 @@ describe("calculateFireScenario", () => {
     });
   });
 
-  it("금액과 출생연도, 국민연금의 잘못된 입력은 안전한 범위로 보정한다", () => {
+  it("금액과 현재 나이, 국민연금의 잘못된 입력은 안전한 범위로 보정한다", () => {
     const result = calculateFireScenario({
       ...baseInputs,
       investableAssets: -100,
@@ -406,6 +407,19 @@ describe("calculateFireScenario", () => {
       lifeExpectancy: 0,
       nationalPensionMonthlyAmount: 0,
     });
+  });
+
+  it("출생연도와 현재 나이가 다르면 현재 나이를 공통 기준으로 사용한다", () => {
+    const result = calculateFireScenario({
+      ...baseInputs,
+      currentAge: 45,
+      birthYear: birthYearForAge(30),
+    });
+
+    expect(result.inputs.currentAge).toBe(45);
+    expect(result.inputs.birthYear).toBe(inferBirthYearFromCurrentAge(45));
+    expect(result.projections[0].age).toBe(45);
+    expect(result.projections[12].age).toBe(46);
   });
 
   it("현재 가치 환산 표시가 필요한 미래 목표 금액도 도달 판정은 명목 값으로 유지한다", () => {
@@ -512,6 +526,29 @@ describe("calculateYearsToWork", () => {
     });
   });
 
+  it("기대수명 소진 기간과 은퇴 나이는 현재 나이를 공통 기준으로 계산한다", () => {
+    const result = calculateYearsToWork({
+      ...baseInputs,
+      investableAssets: 0,
+      monthlyIncome: 200,
+      monthlyExpenses: 100,
+      retirementMonthlyExpenses: 100,
+      annualNominalReturnRate: 0,
+      annualInflationRate: 0,
+      annualIncomeGrowthRate: 0,
+      currentAge: 50,
+      birthYear: birthYearForAge(40),
+      lifeExpectancy: 51,
+    });
+
+    expect(result.status).toBe("achievable");
+    expect(result.monthsToWork).toBe(6);
+    expect(result.retirementAge).toBe(50.5);
+    expect(result.totalMonths).toBe(12);
+    expect(result.projections[0].age).toBe(50);
+    expect(result.projections[12].age).toBe(51);
+  });
+
   it("은퇴 전에는 현재 월 소비액을 쓰고 은퇴 후에는 은퇴 후 월 지출로 전환한다", () => {
     const result = calculateYearsToWork({
       ...baseInputs,
@@ -606,9 +643,9 @@ describe("calculateYearsToWork", () => {
   });
 
   it("국민연금은 수령 시작 나이부터 현금흐름에 더한다", () => {
-    const birthYear = baseInputs.birthYear;
-    const currentAge = calculateCurrentAgeFromBirthYear(birthYear);
-    const pensionStartAge = calculateNationalPensionStartAge(birthYear);
+    const currentAge = baseInputs.currentAge;
+    const inferredBirthYear = inferBirthYearFromCurrentAge(currentAge);
+    const pensionStartAge = calculateNationalPensionStartAge(inferredBirthYear);
     const pensionStartMonth = Math.floor((pensionStartAge - currentAge) * 12);
     const result = calculateYearsToWork({
       ...baseInputs,
@@ -626,6 +663,7 @@ describe("calculateYearsToWork", () => {
     expect(result.status).toBe("achievable");
     expect(result.monthsToWork).toBe(Math.ceil((pensionStartMonth - 1) / 2));
     expect(result.nationalPensionStartAge).toBe(pensionStartAge);
+    expect(result.projections[0].age).toBe(currentAge);
     expect(result.projections[pensionStartMonth - 1]).toMatchObject({
       nationalPensionIncome: 0,
     });
@@ -644,6 +682,7 @@ describe("calculateYearsToWork", () => {
       annualNominalReturnRate: 0,
       annualInflationRate: 0,
       annualIncomeGrowthRate: 0,
+      currentAge: calculateCurrentAgeFromBirthYear(1968),
       birthYear: 1968,
       lifeExpectancy: calculateNationalPensionStartAge(1968) + 1,
       nationalPensionMonthlyAmount: 1_000,
@@ -666,6 +705,7 @@ describe("calculateYearsToWork", () => {
       annualNominalReturnRate: 0,
       annualInflationRate: 0.25,
       annualIncomeGrowthRate: 0,
+      currentAge: calculateCurrentAgeFromBirthYear(1952),
       birthYear: 1952,
       lifeExpectancy: calculateCurrentAgeFromBirthYear(1952) + 2,
       nationalPensionMonthlyAmount: 100,
@@ -685,6 +725,7 @@ describe("calculateYearsToWork", () => {
   it("기대수명이 현재 나이 이하이면 계산 불가 상태를 반환한다", () => {
     const result = calculateYearsToWork({
       ...baseInputs,
+      currentAge: 90,
       birthYear: birthYearForAge(90),
       lifeExpectancy: 90,
     });
