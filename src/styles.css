@@ -596,7 +596,7 @@ h1 {
   max-width: 1280px;
   margin: 0 auto;
   border-top: 0;
-  padding-top: 20px;
+  padding-top: 12px;
 }
 
 .about-panel {
@@ -1121,20 +1121,6 @@ h1 {
 .result-caution a:focus-visible {
   text-decoration: underline;
   text-underline-offset: 3px;
-}
-
-.input-actions {
-  display: grid;
-  gap: 6px;
-  justify-items: start;
-}
-
-.preset-note {
-  margin: 0;
-  color: var(--body-mid);
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.5;
 }
 
 fieldset {
@@ -2116,6 +2102,14 @@ td {
   .guide-summary,
   .site-footer {
     padding: 18px 16px;
+  }
+
+  .hero-band {
+    padding-bottom: 12px;
+  }
+
+  .content-grid {
+    padding-top: 10px;
   }
 
   .chart-heading,

@@ -131,7 +131,6 @@ const fieldHelpText: Partial<Record<NumericFormField, string>> = {
     "오늘 돈 가치 기준 월 예상 수령액입니다. 계산에서는 물가상승률을 반영해 미래 금액으로 환산합니다.",
 };
 
-const koreaAveragePreset = FIRE_PRESETS.find((preset) => preset.id === "korea-average")!;
 const fireExamplePreset = FIRE_PRESETS.find((preset) => preset.id === "fire-example")!;
 const cacheVersion = 5;
 const cacheKey = "firecalc:lastState:v5";
@@ -209,7 +208,6 @@ function CalculatorApp() {
   const [activeResultTab, setActiveResultTab] = useState<ResultTab>(initialState.activeResultTab);
   const [formValues, setFormValues] = useState<FormValues>(initialState.formValues);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
-  const [presetMessage, setPresetMessage] = useState("");
   const helpButtonRef = useRef<HTMLButtonElement>(null);
 
   const inputs = useMemo(() => formValuesToInputs(formValues), [formValues]);
@@ -231,16 +229,10 @@ function CalculatorApp() {
   }, [activeResultTab, calculationMode, valueBasis]);
 
   const handleFieldChange = (field: NumericFormField, value: string) => {
-    setPresetMessage("");
     setFormValues((current) => ({
       ...current,
       [field]: value === "" ? "" : Number(value),
     }));
-  };
-
-  const handleLoadAveragePreset = () => {
-    setFormValues(presetToFormValues(koreaAveragePreset.values));
-    setPresetMessage("평균 예시값을 입력했습니다.");
   };
 
   return (
@@ -285,19 +277,6 @@ function CalculatorApp() {
           className="content-grid"
         >
           <section className="input-panel">
-            <div className="input-actions">
-              <button
-                className="button-secondary"
-                type="button"
-                onClick={handleLoadAveragePreset}
-              >
-                평균값 불러오기
-              </button>
-              <p className="preset-note" aria-live="polite">
-                {presetMessage || "입력한 값이 평균 예시값으로 바뀝니다."}
-              </p>
-            </div>
-
             <ModeTabs selectedMode={calculationMode} onChange={setCalculationMode} />
 
             <Fieldset title="핵심 입력">
