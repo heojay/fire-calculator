@@ -939,7 +939,6 @@ h1 {
 }
 
 .input-panel,
-.input-options-panel,
 .results-panel {
   display: grid;
   gap: 16px;
@@ -958,16 +957,6 @@ h1 {
 
 .input-panel > .mode-tabs {
   width: 100%;
-}
-
-.input-options-panel {
-  grid-column: 1;
-  align-content: start;
-}
-
-.results-panel {
-  grid-column: 2;
-  grid-row: 1 / span 2;
 }
 
 .section-heading h2 {
@@ -2080,14 +2069,8 @@ td {
   }
 
   .input-panel,
-  .input-options-panel,
   .results-panel {
     padding: 24px;
-  }
-
-  .results-panel {
-    grid-column: auto;
-    grid-row: auto;
   }
 }
 
@@ -2361,7 +2344,6 @@ td {
   }
 
   .input-panel,
-  .input-options-panel,
   .results-panel {
     gap: 14px;
     border-radius: 16px;

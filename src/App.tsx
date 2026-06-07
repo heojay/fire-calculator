@@ -83,11 +83,11 @@ const coreFields = [
   ["investableAssets", "현재 투자자산", "원"],
   ["monthlyIncome", "월 수입", "원"],
   ["monthlyExpenses", "월 소비", "원"],
-  ["annualNominalReturnRate", "기대수익률", "%"],
   ["retirementMonthlyExpenses", "은퇴 후 월 지출", "원"],
 ] as const;
 
 const advancedAssumptionFields = [
+  ["annualNominalReturnRate", "기대수익률", "%"],
   ["annualInflationRate", "연평균 물가 상승률", "%"],
   ["annualIncomeGrowthRate", "연평균 수입 증가율", "%"],
 ] as const;
@@ -292,6 +292,72 @@ function CalculatorApp() {
                 />
               ))}
             </Fieldset>
+
+            <AdvancedFieldset title="고급 옵션">
+              {advancedAssumptionFields.map(([field, label, suffix]) => (
+                <NumberField
+                  field={field}
+                  key={field}
+                  label={label}
+                  suffix={suffix}
+                  value={formValues[field]}
+                  helpText={fieldHelpText[field]}
+                  onChange={(value) => handleFieldChange(field, value)}
+                />
+              ))}
+            </AdvancedFieldset>
+
+            {calculationMode === "trinity" && (
+              <AdvancedFieldset title="자산을 유지하는 방식 옵션">
+                <NumberField
+                  field="targetWithdrawalRate"
+                  label="연간 꺼내 쓸 비율"
+                  suffix="%"
+                  value={formValues.targetWithdrawalRate}
+                  helpText={fieldHelpText.targetWithdrawalRate}
+                  onChange={(value) => handleFieldChange("targetWithdrawalRate", value)}
+                />
+              </AdvancedFieldset>
+            )}
+
+            {calculationMode === "depletion" && (
+              <AdvancedFieldset title="정해진 나이까지 쓰는 방식 옵션">
+                {depletionFields.map(([field, label, suffix]) => (
+                  <NumberField
+                    field={field}
+                    key={field}
+                    label={label}
+                    suffix={suffix}
+                    value={formValues[field]}
+                    helpText={fieldHelpText[field]}
+                    onChange={(value) => handleFieldChange(field, value)}
+                  />
+                ))}
+                {lifestyleFields.map(([field, label, suffix]) => (
+                  <NumberField
+                    field={field}
+                    key={field}
+                    label={label}
+                    suffix={suffix}
+                    value={formValues[field]}
+                    helpText={fieldHelpText[field]}
+                    onChange={(value) => handleFieldChange(field, value)}
+                  />
+                ))}
+                {pensionFields.map(([field, label, suffix]) => (
+                  <NumberField
+                    field={field}
+                    key={field}
+                    label={label}
+                    suffix={suffix}
+                    value={formValues[field]}
+                    helpText={fieldHelpText[field]}
+                    onChange={(value) => handleFieldChange(field, value)}
+                  />
+                ))}
+                <PensionStartAgeNote currentAge={normalizeFormNumber(formValues.currentAge)} />
+              </AdvancedFieldset>
+            )}
           </section>
 
           <section className="results-panel">
@@ -377,74 +443,6 @@ function CalculatorApp() {
             )}
 
             <ResultCaution />
-          </section>
-
-          <section className="input-options-panel" aria-label="추가 입력 옵션">
-            <AdvancedFieldset title="고급 옵션">
-              {advancedAssumptionFields.map(([field, label, suffix]) => (
-                <NumberField
-                  field={field}
-                  key={field}
-                  label={label}
-                  suffix={suffix}
-                  value={formValues[field]}
-                  helpText={fieldHelpText[field]}
-                  onChange={(value) => handleFieldChange(field, value)}
-                />
-              ))}
-            </AdvancedFieldset>
-
-            {calculationMode === "trinity" && (
-              <AdvancedFieldset title="자산을 유지하는 방식 옵션">
-                <NumberField
-                  field="targetWithdrawalRate"
-                  label="연간 꺼내 쓸 비율"
-                  suffix="%"
-                  value={formValues.targetWithdrawalRate}
-                  helpText={fieldHelpText.targetWithdrawalRate}
-                  onChange={(value) => handleFieldChange("targetWithdrawalRate", value)}
-                />
-              </AdvancedFieldset>
-            )}
-
-            {calculationMode === "depletion" && (
-              <AdvancedFieldset title="정해진 나이까지 쓰는 방식 옵션">
-                {depletionFields.map(([field, label, suffix]) => (
-                  <NumberField
-                    field={field}
-                    key={field}
-                    label={label}
-                    suffix={suffix}
-                    value={formValues[field]}
-                    helpText={fieldHelpText[field]}
-                    onChange={(value) => handleFieldChange(field, value)}
-                  />
-                ))}
-                {lifestyleFields.map(([field, label, suffix]) => (
-                  <NumberField
-                    field={field}
-                    key={field}
-                    label={label}
-                    suffix={suffix}
-                    value={formValues[field]}
-                    helpText={fieldHelpText[field]}
-                    onChange={(value) => handleFieldChange(field, value)}
-                  />
-                ))}
-                {pensionFields.map(([field, label, suffix]) => (
-                  <NumberField
-                    field={field}
-                    key={field}
-                    label={label}
-                    suffix={suffix}
-                    value={formValues[field]}
-                    helpText={fieldHelpText[field]}
-                    onChange={(value) => handleFieldChange(field, value)}
-                  />
-                ))}
-                <PensionStartAgeNote currentAge={normalizeFormNumber(formValues.currentAge)} />
-              </AdvancedFieldset>
-            )}
           </section>
         </section>
 
