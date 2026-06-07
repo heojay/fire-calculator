@@ -3,6 +3,7 @@ import type {
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent,
   ReactNode,
+  RefObject,
 } from "react";
 import seoPages from "./seoPages.json";
 import {
@@ -78,6 +79,18 @@ type ChartPoint = {
   x: number;
   y: number;
 };
+type TopNavAction =
+  | {
+      type: "link";
+      label: string;
+      href: string;
+    }
+  | {
+      type: "button";
+      label: string;
+      onClick: () => void;
+      buttonRef?: RefObject<HTMLButtonElement | null>;
+    };
 
 const coreFields = [
   ["investableAssets", "현재 투자자산", "원"],
@@ -199,6 +212,47 @@ function App() {
   return <CalculatorApp />;
 }
 
+function TopNav({
+  brandHref,
+  actions,
+}: {
+  brandHref?: string;
+  actions: TopNavAction[];
+}) {
+  const brandClassName = "top-nav-brand top-nav-control";
+
+  return (
+    <nav className="top-nav" aria-label="상단">
+      {brandHref ? (
+        <a className={brandClassName} href={brandHref}>
+          FIRE 계산기
+        </a>
+      ) : (
+        <div className={brandClassName}>FIRE 계산기</div>
+      )}
+      <div className="top-nav-actions">
+        {actions.map((action) =>
+          action.type === "link" ? (
+            <a className="top-nav-action top-nav-control" href={action.href} key={action.label}>
+              {action.label}
+            </a>
+          ) : (
+            <button
+              className="top-nav-action top-nav-control"
+              key={action.label}
+              ref={action.buttonRef}
+              type="button"
+              onClick={action.onClick}
+            >
+              {action.label}
+            </button>
+          ),
+        )}
+      </div>
+    </nav>
+  );
+}
+
 function CalculatorApp() {
   const [initialState] = useState(loadInitialAppState);
   const [calculationMode, setCalculationMode] = useState<CalculationMode>(
@@ -242,25 +296,18 @@ function CalculatorApp() {
       </a>
       <main id="calculator-content">
       <header className="hero-band">
-        <nav className="top-nav" aria-label="상단">
-          <div className="brand">FIRE 계산기</div>
-          <div className="top-nav-actions">
-            <a className="button-secondary top-nav-link" href="#calculator-content">
-              계산기
-            </a>
-            <a className="button-secondary top-nav-link" href={guideListPath}>
-              가이드
-            </a>
-            <button
-              className="help-button"
-              ref={helpButtonRef}
-              type="button"
-              onClick={() => setIsHelpOpen(true)}
-            >
-              계산 기준
-            </button>
-          </div>
-        </nav>
+        <TopNav
+          actions={[
+            { type: "link", label: "계산기", href: "#calculator-content" },
+            { type: "link", label: "가이드", href: guideListPath },
+            {
+              type: "button",
+              label: "계산 기준",
+              buttonRef: helpButtonRef,
+              onClick: () => setIsHelpOpen(true),
+            },
+          ]}
+        />
 
         <section className="hero-grid" aria-labelledby="calculator-title">
           <h1 className="hero-title" id="calculator-title">
@@ -478,16 +525,10 @@ function GuideListPage() {
       </a>
       <main className="guide-page" id="guide-list-content">
         <header className="guide-hero">
-          <nav className="top-nav" aria-label="상단">
-            <a className="brand brand-link" href="/">
-              FIRE 계산기
-            </a>
-            <div className="top-nav-actions">
-              <a className="button-secondary guide-nav-link" href="/">
-                계산기 열기
-              </a>
-            </div>
-          </nav>
+          <TopNav
+            brandHref="/"
+            actions={[{ type: "link", label: "계산기 열기", href: "/" }]}
+          />
 
           <div className="guide-hero-grid">
             <div className="guide-hero-copy">
@@ -538,19 +579,13 @@ function GuidePage({ page }: { page: SeoGuidePage }) {
       </a>
       <main className="guide-page" id="guide-content">
         <header className="guide-hero">
-          <nav className="top-nav" aria-label="상단">
-            <a className="brand brand-link" href="/">
-              FIRE 계산기
-            </a>
-            <div className="top-nav-actions">
-              <a className="button-secondary top-nav-link" href={guideListPath}>
-                가이드
-              </a>
-              <a className="button-secondary guide-nav-link" href="/">
-                계산기 열기
-              </a>
-            </div>
-          </nav>
+          <TopNav
+            brandHref="/"
+            actions={[
+              { type: "link", label: "가이드", href: guideListPath },
+              { type: "link", label: "계산기 열기", href: "/" },
+            ]}
+          />
 
           <div className="guide-hero-grid">
             <div className="guide-hero-copy">

@@ -160,22 +160,6 @@ main {
   min-width: 0;
 }
 
-.brand {
-  color: var(--primary);
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1.4;
-}
-
-.brand-link {
-  text-decoration: none;
-}
-
-.brand-link:hover {
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-
 .button-primary,
 .button-secondary {
   display: inline-flex;
@@ -213,26 +197,50 @@ main {
   color: var(--ink);
 }
 
-.help-button {
+.top-nav-control {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
   min-height: 44px;
-  border: 1px solid var(--surface-strong);
   border-radius: 100px;
   padding: 12px 20px;
-  color: var(--ink);
-  background: var(--surface-strong);
   font-size: 16px;
   font-weight: 600;
   line-height: 1.15;
+  text-decoration: none;
+  white-space: nowrap;
 }
 
-.help-button:hover,
-.help-button:focus-visible,
+.top-nav-brand {
+  border: 1px solid transparent;
+  padding-right: 0;
+  padding-left: 0;
+  color: var(--primary);
+  background: transparent;
+  font-weight: 700;
+}
+
+a.top-nav-brand:hover,
+a.top-nav-brand:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.top-nav-action {
+  border: 1px solid var(--surface-strong);
+  color: var(--ink);
+  background: var(--surface-strong);
+}
+
+.top-nav-action:hover,
+.top-nav-action:focus-visible,
 .help-close-button:hover,
 .help-close-button:focus-visible {
   border-color: var(--primary);
 }
 
-.help-button:focus-visible,
+.top-nav-control:focus-visible,
 .help-close-button:focus-visible {
   outline-offset: 3px;
 }
@@ -690,12 +698,6 @@ h1 {
   .guide-hero-copy h1 {
     font-size: 52px;
   }
-}
-
-.guide-nav-link,
-.top-nav-link {
-  flex: 0 0 auto;
-  text-decoration: none;
 }
 
 .guide-summary,
@@ -2102,7 +2104,7 @@ td {
   }
 
   .top-nav {
-    align-items: flex-start;
+    align-items: center;
     flex-direction: row;
     gap: 10px;
     margin-bottom: 0;
@@ -2115,12 +2117,15 @@ td {
     overflow-x: auto;
   }
 
-  .top-nav-actions .button-secondary,
-  .help-button {
-    flex: 0 0 auto;
+  .top-nav-control {
     min-height: 40px;
     padding: 10px 12px;
     font-size: 13px;
+  }
+
+  .top-nav-brand {
+    padding-right: 0;
+    padding-left: 0;
   }
 
   .main-tabs {
