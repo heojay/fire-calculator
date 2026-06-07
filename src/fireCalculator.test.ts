@@ -128,7 +128,7 @@ describe("calculateFireScenario", () => {
     });
   });
 
-  it("자녀 독립 전에는 기존 소비를 유지하고 독립 시점부터 현재 소비와 은퇴 후 지출을 함께 줄인다", () => {
+  it("목표 인출률 모드는 자녀 독립 이후에도 현재 소비와 은퇴 후 지출을 줄이지 않는다", () => {
     const result = calculateFireScenario({
       ...baseInputs,
       investableAssets: 0,
@@ -150,13 +150,13 @@ describe("calculateFireScenario", () => {
       monthlySavings: 100,
     });
     expect(result.projections[12]).toMatchObject({
-      monthlyExpenses: 80,
-      retirementMonthlyExpenses: 180,
-      monthlySavings: 120,
+      monthlyExpenses: 100,
+      retirementMonthlyExpenses: 200,
+      monthlySavings: 100,
     });
   });
 
-  it("자녀 독립 소비 감소액도 물가 상승률을 반영한 명목 금액으로 차감한다", () => {
+  it("목표 인출률 모드는 자녀 독립 소비 감소액 없이 물가 상승률만 반영한다", () => {
     const result = calculateFireScenario({
       ...baseInputs,
       investableAssets: 0,
@@ -173,9 +173,9 @@ describe("calculateFireScenario", () => {
     });
 
     expect(result.projections[12]).toMatchObject({
-      monthlyExpenses: 100,
-      retirementMonthlyExpenses: 225,
-      monthlySavings: 100,
+      monthlyExpenses: 125,
+      retirementMonthlyExpenses: 250,
+      monthlySavings: 75,
     });
   });
 
@@ -202,7 +202,7 @@ describe("calculateFireScenario", () => {
     });
   });
 
-  it("자녀 독립 소비 감소액이 지출보다 커도 월 지출은 0 미만으로 내려가지 않는다", () => {
+  it("목표 인출률 모드는 자녀 독립 소비 감소액이 지출보다 커도 지출을 차감하지 않는다", () => {
     const result = calculateFireScenario({
       ...baseInputs,
       investableAssets: 0,
@@ -219,10 +219,10 @@ describe("calculateFireScenario", () => {
     });
 
     expect(result.projections[0]).toMatchObject({
-      monthlyExpenses: 0,
-      retirementMonthlyExpenses: 0,
-      monthlySavings: 0,
-      fireTargetAssets: 0,
+      monthlyExpenses: 100,
+      retirementMonthlyExpenses: 50,
+      monthlySavings: 100,
+      fireTargetAssets: 6_000_000,
     });
   });
 

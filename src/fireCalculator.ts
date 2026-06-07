@@ -225,7 +225,7 @@ export function calculateFireScenario(
 
   const currentProjection = projections[0];
   const retirementFirstMonthExpenses = achievedProjection
-    ? calculateMonthlyRetirementExpenses(inputs, achievedProjection.month + 1)
+    ? calculateMonthlyRetirementExpenses(inputs, achievedProjection.month + 1, false)
     : null;
 
   return {
@@ -371,8 +371,8 @@ function calculateProjectionForMonth(
   }
 
   const monthlyReturnRate = annualRateToMonthlyRate(inputs.annualNominalReturnRate);
-  const monthlyExpenses = calculateMonthlyExpenses(inputs, month);
-  const retirementMonthlyExpenses = calculateMonthlyRetirementExpenses(inputs, month);
+  const monthlyExpenses = calculateMonthlyExpenses(inputs, month, false);
+  const retirementMonthlyExpenses = calculateMonthlyRetirementExpenses(inputs, month, false);
   const fireTargetAssets = (retirementMonthlyExpenses * 12) / inputs.targetWithdrawalRate;
   const phase =
     achievedMonth !== null && month > achievedMonth
@@ -506,20 +506,36 @@ function calculateMonthlyIncome(inputs: FireInputs, month: number): number {
   );
 }
 
-function calculateMonthlyExpenses(inputs: FireInputs, month: number): number {
-  return applyChildExpenseReduction(
-    inputs.monthlyExpenses,
-    inputs,
-    month,
-  );
+function calculateMonthlyExpenses(
+  inputs: FireInputs,
+  month: number,
+  includeChildExpenseReduction = true,
+): number {
+  if (!includeChildExpenseReduction) {
+    return applyAnnualGrowth(
+      inputs.monthlyExpenses,
+      inputs.annualInflationRate,
+      Math.floor(month / 12),
+    );
+  }
+
+  return applyChildExpenseReduction(inputs.monthlyExpenses, inputs, month);
 }
 
-function calculateMonthlyRetirementExpenses(inputs: FireInputs, month: number): number {
-  return applyChildExpenseReduction(
-    inputs.retirementMonthlyExpenses,
-    inputs,
-    month,
-  );
+function calculateMonthlyRetirementExpenses(
+  inputs: FireInputs,
+  month: number,
+  includeChildExpenseReduction = true,
+): number {
+  if (!includeChildExpenseReduction) {
+    return applyAnnualGrowth(
+      inputs.retirementMonthlyExpenses,
+      inputs.annualInflationRate,
+      Math.floor(month / 12),
+    );
+  }
+
+  return applyChildExpenseReduction(inputs.retirementMonthlyExpenses, inputs, month);
 }
 
 function applyChildExpenseReduction(

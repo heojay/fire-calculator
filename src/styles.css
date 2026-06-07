@@ -787,6 +787,10 @@ h1 {
   gap: 16px;
 }
 
+.input-panel > .mode-tabs {
+  width: 100%;
+}
+
 .section-heading h2 {
   margin-bottom: 0;
   color: var(--ink);
