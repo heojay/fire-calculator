@@ -93,21 +93,21 @@ type TopNavAction =
     };
 
 const coreFields = [
-  ["investableAssets", "현재 투자자산", "원"],
+  ["investableAssets", "투자 가능 자산", "원"],
   ["monthlyIncome", "월 수입", "원"],
-  ["monthlyExpenses", "월 소비", "원"],
+  ["monthlyExpenses", "현재 월 소비액", "원"],
   ["retirementMonthlyExpenses", "은퇴 후 월 지출", "원"],
 ] as const;
 
 const advancedAssumptionFields = [
-  ["annualNominalReturnRate", "기대수익률", "%"],
+  ["annualNominalReturnRate", "연평균 투자 수익률", "%"],
   ["annualInflationRate", "연평균 물가 상승률", "%"],
   ["annualIncomeGrowthRate", "연평균 수입 증가율", "%"],
 ] as const;
 
 const lifestyleFields = [
   ["childIndependenceAge", "자녀 독립 나이", "세"],
-  ["childMonthlyExpenseReduction", "독립 후 줄어드는 월 소비", "원"],
+  ["childMonthlyExpenseReduction", "자녀 독립 후 월 지출 감소액", "원"],
 ] as const;
 
 const depletionFields = [
@@ -120,11 +120,11 @@ const pensionFields = [
 ] as const;
 
 const fieldHelpText: Partial<Record<NumericFormField, string>> = {
-  monthlyIncome: "매월 저축액은 현재 월 수입에서 월 소비액을 뺀 금액으로 계산합니다.",
+  monthlyIncome: "매월 저축액은 월 수입에서 현재 월 소비액을 뺀 금액으로 계산합니다.",
   monthlyExpenses:
     "근로 중 월 저축액을 계산할 때 쓰는 현재 월 소비액입니다. 은퇴 후 월 지출은 별도로 입력합니다.",
   retirementMonthlyExpenses:
-    "오늘 돈 가치 기준 은퇴 후 월 지출입니다. 목표 자산과 은퇴 후 현금흐름 계산에 사용합니다.",
+    "현재 가치 기준 은퇴 후 월 지출입니다. 목표 자산과 은퇴 후 현금흐름 계산에 사용합니다.",
   annualNominalReturnRate:
     "개인 투자자의 비용, 세금, 위험 감수 차이를 감안해 장기 기본값은 5%로 둡니다.",
   annualInflationRate: "장기 계산에서는 한국은행 물가안정목표에 가까운 2%를 기본값으로 둡니다.",
@@ -137,11 +137,11 @@ const fieldHelpText: Partial<Record<NumericFormField, string>> = {
   childIndependenceAge:
     "자녀가 독립할 때의 내 나이입니다. 0을 입력하면 자녀 독립에 따른 소비 감소를 반영하지 않습니다.",
   childMonthlyExpenseReduction:
-    "자녀가 독립한 뒤 줄어드는 월 소비 금액입니다. 근로 중 소비와 은퇴 후 월 지출에서 함께 차감합니다.",
+    "자녀가 독립한 뒤 줄어드는 월 지출 금액입니다. 현재 월 소비액과 은퇴 후 월 지출에서 함께 차감합니다.",
   lifeExpectancy:
     "기대수명 방식에서는 이 나이까지 생활비를 감당하는 데 필요한 근로 기간을 계산합니다.",
   nationalPensionMonthlyAmount:
-    "오늘 돈 가치 기준 월 예상 수령액입니다. 계산에서는 물가상승률을 반영해 미래 금액으로 환산합니다.",
+    "현재 가치 기준 월 예상 수령액입니다. 계산에서는 물가상승률을 반영해 미래 금액으로 환산합니다.",
 };
 
 const fireExamplePreset = FIRE_PRESETS.find((preset) => preset.id === "fire-example")!;
@@ -156,12 +156,12 @@ const resultTabOptions = [
   ["experiments", "가정 비교"],
 ] as const;
 const calculationModeOptions = [
-  ["trinity", "목표인출율"],
+  ["trinity", "목표 인출률"],
   ["depletion", "기대수명 방식"],
 ] as const;
 const valueBasisOptions = [
   ["nominal", "미래 금액 기준"],
-  ["present", "오늘 돈 가치 기준"],
+  ["present", "현재 가치 기준"],
 ] as const;
 const numericFormFields: NumericFormField[] = [
   "investableAssets",
@@ -313,7 +313,7 @@ function CalculatorApp() {
             몇 년 더 일하면 경제적 자립이 가능할까?
           </h1>
           <p className="lead">
-            월 소득, 생활비, 투자자산을 입력하면 예상 FIRE 시점을 계산합니다.
+            월 수입, 현재 월 소비액, 투자 가능 자산을 입력하면 예상 FIRE 시점을 계산합니다.
           </p>
         </section>
       </header>
@@ -354,10 +354,10 @@ function CalculatorApp() {
             </AdvancedFieldset>
 
             {calculationMode === "trinity" && (
-              <AdvancedFieldset title="목표인출율 옵션">
+              <AdvancedFieldset title="목표 인출률 옵션">
                 <NumberField
                   field="targetWithdrawalRate"
-                  label="목표인출율"
+                  label="목표 인출률"
                   suffix="%"
                   value={formValues.targetWithdrawalRate}
                   helpText={fieldHelpText.targetWithdrawalRate}
@@ -411,9 +411,6 @@ function CalculatorApp() {
               <div>
                 <h2>계산 결과</h2>
               </div>
-              <div className="results-controls">
-                <ValueBasisTabs selectedBasis={valueBasis} onChange={setValueBasis} />
-              </div>
             </div>
 
             <ResultSnapshot
@@ -423,6 +420,10 @@ function CalculatorApp() {
               depletionResult={depletionResult}
               valueBasis={valueBasis}
             />
+
+            <div className="value-basis-row">
+              <ValueBasisTabs selectedBasis={valueBasis} onChange={setValueBasis} />
+            </div>
 
             <ResultTabs selectedTab={activeResultTab} onChange={setActiveResultTab} />
 
@@ -635,7 +636,7 @@ function GuidePage({ page }: { page: SeoGuidePage }) {
             <div>
               <h2>내 조건으로 다시 계산하기</h2>
               <p>
-                현재 보유 자산, 월 수입, 은퇴 후 지출, 국민연금 예상액을 입력해
+                투자 가능 자산, 월 수입, 은퇴 후 지출, 국민연금 예상액을 입력해
                 경제적 자립까지의 거리를 확인하세요.
               </p>
             </div>
@@ -916,8 +917,8 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
 
         <nav className="help-toc" aria-label="계산 기준 도움말 목차">
           <a href="#help-formulas">1. 주요 계산식</a>
-          <a href="#help-value-basis">2. 미래 금액과 오늘 돈 가치</a>
-          <a href="#help-withdrawal-rate">3. 목표인출율</a>
+          <a href="#help-value-basis">2. 미래 금액과 현재 가치</a>
+          <a href="#help-withdrawal-rate">3. 목표 인출률</a>
           <a href="#help-depletion">4. 기대수명 방식</a>
           <a href="#help-pension">5. 국민연금 입력 기준</a>
           <a href="#help-experiments">6. 가정 비교</a>
@@ -940,51 +941,51 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
             <FormulaBlock label="은퇴 후 자산">
               은퇴 후 자산 = 현재 자산 × (1 + 월 수익률) - 은퇴 후 월 지출 + 국민연금
             </FormulaBlock>
-            <p>목표인출율 방식의 필요 자산은 은퇴 후 연간 지출을 목표인출율로 나눕니다.</p>
+            <p>목표 인출률 방식의 필요 자산은 은퇴 후 연간 지출을 목표 인출률로 나눕니다.</p>
             <FormulaBlock label="목표 자산">
-              필요 자산 = 은퇴 후 월 지출 × 12 ÷ 목표인출율
+              필요 자산 = 은퇴 후 월 지출 × 12 ÷ 목표 인출률
             </FormulaBlock>
             <p>
-              예를 들어 은퇴 후 월 지출이 400만 원이고 목표인출율이 3.5%라면 4,800만 원 ÷
+              예를 들어 은퇴 후 월 지출이 400만 원이고 목표 인출률이 3.5%라면 4,800만 원 ÷
               0.035 = 약 13.7억 원입니다.
             </p>
             <FormulaBlock label="은퇴 후 월 지출 증가에 따른 추가 필요 자산">
-              추가 필요 자산 = 추가 은퇴 후 월 지출 × 12 ÷ 목표인출율
+              추가 필요 자산 = 추가 은퇴 후 월 지출 × 12 ÷ 목표 인출률
             </FormulaBlock>
             <p>
-              예를 들어 은퇴 후 월 지출이 50만 원 늘고 목표인출율이 3.5%라면 600만 원 ÷
+              예를 들어 은퇴 후 월 지출이 50만 원 늘고 목표 인출률이 3.5%라면 600만 원 ÷
               0.035 = 약 1.7억 원입니다.
             </p>
           </HelpSection>
 
-          <HelpSection id="help-value-basis" title="2. 미래 금액과 오늘 돈 가치">
+          <HelpSection id="help-value-basis" title="2. 미래 금액과 현재 가치">
             <p>미래 금액 기준은 미래 시점에 실제로 필요한 금액입니다.</p>
-            <p>오늘 돈 가치 기준은 미래 금액을 오늘 돈의 가치로 환산한 금액입니다.</p>
+            <p>현재 가치 기준은 미래 금액을 오늘 돈의 가치로 환산한 금액입니다.</p>
             <dl className="help-definition-list">
               <div>
                 <dt>미래 금액</dt>
                 <dd>미래에 실제 필요한 금액</dd>
               </div>
               <div>
-                <dt>오늘 돈 가치</dt>
+                <dt>현재 가치</dt>
                 <dd>오늘 돈 기준으로 환산한 금액</dd>
               </div>
             </dl>
             <p>
-              예를 들어 20년 후 20억 원이 필요하더라도, 물가상승률을 반영하면 오늘 돈
+              예를 들어 20년 후 20억 원이 필요하더라도, 물가상승률을 반영하면 현재
               가치로는 더 낮게 보일 수 있습니다.
             </p>
           </HelpSection>
 
-          <HelpSection id="help-withdrawal-rate" title="3. 목표인출율">
+          <HelpSection id="help-withdrawal-rate" title="3. 목표 인출률">
             <p>
-              목표인출율은 은퇴 후 매년 자산의 일정 비율을 꺼내 쓴다고 가정해 은퇴 후
+              목표 인출률은 은퇴 후 매년 자산의 일정 비율을 꺼내 쓴다고 가정해 은퇴 후
               월 지출을 감당하는 데 필요한 자산을 계산합니다.
             </p>
-            <FormulaBlock label="목표인출율">
-              필요 자산 = 은퇴 후 월 지출 × 12 ÷ 목표인출율
+            <FormulaBlock label="목표 인출률">
+              필요 자산 = 은퇴 후 월 지출 × 12 ÷ 목표 인출률
             </FormulaBlock>
-            <p>목표인출율이 낮을수록 더 보수적인 계산입니다.</p>
+            <p>목표 인출률이 낮을수록 더 보수적인 계산입니다.</p>
             <ul>
               <li>4.0%: 연간 지출의 25배 필요</li>
               <li>3.5%: 연간 지출의 약 28.6배 필요</li>
@@ -1007,8 +1008,8 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
               자산이 유지되는지를 계산합니다.
             </p>
             <p>
-              은퇴 전에는 현재 소비를 제외한 저축으로 자산을 늘리고, 은퇴 후에는 은퇴 후
-              월 지출을 인출합니다.
+              은퇴 전에는 현재 월 소비액을 제외한 저축으로 자산을 늘리고, 은퇴 후에는
+              은퇴 후 월 지출을 인출합니다.
               국민연금이 있다면 특정 나이 이후의 현금흐름으로 반영합니다.
             </p>
             <p>
@@ -1016,8 +1017,8 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
               수령 시작 나이는 현재 나이로 출생연도를 유추해 적용합니다.
             </p>
             <p>
-              자녀 독립 나이와 독립 후 줄어드는 월 소비를 입력하면, 그 나이 이후 현재
-              월 소비액과 은퇴 후 월 지출에서 같은 금액을 차감합니다.
+              자녀 독립 나이와 자녀 독립 후 월 지출 감소액을 입력하면, 그 나이 이후
+              현재 월 소비액과 은퇴 후 월 지출에서 같은 금액을 차감합니다.
             </p>
             <dl className="help-definition-list">
               <div>
@@ -1033,8 +1034,8 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
                 <dd>자녀가 독립할 때의 내 나이</dd>
               </div>
               <div>
-                <dt>줄어드는 월 소비</dt>
-                <dd>오늘 돈 가치 기준 월 지출 감소액</dd>
+                <dt>월 지출 감소액</dt>
+                <dd>현재 가치 기준 월 지출 감소액</dd>
               </div>
             </dl>
             <p>
@@ -1042,26 +1043,26 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
               독립 나이를 0으로 두면 이 가정은 반영하지 않습니다.
             </p>
             <p>
-              목표인출율 방식보다 현실적인 시뮬레이션에 가깝지만, 기대수명보다 오래 살거나
+              목표 인출률 방식보다 현실적인 시뮬레이션에 가깝지만, 기대수명보다 오래 살거나
               수익률이 낮아지면 결과가 달라질 수 있습니다.
             </p>
           </HelpSection>
 
           <HelpSection id="help-pension" title="5. 국민연금 입력 기준">
-            <p>국민연금 월 예상액은 오늘 돈 가치 기준으로 입력하세요.</p>
+            <p>국민연금 월 예상액은 현재 가치 기준으로 입력하세요.</p>
             <p>
               국민연금 수령 시작 나이는 현재 나이로 출생연도를 유추한 뒤 출생연도별
               노령연금 지급개시연령 기준으로 계산합니다.
             </p>
             <p>
-              예를 들어 65세 이후 받을 국민연금이 오늘 돈 가치로 월 100만 원 정도라고
+              예를 들어 65세 이후 받을 국민연금이 현재 가치로 월 100만 원 정도라고
               예상된다면, 100만 원을 입력하면 됩니다.
             </p>
             <p>미래 수령 시점의 명목 금액은 물가상승률을 반영해 자동으로 계산됩니다.</p>
             <dl className="help-definition-list">
               <div>
                 <dt>입력 기준</dt>
-                <dd>오늘 돈 가치 기준 국민연금</dd>
+                <dd>현재 가치 기준 국민연금</dd>
               </div>
               <div>
                 <dt>계산값</dt>
@@ -1089,7 +1090,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
           <HelpSection id="help-limitations" title="7. 계산기의 한계">
             <p>이 계산기는 입력한 가정을 바탕으로 한 추정 도구입니다.</p>
             <p>
-              실제 결과는 투자수익률, 물가상승률, 세금, 건강보험료, 주거비, 자녀 교육비의
+              실제 결과는 투자 수익률, 물가상승률, 세금, 건강보험료, 주거비, 자녀 교육비의
               세부 변화, 국민연금 제도 변화, 예상보다 긴 수명 등에 따라 달라질 수 있습니다.
             </p>
             <p>
@@ -1328,9 +1329,9 @@ function ResultSnapshot({
     depletionResult,
     retirementAge,
   });
-  const assumptionText = `연 ${formatPercentRate(
+  const assumptionText = `연평균 투자 수익률 ${formatPercentRate(
     inputs.annualNominalReturnRate,
-  )} 수익률, 매달 ${formatMoney(monthlySavings)} 저축, 은퇴 후 월 ${formatMoney(
+  )}, 매달 ${formatMoney(monthlySavings)} 저축, 은퇴 후 월 ${formatMoney(
     inputs.retirementMonthlyExpenses,
   )} 지출 기준`;
   const interpretationText = formatResultInterpretation({
@@ -1399,7 +1400,7 @@ function formatResultStatus({
   }
 
   if (scenario.monthsToFire === 0) {
-    return "이미 현재 자산이 경제적 자립 목표를 충족합니다.";
+    return "이미 투자 가능 자산이 경제적 자립 목표를 충족합니다.";
   }
 
   return "현재 조건을 유지하면 경제적 자립 목표에 도달할 수 있습니다.";
@@ -1435,14 +1436,14 @@ function formatResultInterpretation({
   }
 
   if (scenario.status === "not-achieved") {
-    return `현재 자산은 목표의 ${formatProgressPercent(
+    return `투자 가능 자산은 목표의 ${formatProgressPercent(
       targetProgress,
-    )}입니다. 저축액, 수익률, 은퇴 후 지출 가정을 바꾸면 도달 가능성을 비교할 수 있습니다.`;
+    )}입니다. 저축액, 연평균 투자 수익률, 은퇴 후 지출 가정을 바꾸면 도달 가능성을 비교할 수 있습니다.`;
   }
 
-  return `필요 자산은 ${formatMoney(targetAssets)}이고 현재 자산은 목표의 ${formatProgressPercent(
+  return `필요 자산은 ${formatMoney(targetAssets)}이고 투자 가능 자산은 목표의 ${formatProgressPercent(
     targetProgress,
-  )}입니다. 부족한 차이를 매달 저축액과 투자수익으로 메우는 시점을 계산했습니다.`;
+  )}입니다. 부족한 차이를 매달 저축액과 투자 수익으로 메우는 시점을 계산했습니다.`;
 }
 
 function SummaryGrid({
@@ -1458,7 +1459,7 @@ function SummaryGrid({
     formatMoney(toDisplayMoney(value, scenario.inputs.annualInflationRate, month, valueBasis));
   const items = [
     ["현재 필요한 자산", formatScenarioMoney(scenario.currentFireTargetAssets, 0)],
-    ["목표인출율", `${rateToPercentInput(scenario.inputs.targetWithdrawalRate)}%`],
+    ["목표 인출률", `${rateToPercentInput(scenario.inputs.targetWithdrawalRate)}%`],
     [
       basisLabel("은퇴 시 필요한 자산", valueBasis),
       scenario.retirementFireTargetAssets === null
@@ -1624,7 +1625,7 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
               </dd>
             </div>
             <div>
-              <dt>현재 보유 자산</dt>
+              <dt>투자 가능 자산</dt>
               <dd>
                 {formatMoney(inputs.investableAssets)} →{" "}
                 {formatMoney(changedInputs.investableAssets)}
@@ -2473,7 +2474,7 @@ function ProjectionTable({
             <tr>
               <th>시점</th>
               <th>{basisLabel(moneyHeader, valueBasis)}</th>
-              <th>목표인출율</th>
+              <th>목표 인출률</th>
               <th>{basisLabel("현재 월 소비액", valueBasis)}</th>
               <th>{basisLabel("은퇴 후 월 지출", valueBasis)}</th>
             </tr>
@@ -3065,7 +3066,7 @@ function toDisplayMoney(
 }
 
 function basisLabel(label: string, valueBasis: ValueBasis): string {
-  return `${label} (${valueBasis === "nominal" ? "미래 금액 기준" : "오늘 돈 가치 기준"})`;
+  return `${label} (${valueBasis === "nominal" ? "미래 금액 기준" : "현재 가치 기준"})`;
 }
 
 function formatMoney(value: number): string {

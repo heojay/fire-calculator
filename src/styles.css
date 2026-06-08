@@ -981,15 +981,15 @@ h1 {
   gap: 16px;
 }
 
-.results-controls {
+.value-basis-row {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
 }
 
-.results-controls .mode-tabs {
-  flex: 1 1 240px;
+.value-basis-row .mode-tabs {
+  flex: 0 1 320px;
 }
 
 .mode-tabs {
@@ -2143,11 +2143,11 @@ td {
     font-size: 14px;
   }
 
-  .results-controls {
+  .value-basis-row {
     justify-content: stretch;
   }
 
-  .results-controls .mode-tabs,
+  .value-basis-row .mode-tabs,
   .mode-tabs {
     min-width: 0;
   }
