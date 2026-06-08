@@ -152,7 +152,7 @@ const validCalculationModes: CalculationMode[] = ["trinity", "depletion"];
 const validValueBases: ValueBasis[] = ["nominal", "present"];
 const validResultTabs: ResultTab[] = ["summary", "monthly", "experiments"];
 const resultTabOptions = [
-  ["summary", "시뮬레이션 요약"],
+  ["summary", "상세 지표"],
   ["monthly", "월별 추이"],
   ["experiments", "가정 비교"],
 ] as const;
