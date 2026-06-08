@@ -584,8 +584,7 @@ h1 {
   overflow-wrap: anywhere;
 }
 
-.result-assumption,
-.result-interpretation {
+.result-assumption {
   margin: 0;
   color: var(--on-dark-soft);
   font-size: 14px;
@@ -593,8 +592,29 @@ h1 {
   word-break: keep-all;
 }
 
-.result-interpretation {
-  color: rgb(255 255 255 / 86%);
+.result-interpretation-card {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  padding: 16px;
+  background: var(--canvas);
+  color: var(--body);
+  word-break: keep-all;
+}
+
+.result-interpretation-card h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.result-interpretation-card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
 }
 
 .content-grid {
@@ -2396,6 +2416,7 @@ td {
   .table-card,
   .hero-card,
   .result-snapshot,
+  .result-interpretation-card,
   .scenario-card,
   .impact-control-card,
   .impact-result-panel {

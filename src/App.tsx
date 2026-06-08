@@ -93,10 +93,10 @@ type TopNavAction =
     };
 
 const coreFields = [
-  ["investableAssets", "투자 가능 자산", "원"],
-  ["monthlyIncome", "월 수입", "원"],
-  ["monthlyExpenses", "현재 월 소비액", "원"],
-  ["retirementMonthlyExpenses", "은퇴 후 월 지출", "원"],
+  ["investableAssets", "현재 투자자산", "만원"],
+  ["monthlyIncome", "월 수입", "만원"],
+  ["monthlyExpenses", "현재 월 생활비", "만원"],
+  ["retirementMonthlyExpenses", "은퇴 후 월 생활비", "만원"],
 ] as const;
 
 const advancedAssumptionFields = [
@@ -107,7 +107,7 @@ const advancedAssumptionFields = [
 
 const lifestyleFields = [
   ["childIndependenceAge", "자녀 독립 나이", "세"],
-  ["childMonthlyExpenseReduction", "자녀 독립 후 월 지출 감소액", "원"],
+  ["childMonthlyExpenseReduction", "자녀 독립 후 월 생활비 감소액", "만원"],
 ] as const;
 
 const depletionFields = [
@@ -116,15 +116,16 @@ const depletionFields = [
 ] as const;
 
 const pensionFields = [
-  ["nationalPensionMonthlyAmount", "국민연금 예상 월 수령액", "원"],
+  ["nationalPensionMonthlyAmount", "국민연금 예상 월 수령액", "만원"],
 ] as const;
 
 const fieldHelpText: Partial<Record<NumericFormField, string>> = {
-  monthlyIncome: "매월 저축액은 월 수입에서 현재 월 소비액을 뺀 금액으로 계산합니다.",
+  investableAssets: "현재 모아둔 금융자산 중 투자하거나 인출할 수 있는 금액을 만원 단위로 입력합니다.",
+  monthlyIncome: "매월 저축액은 월 수입에서 현재 월 생활비를 뺀 금액으로 계산합니다.",
   monthlyExpenses:
-    "근로 중 월 저축액을 계산할 때 쓰는 현재 월 소비액입니다. 은퇴 후 월 지출은 별도로 입력합니다.",
+    "근로 중 월 저축액을 계산할 때 쓰는 현재 월 생활비입니다. 은퇴 후 월 생활비는 별도로 입력합니다.",
   retirementMonthlyExpenses:
-    "현재 가치 기준 은퇴 후 월 지출입니다. 목표 자산과 은퇴 후 현금흐름 계산에 사용합니다.",
+    "현재 가치 기준 은퇴 후 월 생활비입니다. 목표 자산과 은퇴 후 현금흐름 계산에 사용합니다.",
   annualNominalReturnRate:
     "개인 투자자의 비용, 세금, 위험 감수 차이를 감안해 장기 기본값은 5%로 둡니다.",
   annualInflationRate: "장기 계산에서는 한국은행 물가안정목표에 가까운 2%를 기본값으로 둡니다.",
@@ -137,7 +138,7 @@ const fieldHelpText: Partial<Record<NumericFormField, string>> = {
   childIndependenceAge:
     "자녀가 독립할 때의 내 나이입니다. 0을 입력하면 자녀 독립에 따른 소비 감소를 반영하지 않습니다.",
   childMonthlyExpenseReduction:
-    "자녀가 독립한 뒤 줄어드는 월 지출 금액입니다. 현재 월 소비액과 은퇴 후 월 지출에서 함께 차감합니다.",
+    "자녀가 독립한 뒤 줄어드는 월 생활비입니다. 현재 월 생활비와 은퇴 후 월 생활비에서 함께 차감합니다.",
   lifeExpectancy:
     "기대수명 소진 방식에서는 이 나이까지 생활비를 감당하는 데 필요한 근로 기간을 계산합니다.",
   nationalPensionMonthlyAmount:
@@ -145,13 +146,13 @@ const fieldHelpText: Partial<Record<NumericFormField, string>> = {
 };
 
 const fireExamplePreset = FIRE_PRESETS.find((preset) => preset.id === "fire-example")!;
-const cacheVersion = 5;
-const cacheKey = "firecalc:lastState:v5";
+const cacheVersion = 6;
+const cacheKey = "firecalc:lastState:v6";
 const validCalculationModes: CalculationMode[] = ["trinity", "depletion"];
 const validValueBases: ValueBasis[] = ["nominal", "present"];
 const validResultTabs: ResultTab[] = ["summary", "monthly", "experiments"];
 const resultTabOptions = [
-  ["summary", "상세 지표"],
+  ["summary", "시뮬레이션 요약"],
   ["monthly", "월별 추이"],
   ["experiments", "가정 비교"],
 ] as const;
@@ -178,6 +179,15 @@ const numericFormFields: NumericFormField[] = [
   "lifeExpectancy",
   "nationalPensionMonthlyAmount",
 ];
+const moneyFormFields: NumericFormField[] = [
+  "investableAssets",
+  "monthlyIncome",
+  "monthlyExpenses",
+  "retirementMonthlyExpenses",
+  "childMonthlyExpenseReduction",
+  "nationalPensionMonthlyAmount",
+];
+const moneyInputUnit = 10_000;
 const initialExperimentAdjustments: ExperimentAdjustments = {
   monthlySavingsDelta: 0,
   retirementMonthlyExpensesDelta: 0,
@@ -285,7 +295,7 @@ function CalculatorApp() {
   const handleFieldChange = (field: NumericFormField, value: string) => {
     setFormValues((current) => ({
       ...current,
-      [field]: value === "" ? "" : Number(value),
+      [field]: parseFormFieldValue(field, value) ?? current[field],
     }));
   };
 
@@ -310,10 +320,10 @@ function CalculatorApp() {
 
         <section className="hero-grid" aria-labelledby="calculator-title">
           <h1 className="hero-title" id="calculator-title">
-            몇 년 더 일하면 경제적 자립이 가능할까?
+            몇 년 뒤 경제적 자립이 가능할까?
           </h1>
           <p className="lead">
-            월 수입, 현재 월 소비액, 투자 가능 자산을 입력하면 예상 FIRE 시점을 계산합니다.
+            월 수입, 현재 월 생활비, 현재 투자자산을 입력하면 예상 FIRE 시점을 계산합니다.
           </p>
         </section>
       </header>
@@ -448,7 +458,7 @@ function CalculatorApp() {
                     <AssetChart scenario={baseScenario} valueBasis={valueBasis} />
                     <div className="table-grid">
                       <ProjectionTable
-                        title="투자 가능 자산 추이"
+                        title="현재 투자자산 추이"
                         rows={getTableRows(baseScenario.projections)}
                         annualInflationRate={baseScenario.inputs.annualInflationRate}
                         valueBasis={valueBasis}
@@ -636,7 +646,7 @@ function GuidePage({ page }: { page: SeoGuidePage }) {
             <div>
               <h2>내 조건으로 다시 계산하기</h2>
               <p>
-                투자 가능 자산, 월 수입, 은퇴 후 지출, 국민연금 예상액을 입력해
+                현재 투자자산, 월 수입, 은퇴 후 생활비, 국민연금 예상액을 입력해
                 경제적 자립까지의 거리를 확인하세요.
               </p>
             </div>
@@ -927,33 +937,33 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
 
         <div className="help-content">
           <HelpSection id="help-formulas" title="1. 주요 계산식">
-            <p>월 저축액은 월 수입에서 현재 월 소비액을 뺀 금액입니다.</p>
+            <p>월 저축액은 월 수입에서 현재 월 생활비를 뺀 금액입니다.</p>
             <FormulaBlock label="월 저축액">
-              월 저축액 = 월 수입 - 현재 월 소비액
+              월 저축액 = 월 수입 - 현재 월 생활비
             </FormulaBlock>
             <p>은퇴 전 월별 자산은 월 수익률과 월 저축액을 반영해 계산합니다.</p>
             <FormulaBlock label="월별 자산 변화">
               다음 달 자산 = 현재 자산 × (1 + 월 수익률) + 월 저축액
             </FormulaBlock>
             <p>
-              은퇴 후에는 월 저축액 대신 은퇴 후 월 지출과 국민연금 수령액을 반영합니다.
+              은퇴 후에는 월 저축액 대신 은퇴 후 월 생활비와 국민연금 수령액을 반영합니다.
             </p>
             <FormulaBlock label="은퇴 후 자산">
-              은퇴 후 자산 = 현재 자산 × (1 + 월 수익률) - 은퇴 후 월 지출 + 국민연금
+              은퇴 후 자산 = 현재 자산 × (1 + 월 수익률) - 은퇴 후 월 생활비 + 국민연금
             </FormulaBlock>
-            <p>목표 인출률 방식의 필요 자산은 은퇴 후 연간 지출을 목표 인출률로 나눕니다.</p>
+            <p>목표 인출률 방식의 필요 자산은 은퇴 후 연간 생활비를 목표 인출률로 나눕니다.</p>
             <FormulaBlock label="목표 자산">
-              필요 자산 = 은퇴 후 월 지출 × 12 ÷ 목표 인출률
+              필요 자산 = 은퇴 후 월 생활비 × 12 ÷ 목표 인출률
             </FormulaBlock>
             <p>
-              예를 들어 은퇴 후 월 지출이 400만 원이고 목표 인출률이 3.5%라면 4,800만 원 ÷
+              예를 들어 은퇴 후 월 생활비가 400만 원이고 목표 인출률이 3.5%라면 4,800만 원 ÷
               0.035 = 약 13.7억 원입니다.
             </p>
-            <FormulaBlock label="은퇴 후 월 지출 증가에 따른 추가 필요 자산">
-              추가 필요 자산 = 추가 은퇴 후 월 지출 × 12 ÷ 목표 인출률
+            <FormulaBlock label="은퇴 후 월 생활비 증가에 따른 추가 필요 자산">
+              추가 필요 자산 = 추가 은퇴 후 월 생활비 × 12 ÷ 목표 인출률
             </FormulaBlock>
             <p>
-              예를 들어 은퇴 후 월 지출이 50만 원 늘고 목표 인출률이 3.5%라면 600만 원 ÷
+              예를 들어 은퇴 후 월 생활비가 50만 원 늘고 목표 인출률이 3.5%라면 600만 원 ÷
               0.035 = 약 1.7억 원입니다.
             </p>
           </HelpSection>
@@ -980,16 +990,16 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
           <HelpSection id="help-withdrawal-rate" title="3. 목표 인출률">
             <p>
               목표 인출률은 은퇴 후 매년 자산의 일정 비율을 꺼내 쓴다고 가정해 은퇴 후
-              월 지출을 감당하는 데 필요한 자산을 계산합니다.
+              월 생활비를 감당하는 데 필요한 자산을 계산합니다.
             </p>
             <FormulaBlock label="목표 인출률">
-              필요 자산 = 은퇴 후 월 지출 × 12 ÷ 목표 인출률
+              필요 자산 = 은퇴 후 월 생활비 × 12 ÷ 목표 인출률
             </FormulaBlock>
             <p>목표 인출률이 낮을수록 더 보수적인 계산입니다.</p>
             <ul>
-              <li>4.0%: 연간 지출의 25배 필요</li>
-              <li>3.5%: 연간 지출의 약 28.6배 필요</li>
-              <li>3.0%: 연간 지출의 약 33.3배 필요</li>
+              <li>4.0%: 연간 생활비의 25배 필요</li>
+              <li>3.5%: 연간 생활비의 약 28.6배 필요</li>
+              <li>3.0%: 연간 생활비의 약 33.3배 필요</li>
             </ul>
             <p>
               이 방식은 단순하고 직관적이지만, 국민연금이나 은퇴 후 현금흐름을 세밀하게
@@ -997,7 +1007,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
             </p>
             <p>
               이 방식의 그래프는 최대 50년까지 표시합니다. 목표 자산을 달성한
-              뒤에는 근로소득과 국민연금 없이 투자 수익률과 은퇴 후 월 지출만 반영한 자산
+              뒤에는 근로소득과 국민연금 없이 투자 수익률과 은퇴 후 월 생활비만 반영한 자산
               추이를 이어서 보여줍니다.
             </p>
           </HelpSection>
@@ -1008,8 +1018,8 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
               자산이 유지되는지를 계산합니다.
             </p>
             <p>
-              은퇴 전에는 현재 월 소비액을 제외한 저축으로 자산을 늘리고, 은퇴 후에는
-              은퇴 후 월 지출을 인출합니다.
+              은퇴 전에는 현재 월 생활비를 제외한 저축으로 자산을 늘리고, 은퇴 후에는
+              은퇴 후 월 생활비를 인출합니다.
               국민연금이 있다면 특정 나이 이후의 현금흐름으로 반영합니다.
             </p>
             <p>
@@ -1017,8 +1027,8 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
               수령 시작 나이는 현재 나이로 출생연도를 유추해 적용합니다.
             </p>
             <p>
-              자녀 독립 나이와 자녀 독립 후 월 지출 감소액을 입력하면, 그 나이 이후
-              현재 월 소비액과 은퇴 후 월 지출에서 같은 금액을 차감합니다.
+              자녀 독립 나이와 자녀 독립 후 월 생활비 감소액을 입력하면, 그 나이 이후
+              현재 월 생활비와 은퇴 후 월 생활비에서 같은 금액을 차감합니다.
             </p>
             <dl className="help-definition-list">
               <div>
@@ -1027,15 +1037,15 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
               </div>
               <div>
                 <dt>은퇴 후</dt>
-                <dd>자산 증가 - 은퇴 후 월 지출 + 국민연금</dd>
+                <dd>자산 증가 - 은퇴 후 월 생활비 + 국민연금</dd>
               </div>
               <div>
                 <dt>자녀 독립 나이</dt>
                 <dd>자녀가 독립할 때의 내 나이</dd>
               </div>
               <div>
-                <dt>월 지출 감소액</dt>
-                <dd>현재 가치 기준 월 지출 감소액</dd>
+                <dt>월 생활비 감소액</dt>
+                <dd>현재 가치 기준 월 생활비 감소액</dd>
               </div>
             </dl>
             <p>
@@ -1080,7 +1090,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
             <p>예를 들어 다음과 같은 질문을 확인할 수 있습니다.</p>
             <ul>
               <li>월 저축액을 50만 원 단위로 조정하면 결과가 얼마나 달라질까?</li>
-              <li>은퇴 후 월 지출을 50만 원 단위로 조정하면 결과가 얼마나 달라질까?</li>
+              <li>은퇴 후 월 생활비를 50만 원 단위로 조정하면 결과가 얼마나 달라질까?</li>
               <li>일회성 지출을 선택한 단위로 반영하면 결과가 얼마나 달라질까?</li>
               <li>연평균 투자 수익률을 1%p 단위로 조정하면 결과가 얼마나 달라질까?</li>
             </ul>
@@ -1331,9 +1341,9 @@ function ResultSnapshot({
   });
   const assumptionText = `연평균 투자 수익률 ${formatPercentRate(
     inputs.annualNominalReturnRate,
-  )}, 매달 ${formatMoney(monthlySavings)} 저축, 은퇴 후 월 ${formatMoney(
+  )}, 월 ${formatMoney(monthlySavings)} 저축, 은퇴 후 월 ${formatMoney(
     inputs.retirementMonthlyExpenses,
-  )} 지출 기준`;
+  )} 생활비 기준`;
   const interpretationText = formatResultInterpretation({
     mode,
     inputs,
@@ -1344,32 +1354,48 @@ function ResultSnapshot({
   });
   const metrics = [
     ["필요 자산", formatMoney(displayTargetAssets)],
-    ["매달 남는 돈", `${formatMoney(monthlySavings)} / 월`],
-    ["목표까지 채운 비율", formatProgressPercent(targetProgress)],
+    ["목표까지", formatProgressPercent(targetProgress)],
     ...(mode === "depletion"
       ? [["은퇴 예상 나이", formatRetirementAge(retirementAge)]]
       : []),
   ];
 
   return (
-    <aside className="result-snapshot" aria-label="핵심 계산 결과" aria-live="polite">
-      <div className="result-snapshot-main">
-        <p className="card-label">예상 FIRE 시점</p>
-        <strong>{timing}</strong>
-        <span>{statusText}</span>
-      </div>
-      <p className="result-assumption">{assumptionText}</p>
-      <dl className="result-snapshot-grid">
-        {metrics.map(([label, value]) => (
-          <div className="snapshot-metric" key={label}>
-            <dt>{label}</dt>
-            <dd>{value}</dd>
-          </div>
-        ))}
-      </dl>
-      <p className="result-interpretation">{interpretationText}</p>
-    </aside>
+    <>
+      <aside className="result-snapshot" aria-label="핵심 계산 결과" aria-live="polite">
+        <div className="result-snapshot-main">
+          <p className="card-label">예상 FIRE 시점</p>
+          <strong>{timing}</strong>
+          <span>{statusText}</span>
+        </div>
+        <p className="result-assumption">{assumptionText}</p>
+        <dl className="result-snapshot-grid">
+          {metrics.map(([label, value]) => (
+            <div className="snapshot-metric" key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </aside>
+      <article className="result-interpretation-card" aria-label="계산 결과 해석">
+        <h3>{getResultInterpretationTitle(timing)}</h3>
+        <p>{interpretationText}</p>
+      </article>
+    </>
   );
+}
+
+function getResultInterpretationTitle(timing: string): string {
+  if (timing === "기준 충족 어려움" || timing === "계산 불가") {
+    return "결과를 어떻게 봐야 하나요?";
+  }
+
+  if (timing === "현재 기준 충족") {
+    return "왜 현재 기준을 충족하나요?";
+  }
+
+  return `왜 ${timing}인가요?`;
 }
 
 function formatResultStatus({
@@ -1392,7 +1418,7 @@ function formatResultStatus({
       return "입력한 조건에서는 정해진 나이까지 자산을 유지하기 어렵습니다.";
     }
 
-    return `현재 조건을 유지하면 ${formatRetirementAge(retirementAge)}에 경제적 자립이 가능합니다.`;
+    return `현재 조건 기준 예상 시점은 ${formatRetirementAge(retirementAge)}입니다.`;
   }
 
   if (scenario.status === "not-achieved") {
@@ -1400,10 +1426,10 @@ function formatResultStatus({
   }
 
   if (scenario.monthsToFire === 0) {
-    return "이미 투자 가능 자산이 경제적 자립 목표를 충족합니다.";
+    return "이미 현재 투자자산이 경제적 자립 목표를 충족합니다.";
   }
 
-  return "현재 조건을 유지하면 경제적 자립 목표에 도달할 수 있습니다.";
+  return `현재 조건 기준 예상 시점은 ${formatRetirementAge(retirementAge)}입니다.`;
 }
 
 function formatResultInterpretation({
@@ -1427,23 +1453,23 @@ function formatResultInterpretation({
     }
 
     if (depletionResult.status === "not-achievable") {
-      return "저축액을 늘리거나 은퇴 후 지출을 낮추면 기대수명 소진 방식의 결과가 개선됩니다.";
+      return "저축액을 늘리거나 은퇴 후 생활비를 낮추면 기대수명 소진 방식의 결과가 개선됩니다.";
     }
 
     return `은퇴 전에는 매달 ${formatMoney(
       inputs.monthlyIncome - inputs.monthlyExpenses,
-    )}을 더하고, 은퇴 후에는 생활비와 국민연금을 반영해 기대수명까지 자산이 0 아래로 내려가지 않는 시점을 찾았습니다.`;
+    )}을 더하고, 은퇴 후에는 생활비와 국민연금을 반영해 기대수명까지 자산이 유지되는 시점을 계산했습니다.`;
   }
 
   if (scenario.status === "not-achieved") {
-    return `투자 가능 자산은 목표의 ${formatProgressPercent(
+    return `현재 투자자산은 목표의 ${formatProgressPercent(
       targetProgress,
-    )}입니다. 저축액, 연평균 투자 수익률, 은퇴 후 지출 가정을 바꾸면 도달 가능성을 비교할 수 있습니다.`;
+    )}입니다. 저축액, 연평균 투자 수익률, 은퇴 후 생활비 가정을 바꾸면 도달 가능성을 비교할 수 있습니다.`;
   }
 
-  return `필요 자산은 ${formatMoney(targetAssets)}이고 투자 가능 자산은 목표의 ${formatProgressPercent(
+  return `현재 투자자산과 매달 저축액을 기준으로 목표 자산에 도달하는 시점을 계산했습니다. 필요 자산은 ${formatMoney(targetAssets)}이고 현재 투자자산은 목표의 ${formatProgressPercent(
     targetProgress,
-  )}입니다. 부족한 차이를 매달 저축액과 투자 수익으로 메우는 시점을 계산했습니다.`;
+  )}입니다.`;
 }
 
 function SummaryGrid({
@@ -1467,7 +1493,7 @@ function SummaryGrid({
         : formatScenarioMoney(scenario.retirementFireTargetAssets, retirementMonth),
     ],
     [
-      basisLabel("은퇴 시 예상 투자 가능 자산", valueBasis),
+      basisLabel("은퇴 시 예상 투자자산", valueBasis),
       scenario.retirementInvestableAssets === null
         ? "기준 충족 어려움"
         : formatScenarioMoney(scenario.retirementInvestableAssets, retirementMonth),
@@ -1562,10 +1588,10 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
             onIncrement={() => updateAdjustment("monthlySavingsDelta", monthlyExperimentStep)}
           />
           <ImpactStepper
-            description="은퇴 후 월 지출을 50만 원 단위로 조정해 비교합니다."
-            decrementLabel="은퇴 후 월 지출 50만 원 줄이기"
-            incrementLabel="은퇴 후 월 지출 50만 원 늘리기"
-            label="은퇴 후 월 지출"
+            description="은퇴 후 월 생활비를 50만 원 단위로 조정해 비교합니다."
+            decrementLabel="은퇴 후 월 생활비 50만 원 줄이기"
+            incrementLabel="은퇴 후 월 생활비 50만 원 늘리기"
+            label="은퇴 후 월 생활비"
             value={adjustments.retirementMonthlyExpensesDelta}
             valueLabel={formatSignedMoney(adjustments.retirementMonthlyExpensesDelta)}
             onDecrement={() =>
@@ -1618,14 +1644,14 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
               </dd>
             </div>
             <div>
-              <dt>은퇴 후 월 지출</dt>
+              <dt>은퇴 후 월 생활비</dt>
               <dd>
                 {formatMoney(inputs.retirementMonthlyExpenses)} →{" "}
                 {formatMoney(changedInputs.retirementMonthlyExpenses)}
               </dd>
             </div>
             <div>
-              <dt>투자 가능 자산</dt>
+              <dt>현재 투자자산</dt>
               <dd>
                 {formatMoney(inputs.investableAssets)} →{" "}
                 {formatMoney(changedInputs.investableAssets)}
@@ -1833,10 +1859,11 @@ function DepletionSummary({
 function ResultCaution() {
   return (
     <aside className="result-caution" aria-label="계산 결과 참고">
-      <strong>이 계산은 단순화된 시뮬레이션입니다.</strong>
+      <strong>이 계산은 단순화된 예상입니다.</strong>
       <p>
-        세금, 주거비 변화, 자녀 교육비, 국민연금, 투자 손실 가능성은 별도로 고려해야
-        합니다. 자세한 설명은 <a href={guideListPath}>가이드</a>에서 확인하세요.
+        세금, 주거비 변화, 자녀 교육비, 국민연금, 투자 손실 가능성에 따라 실제 시점은
+        달라질 수 있습니다. 자세한 설명은 <a href={guideListPath}>가이드</a>에서
+        확인하세요.
       </p>
     </aside>
   );
@@ -2251,7 +2278,7 @@ function AssetChart({
           <h3>월별 자산 추이 그래프</h3>
         </div>
         <div className="legend">
-          <span className="legend-base">투자 가능 자산</span>
+          <span className="legend-base">현재 투자자산</span>
           <span className="legend-target">점선: 경제적 자립 목표</span>
           {scenario.monthsToFire !== null && (
             <span className="legend-retirement">세로 점선: 기준 충족</span>
@@ -2435,7 +2462,7 @@ function AssetChart({
             <p>{formatProjectionMonth(activeRow.month)}</p>
             <dl>
               <div>
-                <dt>투자 가능 자산</dt>
+                <dt>현재 투자자산</dt>
                 <dd>{formatMoney(getDisplayValue(activeRow, activeRow.investableAssets))}</dd>
               </div>
               <div>
@@ -2486,7 +2513,7 @@ function ProjectionTable({
   valueKey: "investableAssets" | "fireTargetAssets";
 }) {
   const moneyHeader =
-    valueKey === "investableAssets" ? "투자 가능 자산" : "경제적 자립 목표 자산";
+    valueKey === "investableAssets" ? "현재 투자자산" : "경제적 자립 목표 자산";
 
   return (
     <article className="table-card">
@@ -2498,8 +2525,8 @@ function ProjectionTable({
               <th>시점</th>
               <th>{basisLabel(moneyHeader, valueBasis)}</th>
               <th>목표 인출률</th>
-              <th>{basisLabel("현재 월 소비액", valueBasis)}</th>
-              <th>{basisLabel("은퇴 후 월 지출", valueBasis)}</th>
+              <th>{basisLabel("현재 월 생활비", valueBasis)}</th>
+              <th>{basisLabel("은퇴 후 월 생활비", valueBasis)}</th>
             </tr>
           </thead>
           <tbody>
@@ -2563,7 +2590,7 @@ function DepletionProjectionTable({
                 <th>상태</th>
                 <th>{basisLabel("월 현금흐름", valueBasis)}</th>
                 <th>{basisLabel("국민연금", valueBasis)}</th>
-                <th>{basisLabel("월 지출", valueBasis)}</th>
+                <th>{basisLabel("월 생활비", valueBasis)}</th>
                 <th>{basisLabel("자산", valueBasis)}</th>
               </tr>
             </thead>
@@ -2671,8 +2698,15 @@ function NumberField({
   const inputId = useId();
   const helpId = `${inputId}-help`;
   const hintId = `${inputId}-hint`;
-  const inputValue = typeof value === "number" && !Number.isNaN(value) ? value : "";
-  const moneyHint = suffix === "원" && typeof value === "number" ? formatMoneyInputHint(value) : "";
+  const isMoneyField = isMoneyFormField(field);
+  const inputValue =
+    typeof value === "number" && !Number.isNaN(value)
+      ? isMoneyField
+        ? formatMoneyFormInputValue(value)
+        : value
+      : "";
+  const moneyHint =
+    isMoneyField && typeof value === "number" ? formatMoneyInputHint(value * moneyInputUnit) : "";
   const describedBy = [helpText ? helpId : null, moneyHint ? hintId : null]
     .filter(Boolean)
     .join(" ");
@@ -2704,11 +2738,11 @@ function NumberField({
           aria-describedby={describedBy || undefined}
           autoComplete="off"
           id={inputId}
-          min={getNumberFieldMin(field)}
+          min={isMoneyField ? undefined : getNumberFieldMin(field)}
           name={field}
-          step={getNumberFieldStep(field)}
-          type="number"
-          inputMode="decimal"
+          step={isMoneyField ? undefined : getNumberFieldStep(field)}
+          type={isMoneyField ? "text" : "number"}
+          inputMode={isMoneyField ? "numeric" : "decimal"}
           value={inputValue}
           onChange={(event) => onChange(event.target.value)}
         />
@@ -2725,19 +2759,19 @@ function NumberField({
 
 function presetToFormValues(values: FireInputs): FormValues {
   return {
-    investableAssets: values.investableAssets,
-    monthlyIncome: values.monthlyIncome,
-    monthlyExpenses: values.monthlyExpenses,
-    retirementMonthlyExpenses: values.retirementMonthlyExpenses,
+    investableAssets: moneyToMoneyInputValue(values.investableAssets),
+    monthlyIncome: moneyToMoneyInputValue(values.monthlyIncome),
+    monthlyExpenses: moneyToMoneyInputValue(values.monthlyExpenses),
+    retirementMonthlyExpenses: moneyToMoneyInputValue(values.retirementMonthlyExpenses),
     annualNominalReturnRate: rateToPercentInput(values.annualNominalReturnRate),
     annualInflationRate: rateToPercentInput(values.annualInflationRate),
     annualIncomeGrowthRate: rateToPercentInput(values.annualIncomeGrowthRate),
     targetWithdrawalRate: rateToPercentInput(values.targetWithdrawalRate),
     currentAge: values.currentAge,
     childIndependenceAge: values.childIndependenceAge,
-    childMonthlyExpenseReduction: values.childMonthlyExpenseReduction,
+    childMonthlyExpenseReduction: moneyToMoneyInputValue(values.childMonthlyExpenseReduction),
     lifeExpectancy: values.lifeExpectancy,
-    nationalPensionMonthlyAmount: values.nationalPensionMonthlyAmount,
+    nationalPensionMonthlyAmount: moneyToMoneyInputValue(values.nationalPensionMonthlyAmount),
   };
 }
 
@@ -2902,25 +2936,57 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function formValuesToInputs(values: FormValues): FireInputs {
   return {
-    investableAssets: normalizeFormNumber(values.investableAssets),
-    monthlyIncome: normalizeFormNumber(values.monthlyIncome),
-    monthlyExpenses: normalizeFormNumber(values.monthlyExpenses),
-    retirementMonthlyExpenses: normalizeFormNumber(values.retirementMonthlyExpenses),
+    investableAssets: moneyInputValueToMoney(values.investableAssets),
+    monthlyIncome: moneyInputValueToMoney(values.monthlyIncome),
+    monthlyExpenses: moneyInputValueToMoney(values.monthlyExpenses),
+    retirementMonthlyExpenses: moneyInputValueToMoney(values.retirementMonthlyExpenses),
     annualNominalReturnRate: percentInputToRate(normalizeFormNumber(values.annualNominalReturnRate)),
     annualInflationRate: percentInputToRate(normalizeFormNumber(values.annualInflationRate)),
     annualIncomeGrowthRate: percentInputToRate(normalizeFormNumber(values.annualIncomeGrowthRate)),
     targetWithdrawalRate: percentInputToRate(normalizeFormNumber(values.targetWithdrawalRate)),
     currentAge: normalizeFormNumber(values.currentAge),
     childIndependenceAge: normalizeFormNumber(values.childIndependenceAge),
-    childMonthlyExpenseReduction: normalizeFormNumber(values.childMonthlyExpenseReduction),
+    childMonthlyExpenseReduction: moneyInputValueToMoney(values.childMonthlyExpenseReduction),
     birthYear: inferBirthYearFromCurrentAge(normalizeFormNumber(values.currentAge)),
     lifeExpectancy: normalizeFormNumber(values.lifeExpectancy),
-    nationalPensionMonthlyAmount: normalizeFormNumber(values.nationalPensionMonthlyAmount),
+    nationalPensionMonthlyAmount: moneyInputValueToMoney(values.nationalPensionMonthlyAmount),
   };
 }
 
 function normalizeFormNumber(value: NumericFormValue): number {
   return value === "" ? 0 : value;
+}
+
+function moneyInputValueToMoney(value: NumericFormValue): number {
+  return normalizeFormNumber(value) * moneyInputUnit;
+}
+
+function moneyToMoneyInputValue(value: number): number {
+  return value / moneyInputUnit;
+}
+
+function isMoneyFormField(field: NumericFormField): boolean {
+  return moneyFormFields.includes(field);
+}
+
+function parseFormFieldValue(field: NumericFormField, value: string): NumericFormValue | null {
+  if (value.trim() === "") {
+    return "";
+  }
+
+  if (isMoneyFormField(field)) {
+    const normalizedValue = value.replaceAll(",", "").trim();
+
+    if (!/^\d+$/.test(normalizedValue)) {
+      return null;
+    }
+
+    return Number(normalizedValue);
+  }
+
+  const parsedValue = Number(value);
+
+  return Number.isFinite(parsedValue) ? parsedValue : null;
 }
 
 function getNumberFieldMin(field: NumericFormField): number {
@@ -3063,7 +3129,7 @@ function formatExperimentAdjustmentSummary(adjustments: ExperimentAdjustments): 
       : `월 저축액 ${formatSignedMoney(adjustments.monthlySavingsDelta)}`,
     adjustments.retirementMonthlyExpensesDelta === 0
       ? null
-      : `은퇴 후 월 지출 ${formatSignedMoney(adjustments.retirementMonthlyExpensesDelta)}`,
+      : `은퇴 후 월 생활비 ${formatSignedMoney(adjustments.retirementMonthlyExpensesDelta)}`,
     adjustments.oneTimeSpendingDelta === 0
       ? null
       : `일회성 지출 ${formatSignedMoney(adjustments.oneTimeSpendingDelta)}`,
@@ -3279,15 +3345,15 @@ function formatMoneyInputHint(value: number): string {
   const absValue = Math.abs(value);
   const sign = value < 0 ? "-" : "";
 
-  if (!Number.isFinite(value) || absValue < 10_000) {
+  if (!Number.isFinite(value) || absValue < 100_000_000) {
     return "";
   }
 
-  if (absValue >= 100_000_000) {
-    return `약 ${sign}${formatCompact(absValue / 100_000_000)}억`;
-  }
+  return `약 ${sign}${formatCompact(absValue / 100_000_000)}억`;
+}
 
-  return `약 ${sign}${formatCompact(absValue / 10_000)}만`;
+function formatMoneyFormInputValue(value: number): string {
+  return Math.round(value).toLocaleString("ko-KR");
 }
 
 function formatAxisMoney(value: number): string {
