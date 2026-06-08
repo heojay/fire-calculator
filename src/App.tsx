@@ -197,7 +197,6 @@ const initialExperimentAdjustments: ExperimentAdjustments = {
 const monthlyExperimentStep = 500_000;
 const annualReturnRateExperimentStep = 0.01;
 const siteOrigin = "https://fire.heojay.dev";
-const siteName = "FIRE 계산기";
 const guideListPath = "/guides/";
 const guideListTitle = "경제적 자립 계산 가이드 | FIRE 계산기";
 const guideListDescription =
@@ -3251,22 +3250,6 @@ function formatDepletionTiming(result: DepletionResult): string {
   return `${formatWorkDuration(result.monthsToWork)} 뒤`;
 }
 
-function formatDepletionStatus(result: DepletionResult): string {
-  if (result.status === "already-sufficient") {
-    return "현재 조건 기준으로 기대수명까지 자산이 유지되는 시점입니다.";
-  }
-
-  if (result.status === "achievable") {
-    return "현재 조건 기준으로 기대수명까지 자산이 유지되는 시점입니다.";
-  }
-
-  if (result.status === "invalid-time-horizon") {
-    return "기대수명이 현재 나이보다 커야 합니다.";
-  }
-
-  return "입력한 기대수명 범위에서는 자립 기준을 충족하기 어렵습니다.";
-}
-
 function formatWorkDuration(months: number | null): string {
   if (months === null) {
     return "계산 불가";
@@ -3327,18 +3310,6 @@ function getXAxisTextAnchor(month: number, maxMonth: number): "start" | "middle"
   }
 
   return "middle";
-}
-
-function getScenarioLineClassName(name: string): string {
-  if (name === "보수적") {
-    return "conservative-line";
-  }
-
-  if (name === "낙관적") {
-    return "optimistic-line";
-  }
-
-  return "base-line";
 }
 
 function formatMoneyInputHint(value: number): string {
