@@ -1466,23 +1466,56 @@ legend {
   gap: 16px;
 }
 
-.impact-heading h3,
+.impact-title-row,
+.impact-control-title {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.impact-heading h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
 .impact-control-card h4,
 .impact-result-panel h4 {
   margin: 0;
   color: var(--ink);
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 500;
-  line-height: 1.4;
+  line-height: 1.35;
 }
 
-.impact-heading p,
-.impact-control-card p,
 .impact-note {
   margin: 0;
   color: var(--body);
   font-size: 14px;
   line-height: 1.65;
+}
+
+.inline-help {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.inline-help .field-tooltip {
+  top: calc(100% + 8px);
+  left: 0;
+}
+
+.inline-help:hover .field-tooltip,
+.inline-help:focus-within .field-tooltip {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .impact-reset-button {
@@ -2301,6 +2334,21 @@ td {
   .field-help:hover + .field-tooltip,
   .field-help:focus-within + .field-tooltip {
     transform: none;
+  }
+
+  .inline-help .field-tooltip {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 50%;
+    right: auto;
+    width: min(260px, calc(100vw - 48px));
+    max-width: calc(100vw - 48px);
+    transform: translate(-50%, -4px);
+  }
+
+  .inline-help:hover .field-tooltip,
+  .inline-help:focus-within .field-tooltip {
+    transform: translate(-50%, 0);
   }
 
   .help-overlay {

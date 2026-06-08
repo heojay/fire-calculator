@@ -1532,12 +1532,12 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
   return (
     <section className="chart-card impact-section" aria-labelledby="impact-section-title">
       <div className="impact-heading">
-        <div>
+        <div className="impact-title-row">
           <h3 id="impact-section-title">가정 비교</h3>
-          <p>
-            현재 조건은 저장하지 않고, 여러 가정을 함께 조정했을 때 {timingLabel}이
-            얼마나 달라지는지 비교합니다.
-          </p>
+          <InlineHelpTooltip
+            label="가정 비교 설명"
+            text={`현재 조건은 저장하지 않고, 여러 가정을 함께 조정했을 때 ${timingLabel}이 얼마나 달라지는지 비교합니다.`}
+          />
         </div>
         <button
           className="button-secondary impact-reset-button"
@@ -1669,9 +1669,9 @@ function ImpactStepper({
 }) {
   return (
     <article className="impact-control-card">
-      <div>
+      <div className="impact-control-title">
         <h4>{label}</h4>
-        <p>{description}</p>
+        <InlineHelpTooltip label={`${label} 설명`} text={description} />
       </div>
       <div className="impact-stepper" aria-label={`${label} 조정`}>
         <button
@@ -1713,9 +1713,12 @@ function OneTimeSpendingControl({
 }) {
   return (
     <article className="impact-control-card">
-      <div>
+      <div className="impact-control-title">
         <h4>일회성 지출</h4>
-        <p>일회성 지출을 선택한 단위로 반영해 비교합니다.</p>
+        <InlineHelpTooltip
+          label="일회성 지출 설명"
+          text="일회성 지출을 선택한 단위로 반영해 비교합니다."
+        />
       </div>
       <div className="impact-unit-tabs" aria-label="일회성 지출 조정 단위">
         {oneTimeSpendingSteps.map(([label, step]) => (
@@ -1752,6 +1755,26 @@ function OneTimeSpendingControl({
         </button>
       </div>
     </article>
+  );
+}
+
+function InlineHelpTooltip({ label, text }: { label: string; text: string }) {
+  const helpId = useId();
+
+  return (
+    <span className="inline-help">
+      <button
+        type="button"
+        aria-describedby={helpId}
+        aria-label={label}
+        className="field-help-trigger"
+      >
+        ?
+      </button>
+      <span className="field-tooltip" id={helpId} role="tooltip">
+        {text}
+      </span>
+    </span>
   );
 }
 
