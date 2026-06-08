@@ -214,8 +214,11 @@ main {
 
 .top-nav-brand {
   border: 1px solid transparent;
+  min-height: auto;
+  padding: 0;
   color: var(--primary);
   background: transparent;
+  font-size: 20px;
   font-weight: 700;
 }
 
@@ -2123,6 +2126,12 @@ td {
     min-height: 40px;
     padding: 10px 12px;
     font-size: 13px;
+  }
+
+  .top-nav-brand {
+    min-height: auto;
+    padding: 0;
+    font-size: 16px;
   }
 
   .main-tabs {
