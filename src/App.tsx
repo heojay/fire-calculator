@@ -133,13 +133,13 @@ const fieldHelpText: Partial<Record<NumericFormField, string>> = {
   targetWithdrawalRate:
     "은퇴 후 자산에서 매년 꺼내 쓸 비율입니다. 낮을수록 필요한 자산이 더 커집니다.",
   currentAge:
-    "기대수명 방식, 자녀 독립 시점, 국민연금 수령 시작 나이, 월별 추이의 나이를 계산할 때 쓰는 기준입니다.",
+    "기대수명 소진, 자녀 독립 시점, 국민연금 수령 시작 나이, 월별 추이의 나이를 계산할 때 쓰는 기준입니다.",
   childIndependenceAge:
     "자녀가 독립할 때의 내 나이입니다. 0을 입력하면 자녀 독립에 따른 소비 감소를 반영하지 않습니다.",
   childMonthlyExpenseReduction:
     "자녀가 독립한 뒤 줄어드는 월 지출 금액입니다. 현재 월 소비액과 은퇴 후 월 지출에서 함께 차감합니다.",
   lifeExpectancy:
-    "기대수명 방식에서는 이 나이까지 생활비를 감당하는 데 필요한 근로 기간을 계산합니다.",
+    "기대수명 소진 방식에서는 이 나이까지 생활비를 감당하는 데 필요한 근로 기간을 계산합니다.",
   nationalPensionMonthlyAmount:
     "현재 가치 기준 월 예상 수령액입니다. 계산에서는 물가상승률을 반영해 미래 금액으로 환산합니다.",
 };
@@ -157,7 +157,7 @@ const resultTabOptions = [
 ] as const;
 const calculationModeOptions = [
   ["trinity", "목표 인출률"],
-  ["depletion", "기대수명 방식"],
+  ["depletion", "기대수명 소진"],
 ] as const;
 const valueBasisOptions = [
   ["nominal", "미래 금액 기준"],
@@ -367,7 +367,7 @@ function CalculatorApp() {
             )}
 
             {calculationMode === "depletion" && (
-              <AdvancedFieldset title="기대수명 방식 옵션">
+              <AdvancedFieldset title="기대수명 소진 옵션">
                 {depletionFields.map(([field, label, suffix]) => (
                   <NumberField
                     field={field}
@@ -919,7 +919,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
           <a href="#help-formulas">1. 주요 계산식</a>
           <a href="#help-value-basis">2. 미래 금액과 현재 가치</a>
           <a href="#help-withdrawal-rate">3. 목표 인출률</a>
-          <a href="#help-depletion">4. 기대수명 방식</a>
+          <a href="#help-depletion">4. 기대수명 소진 방식</a>
           <a href="#help-pension">5. 국민연금 입력 기준</a>
           <a href="#help-experiments">6. 가정 비교</a>
           <a href="#help-limitations">7. 계산기의 한계</a>
@@ -1002,9 +1002,9 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
             </p>
           </HelpSection>
 
-          <HelpSection id="help-depletion" title="4. 기대수명 방식">
+          <HelpSection id="help-depletion" title="4. 기대수명 소진 방식">
             <p>
-              기대수명 방식은 은퇴 후 자산을 영원히 유지한다고 보지 않고, 기대수명까지
+              기대수명 소진 방식은 은퇴 후 자산을 영원히 유지한다고 보지 않고, 기대수명까지
               자산이 유지되는지를 계산합니다.
             </p>
             <p>
@@ -1427,7 +1427,7 @@ function formatResultInterpretation({
     }
 
     if (depletionResult.status === "not-achievable") {
-      return "저축액을 늘리거나 은퇴 후 지출을 낮추면 기대수명 방식의 결과가 개선됩니다.";
+      return "저축액을 늘리거나 은퇴 후 지출을 낮추면 기대수명 소진 방식의 결과가 개선됩니다.";
     }
 
     return `은퇴 전에는 매달 ${formatMoney(
@@ -1509,7 +1509,7 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
     oneTimeSpendingSteps[0][1],
   );
   const timingLabel =
-    mode === "trinity" ? "경제적 자립 시점" : "기대수명 기준 자립 가능 은퇴 시점";
+    mode === "trinity" ? "경제적 자립 시점" : "기대수명 소진 기준 은퇴 시점";
   const hasAdjustments = hasExperimentAdjustments(adjustments);
   const changedInputs = useMemo(
     () => applyExperimentAdjustments(inputs, adjustments),
