@@ -34,7 +34,7 @@ type GuideTableData = {
   rows: string[][];
 };
 
-type FormValues = {
+type CommonFormValues = {
   investableAssets: NumericFormValue;
   monthlyIncome: NumericFormValue;
   monthlyExpenses: NumericFormValue;
@@ -42,7 +42,13 @@ type FormValues = {
   annualNominalReturnRate: NumericFormValue;
   annualInflationRate: NumericFormValue;
   annualIncomeGrowthRate: NumericFormValue;
+};
+
+type TrinityFormValues = {
   targetWithdrawalRate: NumericFormValue;
+};
+
+type DepletionFormValues = {
   currentAge: NumericFormValue;
   childIndependenceAge: NumericFormValue;
   childMonthlyExpenseReduction: NumericFormValue;
@@ -50,7 +56,14 @@ type FormValues = {
   nationalPensionMonthlyAmount: NumericFormValue;
 };
 
-type NumericFormField = keyof FormValues;
+type FormValues = {
+  common: CommonFormValues;
+  trinity: TrinityFormValues;
+  depletion: DepletionFormValues;
+};
+
+type FormValueGroup = keyof FormValues;
+type NumericFormField = keyof CommonFormValues | keyof TrinityFormValues | keyof DepletionFormValues;
 type CachedAppState = {
   version: number;
   formValues: FormValues;
@@ -92,30 +105,30 @@ type TopNavAction =
       buttonRef?: RefObject<HTMLButtonElement | null>;
     };
 
-const coreFields = [
+const coreFields: readonly (readonly [keyof CommonFormValues, string, string])[] = [
   ["investableAssets", "현재 투자자산", "만원"],
   ["monthlyIncome", "월 수입", "만원"],
   ["monthlyExpenses", "현재 월 생활비", "만원"],
   ["retirementMonthlyExpenses", "은퇴 후 월 생활비", "만원"],
 ] as const;
 
-const advancedAssumptionFields = [
+const advancedAssumptionFields: readonly (readonly [keyof CommonFormValues, string, string])[] = [
   ["annualNominalReturnRate", "연평균 투자 수익률", "%"],
   ["annualInflationRate", "연평균 물가 상승률", "%"],
   ["annualIncomeGrowthRate", "연평균 수입 증가율", "%"],
 ] as const;
 
-const lifestyleFields = [
+const lifestyleFields: readonly (readonly [keyof DepletionFormValues, string, string])[] = [
   ["childIndependenceAge", "자녀 독립 나이", "세"],
   ["childMonthlyExpenseReduction", "자녀 독립 후 월 생활비 감소액", "만원"],
 ] as const;
 
-const depletionFields = [
+const depletionFields: readonly (readonly [keyof DepletionFormValues, string, string])[] = [
   ["currentAge", "현재 나이", "세"],
   ["lifeExpectancy", "기대수명", "세"],
 ] as const;
 
-const pensionFields = [
+const pensionFields: readonly (readonly [keyof DepletionFormValues, string, string])[] = [
   ["nationalPensionMonthlyAmount", "국민연금 예상 월 수령액", "만원"],
 ] as const;
 
@@ -146,8 +159,9 @@ const fieldHelpText: Partial<Record<NumericFormField, string>> = {
 };
 
 const fireExamplePreset = FIRE_PRESETS.find((preset) => preset.id === "fire-example")!;
-const cacheVersion = 6;
-const cacheKey = "firecalc:lastState:v6";
+const cacheVersion = 7;
+const cacheKey = "firecalc:lastState:v7";
+const legacyCacheKeys = ["firecalc:lastState:v6"];
 const validCalculationModes: CalculationMode[] = ["trinity", "depletion"];
 const validValueBases: ValueBasis[] = ["nominal", "present"];
 const validResultTabs: ResultTab[] = ["summary", "monthly", "experiments"];
@@ -164,7 +178,7 @@ const valueBasisOptions = [
   ["nominal", "미래 금액 기준"],
   ["present", "현재 가치 기준"],
 ] as const;
-const numericFormFields: NumericFormField[] = [
+const commonFormFields: (keyof CommonFormValues)[] = [
   "investableAssets",
   "monthlyIncome",
   "monthlyExpenses",
@@ -172,7 +186,11 @@ const numericFormFields: NumericFormField[] = [
   "annualNominalReturnRate",
   "annualInflationRate",
   "annualIncomeGrowthRate",
+];
+const trinityFormFields: (keyof TrinityFormValues)[] = [
   "targetWithdrawalRate",
+];
+const depletionFormFields: (keyof DepletionFormValues)[] = [
   "currentAge",
   "childIndependenceAge",
   "childMonthlyExpenseReduction",
@@ -281,9 +299,11 @@ function CalculatorApp() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const helpButtonRef = useRef<HTMLButtonElement>(null);
 
-  const inputs = useMemo(() => formValuesToInputs(formValues), [formValues]);
-  const scenarios = useMemo(() => calculateFireScenarios(inputs), [inputs]);
-  const depletionResult = useMemo(() => calculateYearsToWork(inputs), [inputs]);
+  const trinityInputs = useMemo(() => formValuesToTrinityInputs(formValues), [formValues]);
+  const depletionInputs = useMemo(() => formValuesToDepletionInputs(formValues), [formValues]);
+  const inputs = calculationMode === "trinity" ? trinityInputs : depletionInputs;
+  const scenarios = useMemo(() => calculateFireScenarios(trinityInputs), [trinityInputs]);
+  const depletionResult = useMemo(() => calculateYearsToWork(depletionInputs), [depletionInputs]);
   const baseScenario = scenarios[1];
 
   useEffect(() => {
@@ -299,10 +319,19 @@ function CalculatorApp() {
     syncViewStateToUrl({ activeResultTab, calculationMode, valueBasis });
   }, [activeResultTab, calculationMode, valueBasis]);
 
-  const handleFieldChange = (field: NumericFormField, value: string) => {
+  const handleFieldChange = <Group extends FormValueGroup>(
+    group: Group,
+    field: keyof FormValues[Group],
+    value: string,
+  ) => {
     setFormValues((current) => ({
       ...current,
-      [field]: parseFormFieldValue(field, value) ?? current[field],
+      [group]: {
+        ...current[group],
+        [field]:
+          parseFormFieldValue(field as NumericFormField, value) ??
+          current[group][field],
+      },
     }));
   };
 
@@ -349,9 +378,9 @@ function CalculatorApp() {
                   key={field}
                   label={label}
                   suffix={suffix}
-                  value={formValues[field]}
+                  value={formValues.common[field]}
                   helpText={fieldHelpText[field]}
-                  onChange={(value) => handleFieldChange(field, value)}
+                  onChange={(value) => handleFieldChange("common", field, value)}
                 />
               ))}
             </Fieldset>
@@ -363,9 +392,9 @@ function CalculatorApp() {
                   key={field}
                   label={label}
                   suffix={suffix}
-                  value={formValues[field]}
+                  value={formValues.common[field]}
                   helpText={fieldHelpText[field]}
-                  onChange={(value) => handleFieldChange(field, value)}
+                  onChange={(value) => handleFieldChange("common", field, value)}
                 />
               ))}
             </AdvancedFieldset>
@@ -376,9 +405,9 @@ function CalculatorApp() {
                   field="targetWithdrawalRate"
                   label="목표 인출률"
                   suffix="%"
-                  value={formValues.targetWithdrawalRate}
+                  value={formValues.trinity.targetWithdrawalRate}
                   helpText={fieldHelpText.targetWithdrawalRate}
-                  onChange={(value) => handleFieldChange("targetWithdrawalRate", value)}
+                  onChange={(value) => handleFieldChange("trinity", "targetWithdrawalRate", value)}
                 />
               </AdvancedFieldset>
             )}
@@ -391,9 +420,9 @@ function CalculatorApp() {
                     key={field}
                     label={label}
                     suffix={suffix}
-                    value={formValues[field]}
+                    value={formValues.depletion[field]}
                     helpText={fieldHelpText[field]}
-                    onChange={(value) => handleFieldChange(field, value)}
+                    onChange={(value) => handleFieldChange("depletion", field, value)}
                   />
                 ))}
                 {lifestyleFields.map(([field, label, suffix]) => (
@@ -402,9 +431,9 @@ function CalculatorApp() {
                     key={field}
                     label={label}
                     suffix={suffix}
-                    value={formValues[field]}
+                    value={formValues.depletion[field]}
                     helpText={fieldHelpText[field]}
-                    onChange={(value) => handleFieldChange(field, value)}
+                    onChange={(value) => handleFieldChange("depletion", field, value)}
                   />
                 ))}
                 {pensionFields.map(([field, label, suffix]) => (
@@ -413,12 +442,12 @@ function CalculatorApp() {
                     key={field}
                     label={label}
                     suffix={suffix}
-                    value={formValues[field]}
+                    value={formValues.depletion[field]}
                     helpText={fieldHelpText[field]}
-                    onChange={(value) => handleFieldChange(field, value)}
+                    onChange={(value) => handleFieldChange("depletion", field, value)}
                   />
                 ))}
-                <PensionStartAgeNote currentAge={normalizeFormNumber(formValues.currentAge)} />
+                <PensionStartAgeNote currentAge={normalizeFormNumber(formValues.depletion.currentAge)} />
               </AdvancedFieldset>
             )}
           </section>
@@ -953,7 +982,8 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
               다음 달 자산 = 현재 자산 × (1 + 월 수익률) + 월 저축액
             </FormulaBlock>
             <p>
-              은퇴 후에는 월 저축액 대신 은퇴 후 월 생활비와 국민연금 수령액을 반영합니다.
+              기대수명 소진 방식의 은퇴 후 계산은 월 저축액 대신 은퇴 후 월 생활비와
+              국민연금 수령액을 반영합니다.
             </p>
             <FormulaBlock label="은퇴 후 자산">
               은퇴 후 자산 = 현재 자산 × (1 + 월 수익률) - 은퇴 후 월 생활비 + 국민연금
@@ -1011,6 +1041,10 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
             <p>
               이 방식은 단순하고 직관적이지만, 국민연금이나 은퇴 후 현금흐름을 세밀하게
               반영하기는 어렵습니다.
+            </p>
+            <p>
+              목표 인출률 모드는 현재 나이, 기대수명, 자녀 독립, 국민연금 입력을 사용하지
+              않고 목표 자산에 도달하기까지의 기간만 계산합니다.
             </p>
             <p>
               이 방식의 그래프는 최대 50년까지 표시합니다. 목표 자산을 달성한
@@ -1342,9 +1376,7 @@ function ResultSnapshot({
   const retirementAge =
     mode === "depletion"
       ? depletionResult.retirementAge
-      : scenario.monthsToFire === null
-        ? null
-        : inputs.currentAge + scenario.monthsToFire / 12;
+      : null;
   const statusText = formatResultStatus({
     mode,
     scenario,
@@ -1441,7 +1473,7 @@ function formatResultStatus({
     return "이미 현재 투자자산이 경제적 자립 목표를 충족합니다.";
   }
 
-  return `현재 조건 기준 예상 시점은 ${formatRetirementAge(retirementAge)}입니다.`;
+  return `현재 조건 기준 예상 시점은 ${formatMonthsToFire(scenario)}입니다.`;
 }
 
 function formatResultInterpretation({
@@ -2719,19 +2751,25 @@ function NumberField({
 
 function presetToFormValues(values: FireInputs): FormValues {
   return {
-    investableAssets: moneyToMoneyInputValue(values.investableAssets),
-    monthlyIncome: moneyToMoneyInputValue(values.monthlyIncome),
-    monthlyExpenses: moneyToMoneyInputValue(values.monthlyExpenses),
-    retirementMonthlyExpenses: moneyToMoneyInputValue(values.retirementMonthlyExpenses),
-    annualNominalReturnRate: rateToPercentInput(values.annualNominalReturnRate),
-    annualInflationRate: rateToPercentInput(values.annualInflationRate),
-    annualIncomeGrowthRate: rateToPercentInput(values.annualIncomeGrowthRate),
-    targetWithdrawalRate: rateToPercentInput(values.targetWithdrawalRate),
-    currentAge: values.currentAge,
-    childIndependenceAge: values.childIndependenceAge,
-    childMonthlyExpenseReduction: moneyToMoneyInputValue(values.childMonthlyExpenseReduction),
-    lifeExpectancy: values.lifeExpectancy,
-    nationalPensionMonthlyAmount: moneyToMoneyInputValue(values.nationalPensionMonthlyAmount),
+    common: {
+      investableAssets: moneyToMoneyInputValue(values.investableAssets),
+      monthlyIncome: moneyToMoneyInputValue(values.monthlyIncome),
+      monthlyExpenses: moneyToMoneyInputValue(values.monthlyExpenses),
+      retirementMonthlyExpenses: moneyToMoneyInputValue(values.retirementMonthlyExpenses),
+      annualNominalReturnRate: rateToPercentInput(values.annualNominalReturnRate),
+      annualInflationRate: rateToPercentInput(values.annualInflationRate),
+      annualIncomeGrowthRate: rateToPercentInput(values.annualIncomeGrowthRate),
+    },
+    trinity: {
+      targetWithdrawalRate: rateToPercentInput(values.targetWithdrawalRate),
+    },
+    depletion: {
+      currentAge: values.currentAge,
+      childIndependenceAge: values.childIndependenceAge,
+      childMonthlyExpenseReduction: moneyToMoneyInputValue(values.childMonthlyExpenseReduction),
+      lifeExpectancy: values.lifeExpectancy,
+      nationalPensionMonthlyAmount: moneyToMoneyInputValue(values.nationalPensionMonthlyAmount),
+    },
   };
 }
 
@@ -2755,13 +2793,31 @@ function loadCachedAppState(): CachedAppState {
     const cachedState = window.localStorage.getItem(cacheKey);
 
     if (!cachedState) {
-      return defaultState;
+      return loadLegacyCachedAppState(defaultState);
     }
 
     return normalizeCachedAppState(JSON.parse(cachedState), defaultState);
   } catch {
     return defaultState;
   }
+}
+
+function loadLegacyCachedAppState(defaultState: CachedAppState): CachedAppState {
+  for (const legacyCacheKey of legacyCacheKeys) {
+    try {
+      const cachedState = window.localStorage.getItem(legacyCacheKey);
+
+      if (!cachedState) {
+        continue;
+      }
+
+      return normalizeCachedAppState(JSON.parse(cachedState), defaultState);
+    } catch {
+      continue;
+    }
+  }
+
+  return defaultState;
 }
 
 function saveCachedAppState(state: CachedAppState) {
@@ -2830,7 +2886,15 @@ function normalizeCachedAppState(
   value: unknown,
   defaultState: CachedAppState,
 ): CachedAppState {
-  if (!isRecord(value) || value.version !== cacheVersion) {
+  if (!isRecord(value)) {
+    return defaultState;
+  }
+
+  if (value.version === 6) {
+    return normalizeLegacyCachedAppState(value, defaultState);
+  }
+
+  if (value.version !== cacheVersion) {
     return defaultState;
   }
 
@@ -2844,14 +2908,71 @@ function normalizeCachedAppState(
   };
 }
 
+function normalizeLegacyCachedAppState(
+  value: Record<string, unknown>,
+  defaultState: CachedAppState,
+): CachedAppState {
+  return {
+    version: cacheVersion,
+    formValues: normalizeLegacyCachedFormValues(value.formValues, defaultState.formValues),
+    calculationMode: isCalculationMode(value.calculationMode)
+      ? value.calculationMode
+      : defaultState.calculationMode,
+    valueBasis: isValueBasis(value.valueBasis) ? value.valueBasis : defaultState.valueBasis,
+  };
+}
+
 function normalizeCachedFormValues(value: unknown, defaultValues: FormValues): FormValues {
   if (!isRecord(value)) {
     return defaultValues;
   }
 
-  return numericFormFields.reduce<FormValues>(
+  return {
+    common: normalizeFormValueGroup(
+      value.common,
+      defaultValues.common,
+      commonFormFields,
+    ),
+    trinity: normalizeFormValueGroup(
+      value.trinity,
+      defaultValues.trinity,
+      trinityFormFields,
+    ),
+    depletion: normalizeFormValueGroup(
+      value.depletion,
+      defaultValues.depletion,
+      depletionFormFields,
+    ),
+  };
+}
+
+function normalizeLegacyCachedFormValues(
+  value: unknown,
+  defaultValues: FormValues,
+): FormValues {
+  if (!isRecord(value)) {
+    return defaultValues;
+  }
+
+  return {
+    common: normalizeFormValueGroup(value, defaultValues.common, commonFormFields),
+    trinity: normalizeFormValueGroup(value, defaultValues.trinity, trinityFormFields),
+    depletion: normalizeFormValueGroup(value, defaultValues.depletion, depletionFormFields),
+  };
+}
+
+function normalizeFormValueGroup<T extends Record<string, NumericFormValue>>(
+  value: unknown,
+  defaultValues: T,
+  fields: readonly (keyof T)[],
+): T {
+  if (!isRecord(value)) {
+    return defaultValues;
+  }
+
+  return fields.reduce<T>(
     (formValues, field) => {
-      const fieldValue = value[field];
+      const fieldValue = value[field as string];
 
       return {
         ...formValues,
@@ -2894,22 +3015,42 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function formValuesToTrinityInputs(values: FormValues): FireInputs {
+  return formValuesToInputs({
+    common: values.common,
+    trinity: values.trinity,
+    depletion: {
+      currentAge: 0,
+      childIndependenceAge: 0,
+      childMonthlyExpenseReduction: 0,
+      lifeExpectancy: 0,
+      nationalPensionMonthlyAmount: 0,
+    },
+  });
+}
+
+function formValuesToDepletionInputs(values: FormValues): FireInputs {
+  return formValuesToInputs(values);
+}
+
 function formValuesToInputs(values: FormValues): FireInputs {
+  const { common, depletion, trinity } = values;
+
   return {
-    investableAssets: moneyInputValueToMoney(values.investableAssets),
-    monthlyIncome: moneyInputValueToMoney(values.monthlyIncome),
-    monthlyExpenses: moneyInputValueToMoney(values.monthlyExpenses),
-    retirementMonthlyExpenses: moneyInputValueToMoney(values.retirementMonthlyExpenses),
-    annualNominalReturnRate: percentInputToRate(normalizeFormNumber(values.annualNominalReturnRate)),
-    annualInflationRate: percentInputToRate(normalizeFormNumber(values.annualInflationRate)),
-    annualIncomeGrowthRate: percentInputToRate(normalizeFormNumber(values.annualIncomeGrowthRate)),
-    targetWithdrawalRate: percentInputToRate(normalizeFormNumber(values.targetWithdrawalRate)),
-    currentAge: normalizeFormNumber(values.currentAge),
-    childIndependenceAge: normalizeFormNumber(values.childIndependenceAge),
-    childMonthlyExpenseReduction: moneyInputValueToMoney(values.childMonthlyExpenseReduction),
-    birthYear: inferBirthYearFromCurrentAge(normalizeFormNumber(values.currentAge)),
-    lifeExpectancy: normalizeFormNumber(values.lifeExpectancy),
-    nationalPensionMonthlyAmount: moneyInputValueToMoney(values.nationalPensionMonthlyAmount),
+    investableAssets: moneyInputValueToMoney(common.investableAssets),
+    monthlyIncome: moneyInputValueToMoney(common.monthlyIncome),
+    monthlyExpenses: moneyInputValueToMoney(common.monthlyExpenses),
+    retirementMonthlyExpenses: moneyInputValueToMoney(common.retirementMonthlyExpenses),
+    annualNominalReturnRate: percentInputToRate(normalizeFormNumber(common.annualNominalReturnRate)),
+    annualInflationRate: percentInputToRate(normalizeFormNumber(common.annualInflationRate)),
+    annualIncomeGrowthRate: percentInputToRate(normalizeFormNumber(common.annualIncomeGrowthRate)),
+    targetWithdrawalRate: percentInputToRate(normalizeFormNumber(trinity.targetWithdrawalRate)),
+    currentAge: normalizeFormNumber(depletion.currentAge),
+    childIndependenceAge: normalizeFormNumber(depletion.childIndependenceAge),
+    childMonthlyExpenseReduction: moneyInputValueToMoney(depletion.childMonthlyExpenseReduction),
+    birthYear: inferBirthYearFromCurrentAge(normalizeFormNumber(depletion.currentAge)),
+    lifeExpectancy: normalizeFormNumber(depletion.lifeExpectancy),
+    nationalPensionMonthlyAmount: moneyInputValueToMoney(depletion.nationalPensionMonthlyAmount),
   };
 }
 
