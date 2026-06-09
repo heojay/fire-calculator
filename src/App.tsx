@@ -194,18 +194,26 @@ const initialExperimentAdjustments: ExperimentAdjustments = {
   oneTimeSpendingDelta: 0,
   annualReturnRateDelta: 0,
 };
-const monthlyExperimentStep = 500_000;
-const annualReturnRateExperimentStep = 0.01;
+const monthlyExperimentRange = {
+  min: -2_000_000,
+  max: 2_000_000,
+  step: 100_000,
+} as const;
+const oneTimeSpendingExperimentRange = {
+  min: 0,
+  max: 300_000_000,
+  step: 100_000,
+} as const;
+const annualReturnRateExperimentRange = {
+  min: -0.03,
+  max: 0.03,
+  step: 0.001,
+} as const;
 const siteOrigin = "https://fire.heojay.dev";
 const guideListPath = "/guides/";
 const guideListTitle = "경제적 자립 계산 가이드 | FIRE 계산기";
 const guideListDescription =
   "4% 룰, FIRE 유형, 은퇴 생활비, 목표 자산 계산법 등 FIRE 계산기를 이해하는 데 필요한 가이드를 모아 봅니다.";
-const oneTimeSpendingSteps = [
-  ["100만원", 1_000_000],
-  ["1000만원", 10_000_000],
-  ["1억원", 100_000_000],
-] as const;
 
 function App() {
   if (isGuideListPath()) {
@@ -1088,10 +1096,15 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
             </p>
             <p>예를 들어 다음과 같은 질문을 확인할 수 있습니다.</p>
             <ul>
-              <li>월 저축액을 50만 원 단위로 조정하면 결과가 얼마나 달라질까?</li>
-              <li>은퇴 후 월 생활비를 50만 원 단위로 조정하면 결과가 얼마나 달라질까?</li>
-              <li>일회성 지출을 선택한 단위로 반영하면 결과가 얼마나 달라질까?</li>
-              <li>연평균 투자 수익률을 1%p 단위로 조정하면 결과가 얼마나 달라질까?</li>
+              <li>월 저축액을 -200만 원부터 +200만 원까지 조정하면 결과가 얼마나 달라질까?</li>
+              <li>
+                은퇴 후 월 생활비를 -200만 원부터 +200만 원까지 조정하면 결과가 얼마나
+                달라질까?
+              </li>
+              <li>일회성 지출을 0원부터 3억 원까지 반영하면 결과가 얼마나 달라질까?</li>
+              <li>
+                연평균 투자 수익률을 -3%p부터 +3%p까지 조정하면 결과가 얼마나 달라질까?
+              </li>
             </ul>
             <p>비교 가정은 실제 조건에 저장되지 않고, 비교 계산에만 사용됩니다.</p>
           </HelpSection>
@@ -1530,9 +1543,6 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
   const [adjustments, setAdjustments] = useState<ExperimentAdjustments>(
     initialExperimentAdjustments,
   );
-  const [oneTimeSpendingStep, setOneTimeSpendingStep] = useState<number>(
-    oneTimeSpendingSteps[0][1],
-  );
   const timingLabel =
     mode === "trinity" ? "경제적 자립 시점" : "기대수명 소진 기준 은퇴 시점";
   const hasAdjustments = hasExperimentAdjustments(adjustments);
@@ -1547,10 +1557,10 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
   const baseMonthlySavings = inputs.monthlyIncome - inputs.monthlyExpenses;
   const changedMonthlySavings = changedInputs.monthlyIncome - changedInputs.monthlyExpenses;
 
-  const updateAdjustment = (key: ExperimentAdjustmentKey, delta: number) => {
+  const updateAdjustment = (key: ExperimentAdjustmentKey, value: number) => {
     setAdjustments((current) => ({
       ...current,
-      [key]: current[key] + delta,
+      [key]: value,
     }));
   };
 
@@ -1576,50 +1586,53 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
 
       <div className="impact-layout">
         <div className="impact-controls" aria-label="가정 조정">
-          <ImpactStepper
-            description="월 저축액을 50만 원 단위로 조정해 비교합니다."
-            decrementLabel="월 저축액 50만 원 줄이기"
-            incrementLabel="월 저축액 50만 원 늘리기"
+          <ImpactSlider
+            description="월 저축액을 -200만 원부터 +200만 원까지 조정해 비교합니다."
             label="월 저축액"
+            max={monthlyExperimentRange.max}
+            maxLabel={formatSignedMoney(monthlyExperimentRange.max)}
+            min={monthlyExperimentRange.min}
+            minLabel={formatSignedMoney(monthlyExperimentRange.min)}
+            step={monthlyExperimentRange.step}
             value={adjustments.monthlySavingsDelta}
             valueLabel={formatSignedMoney(adjustments.monthlySavingsDelta)}
-            onDecrement={() => updateAdjustment("monthlySavingsDelta", -monthlyExperimentStep)}
-            onIncrement={() => updateAdjustment("monthlySavingsDelta", monthlyExperimentStep)}
+            onChange={(value) => updateAdjustment("monthlySavingsDelta", value)}
           />
-          <ImpactStepper
-            description="은퇴 후 월 생활비를 50만 원 단위로 조정해 비교합니다."
-            decrementLabel="은퇴 후 월 생활비 50만 원 줄이기"
-            incrementLabel="은퇴 후 월 생활비 50만 원 늘리기"
+          <ImpactSlider
+            description="은퇴 후 월 생활비를 -200만 원부터 +200만 원까지 조정해 비교합니다."
             label="은퇴 후 월 생활비"
+            max={monthlyExperimentRange.max}
+            maxLabel={formatSignedMoney(monthlyExperimentRange.max)}
+            min={monthlyExperimentRange.min}
+            minLabel={formatSignedMoney(monthlyExperimentRange.min)}
+            step={monthlyExperimentRange.step}
             value={adjustments.retirementMonthlyExpensesDelta}
             valueLabel={formatSignedMoney(adjustments.retirementMonthlyExpensesDelta)}
-            onDecrement={() =>
-              updateAdjustment("retirementMonthlyExpensesDelta", -monthlyExperimentStep)
-            }
-            onIncrement={() =>
-              updateAdjustment("retirementMonthlyExpensesDelta", monthlyExperimentStep)
-            }
+            onChange={(value) => updateAdjustment("retirementMonthlyExpensesDelta", value)}
           />
-          <OneTimeSpendingControl
-            selectedStep={oneTimeSpendingStep}
+          <ImpactSlider
+            description="일회성 지출을 0원부터 3억 원까지 반영해 비교합니다."
+            label="일회성 지출"
+            max={oneTimeSpendingExperimentRange.max}
+            maxLabel={formatMoney(oneTimeSpendingExperimentRange.max)}
+            min={oneTimeSpendingExperimentRange.min}
+            minLabel={formatMoney(oneTimeSpendingExperimentRange.min)}
+            step={oneTimeSpendingExperimentRange.step}
             value={adjustments.oneTimeSpendingDelta}
-            onChangeStep={setOneTimeSpendingStep}
-            onDecrement={() => updateAdjustment("oneTimeSpendingDelta", -oneTimeSpendingStep)}
-            onIncrement={() => updateAdjustment("oneTimeSpendingDelta", oneTimeSpendingStep)}
+            valueLabel={formatSignedMoney(adjustments.oneTimeSpendingDelta)}
+            onChange={(value) => updateAdjustment("oneTimeSpendingDelta", value)}
           />
-          <ImpactStepper
-            description="연평균 투자 수익률을 1%p 단위로 조정해 비교합니다."
-            decrementLabel="연평균 투자 수익률 1%p 낮추기"
-            incrementLabel="연평균 투자 수익률 1%p 높이기"
+          <ImpactSlider
+            description="연평균 투자 수익률을 -3%p부터 +3%p까지 조정해 비교합니다."
             label="연평균 투자 수익률"
+            max={annualReturnRateExperimentRange.max}
+            maxLabel={formatSignedPercentPoint(annualReturnRateExperimentRange.max)}
+            min={annualReturnRateExperimentRange.min}
+            minLabel={formatSignedPercentPoint(annualReturnRateExperimentRange.min)}
+            step={annualReturnRateExperimentRange.step}
             value={adjustments.annualReturnRateDelta}
             valueLabel={formatSignedPercentPoint(adjustments.annualReturnRateDelta)}
-            onDecrement={() =>
-              updateAdjustment("annualReturnRateDelta", -annualReturnRateExperimentStep)
-            }
-            onIncrement={() =>
-              updateAdjustment("annualReturnRateDelta", annualReturnRateExperimentStep)
-            }
+            onChange={(value) => updateAdjustment("annualReturnRateDelta", value)}
           />
         </div>
 
@@ -1673,113 +1686,61 @@ function ImpactSection({ inputs, mode }: { inputs: FireInputs; mode: ImpactMode 
   );
 }
 
-function ImpactStepper({
+function ImpactSlider({
   description,
-  decrementLabel,
-  incrementLabel,
   label,
-  onDecrement,
-  onIncrement,
+  max,
+  maxLabel,
+  min,
+  minLabel,
+  onChange,
+  step,
   value,
   valueLabel,
 }: {
   description: string;
-  decrementLabel: string;
-  incrementLabel: string;
   label: string;
-  onDecrement: () => void;
-  onIncrement: () => void;
+  max: number;
+  maxLabel: string;
+  min: number;
+  minLabel: string;
+  onChange: (value: number) => void;
+  step: number;
   value: number;
   valueLabel: string;
 }) {
+  const inputId = useId();
+  const roundedValue = Math.round(value / step) * step;
+
   return (
-    <article className="impact-control-card">
-      <div className="impact-control-title">
-        <h4>{label}</h4>
-        <InlineHelpTooltip label={`${label} 설명`} text={description} />
-      </div>
-      <div className="impact-stepper" aria-label={`${label} 조정`}>
-        <button
-          aria-label={decrementLabel}
-          className="impact-stepper-button"
-          type="button"
-          onClick={onDecrement}
+    <div className="impact-slider-row">
+      <div className="impact-slider-heading">
+        <div className="impact-slider-label">
+          <label htmlFor={inputId}>{label}</label>
+          <InlineHelpTooltip label={`${label} 설명`} text={description} />
+        </div>
+        <output
+          aria-label={`${label} 변화값`}
+          className={roundedValue === 0 ? "is-zero" : undefined}
+          htmlFor={inputId}
         >
-          −
-        </button>
-        <output aria-label={`${label} 변화값`} className={value === 0 ? "is-zero" : undefined}>
           {valueLabel}
         </output>
-        <button
-          aria-label={incrementLabel}
-          className="impact-stepper-button"
-          type="button"
-          onClick={onIncrement}
-        >
-          +
-        </button>
       </div>
-    </article>
-  );
-}
-
-function OneTimeSpendingControl({
-  onChangeStep,
-  onDecrement,
-  onIncrement,
-  selectedStep,
-  value,
-}: {
-  onChangeStep: (step: number) => void;
-  onDecrement: () => void;
-  onIncrement: () => void;
-  selectedStep: number;
-  value: number;
-}) {
-  return (
-    <article className="impact-control-card">
-      <div className="impact-control-title">
-        <h4>일회성 지출</h4>
-        <InlineHelpTooltip
-          label="일회성 지출 설명"
-          text="일회성 지출을 선택한 단위로 반영해 비교합니다."
-        />
+      <input
+        id={inputId}
+        max={max}
+        min={min}
+        step={step}
+        type="range"
+        value={roundedValue}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+      <div className="impact-slider-scale" aria-hidden="true">
+        <span>{minLabel}</span>
+        <span>{maxLabel}</span>
       </div>
-      <div className="impact-unit-tabs" aria-label="일회성 지출 조정 단위">
-        {oneTimeSpendingSteps.map(([label, step]) => (
-          <button
-            aria-pressed={selectedStep === step}
-            className={selectedStep === step ? "button-primary" : "button-secondary"}
-            key={step}
-            type="button"
-            onClick={() => onChangeStep(step)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <div className="impact-stepper" aria-label="일회성 지출 조정">
-        <button
-          aria-label={`일회성 지출 ${formatMoney(selectedStep)} 줄이기`}
-          className="impact-stepper-button"
-          type="button"
-          onClick={onDecrement}
-        >
-          −
-        </button>
-        <output aria-label="일회성 지출 변화값" className={value === 0 ? "is-zero" : undefined}>
-          {formatSignedMoney(value)}
-        </output>
-        <button
-          aria-label={`일회성 지출 ${formatMoney(selectedStep)} 늘리기`}
-          className="impact-stepper-button"
-          type="button"
-          onClick={onIncrement}
-        >
-          +
-        </button>
-      </div>
-    </article>
+    </div>
   );
 }
 
